@@ -79,16 +79,25 @@
               </a-popconfirm>
             </template>
             <div class="phone-row">
-              <a class="phone" :href="'tel:' + current.lead.phone" @click="startTimer">{{ current.lead.phone }}</a>
-              <a-button v-if="data.telephony?.dial" type="primary" :loading="dialing" @click="dial"><PhoneOutlined /> {{ tr('Call', 'Llamar') }} ({{ tr('ext.', 'anexo') }} {{ data.telephony.extension }})</a-button>
+              <!-- Hidden numbers (Central telefónica -> "Ocultar al agente"): the agent calls by click, never sees them. -->
+              <a-tooltip v-if="current.lead.hidden" :title="tr('Hidden by the company: call with the button.', 'Oculto por la empresa: llama con el botón.')">
+                <span class="phone"><LockOutlined /> {{ current.lead.phone }}</span>
+              </a-tooltip>
+              <a v-else class="phone" :href="'tel:' + current.lead.phone" @click="startTimer">{{ current.lead.phone }}</a>
+              <a-button v-if="data.telephony?.dial" type="primary" :loading="dialing" @click="dial(1)"><PhoneOutlined /> {{ tr('Call', 'Llamar') }} ({{ tr('ext.', 'anexo') }} {{ data.telephony.extension }})</a-button>
               <a-button v-else @click="startTimer"><FieldTimeOutlined /> {{ timerStart ? tr('Talking…', 'Hablando…') : tr('Call started', 'Empecé la llamada') }}</a-button>
               <span v-if="timerStart" class="timer">{{ duration(talkSec) }}</span>
-              <span v-if="current.lead.phone2" class="muted">{{ tr('other', 'otro') }}: <a :href="'tel:' + current.lead.phone2">{{ current.lead.phone2 }}</a></span>
+              <span v-if="current.lead.phone2" class="muted">{{ tr('other', 'otro') }}:
+                <a v-if="current.lead.hidden" @click="dial(2)">{{ current.lead.phone2 }} ({{ tr('call', 'llamar') }})</a>
+                <a v-else :href="'tel:' + current.lead.phone2">{{ current.lead.phone2 }}</a></span>
             </div>
             <a-descriptions size="small" :column="{ xs: 1, sm: 2, md: 3 }" class="mt8">
               <a-descriptions-item :label="tr('Age', 'Edad')">{{ current.lead.age ?? '—' }}</a-descriptions-item>
               <a-descriptions-item :label="tr('Sex', 'Sexo')">{{ sexText(current.lead.gender) }}</a-descriptions-item>
-              <a-descriptions-item :label="tr('ID', 'DNI')">{{ current.lead.document || '—' }}</a-descriptions-item>
+              <a-descriptions-item :label="tr('ID', 'DNI')">
+                <span v-if="current.lead.hidden" class="muted"><LockOutlined /> {{ tr('hidden', 'oculto') }}</span>
+                <template v-else>{{ current.lead.document || '—' }}</template>
+              </a-descriptions-item>
               <a-descriptions-item :label="tr('Location', 'Ubicación')">{{ current.lead.location || '—' }}</a-descriptions-item>
               <a-descriptions-item :label="tr('Email', 'Correo')">{{ current.lead.email || '—' }}</a-descriptions-item>
               <a-descriptions-item v-for="(v, k) in current.lead.extra" :key="k" :label="k">{{ v }}</a-descriptions-item>
@@ -164,7 +173,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { PhoneOutlined, PauseCircleOutlined, PlayCircleOutlined, FieldTimeOutlined } from '@ant-design/icons-vue';
+import { PhoneOutlined, PauseCircleOutlined, PlayCircleOutlined, FieldTimeOutlined, LockOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import http from '../../lib/http';
 import { useFormat } from '../../composables/useFormat';
@@ -300,10 +309,10 @@ async function release() {
   }
 }
 
-async function dial() {
+async function dial(which = 1) {
   dialing.value = true;
   try {
-    await http.post('callcenter/work/dial', { campaign_lead_id: current.value.campaign_lead_id });
+    await http.post('callcenter/work/dial', { campaign_lead_id: current.value.campaign_lead_id, which });
     startTimer();
     message.success(tr('The exchange is calling: pick up your phone.', 'La central está llamando: contesta tu anexo.'));
   } catch (e) {

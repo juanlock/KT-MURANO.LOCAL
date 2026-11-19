@@ -19,7 +19,7 @@
  * updates its entry here, in English AND Spanish, in the same session.
  */
 
-export const MANUAL_UPDATED = '2026-11-10';
+export const MANUAL_UPDATED = '2026-11-18';
 
 export const MANUAL = [
   // ------------------------------------------------------------------ start
@@ -983,6 +983,64 @@ export const MANUAL = [
         steps: {
           en: ['**Maintenance**: each job on a vehicle, with the spare parts used (the **Mechanic** role opens here).', '**Maintenance plan**: what falls due by km or by date, with alerts before it is due.', '**Spare parts**: the stock of parts; **Fuel logs**: each fill-up.'],
           es: ['**Mantenimiento**: cada trabajo en un vehículo, con los repuestos usados (el rol **Mecánico** abre aquí).', '**Plan de mantenimiento**: lo que vence por km o por fecha, con alertas antes de que venza.', '**Repuestos**: el stock de repuestos; **Registros de combustible**: cada carga.'],
+        },
+      },
+    ],
+  },
+
+  // ------------------------------------------------------------------ call center (2026-11-18)
+  {
+    key: 'callcenter', module: 'callcenter',
+    perms: ['callcenter_work', 'callcenter_campaigns', 'callcenter_leads', 'callcenter_calls', 'callcenter_shifts', 'callcenter_dashboard', 'callcenter_quality', 'callcenter_billing', 'callcenter_telephony'],
+    paths: ['callcenter'],
+    title: { en: 'Call center', es: 'Centro de llamadas' },
+    intro: {
+      en: 'Campaigns that pick whom to call, agents who call one lead at a time, the floor live, quality and billing to your clients. Each role sees only its part.',
+      es: 'Campañas que eligen a quién llamar, agentes que llaman un lead a la vez, el piso en vivo, calidad y facturación a sus clientes. Cada rol ve solo su parte.',
+    },
+    sections: [
+      {
+        id: 'cc-work', perms: ['callcenter_work'], paths: ['callcenter/work'],
+        title: { en: 'My campaign (the agent)', es: 'Mi campaña (el agente)' },
+        steps: {
+          en: ['**Call center › My campaign** › **Start shift**, then pick an active campaign.', '**Next lead**: the system gives you one lead; nobody else calls it while you have it.', 'Call (by hand or with **Call** through the exchange), choose the **result** (sale, interested, call back with a date, no answer...) and add a note.', '**Save and next** for the next lead. **Give back** returns it without calling; a lead left alone goes back after 15 minutes.', '**Pause** asks for a reason; **End shift** when you leave.'],
+          es: ['**Centro de llamadas › Mi campaña** › **Iniciar turno**, luego elija una campaña activa.', '**Siguiente lead**: el sistema le da un lead; nadie más lo llama mientras lo tiene.', 'Llame (a mano o con **Llamar** por la central), elija el **resultado** (venta, interesado, volver a llamar con fecha, no contesta...) y agregue una nota.', '**Guardar y siguiente** para el próximo lead. **Devolver** lo regresa sin llamar; un lead olvidado vuelve solo a los 15 minutos.', '**Pausa** pide un motivo; **Terminar turno** al salir.'],
+        },
+        note: {
+          en: 'With "Hide the number and ID from the agents" on (Telephone exchange), the agent sees the number as ••• ••• 123, no ID document, and calls with the Call button.',
+          es: 'Con "Ocultar el número y el DNI a los agentes" encendido (Central telefónica), el agente ve el número como ••• ••• 123, no ve el DNI y llama con el botón Llamar.',
+        },
+      },
+      {
+        id: 'cc-campaigns', perms: ['callcenter_campaigns'], paths: ['callcenter/campaigns'],
+        title: { en: 'Campaigns', es: 'Campañas' },
+        steps: {
+          en: ['**Call center › Campaigns › New campaign**: name, client, dates, calling hours, attempts and how it is billed.', 'Filter the leads (age, sex, location, source, imported columns) and press **Load leads**.', '**Start** it: the agents see it in My campaign. **Pause** / **Finish** when needed.'],
+          es: ['**Centro de llamadas › Campañas › Nueva campaña**: nombre, cliente, fechas, horario de llamadas, intentos y cómo se factura.', 'Filtre los leads (edad, sexo, ubicación, origen, columnas importadas) y pulse **Cargar leads**.', '**Iníciela**: los agentes la ven en Mi campaña. **Pausar** / **Terminar** cuando haga falta.'],
+        },
+      },
+      {
+        id: 'cc-leads', perms: ['callcenter_leads'], paths: ['callcenter/leads'],
+        title: { en: 'Leads and import', es: 'Leads e importación' },
+        steps: {
+          en: ['**Call center › Leads**: the people the campaigns call; search and filter.', '**Import**: drop the Excel or CSV, match its columns on screen; bad rows are listed with their reason and duplicates (same phone) are updated or skipped.', 'There is no export: the base cannot be downloaded from the screen.'],
+          es: ['**Centro de llamadas › Leads**: las personas que llaman las campañas; busque y filtre.', '**Importar**: suelte el Excel o CSV y elija sus columnas en pantalla; las filas con error se listan con su motivo y los duplicados (mismo teléfono) se actualizan u omiten.', 'No hay exportación: la base no se puede descargar desde la pantalla.'],
+        },
+      },
+      {
+        id: 'cc-floor', perms: ['callcenter_dashboard', 'callcenter_calls', 'callcenter_shifts', 'callcenter_quality'], paths: ['callcenter/dashboard', 'callcenter/calls', 'callcenter/shifts', 'callcenter/quality'],
+        title: { en: 'The floor: indicators, calls, shifts and quality', es: 'El piso: indicadores, llamadas, turnos y calidad' },
+        steps: {
+          en: ['**Floor indicators**: calls, contacts, sales, conversion, occupancy and pauses; who is calling or on a pause now.', '**Call log**: every agent\'s calls with their result and note.', '**Agents\' shifts**: plan the week (or copy the last one); lateness and absences show by themselves.', '**Quality**: review calls with your own score sheet; each agent\'s average.'],
+          es: ['**Indicadores del piso**: llamadas, contactos, ventas, conversión, ocupación y pausas; quién está llamando o en pausa ahora.', '**Registro de llamadas**: las llamadas de todos los agentes con su resultado y nota.', '**Turnos de agentes**: planifique la semana (o copie la anterior); las tardanzas y faltas se marcan solas.', '**Calidad**: evalúe llamadas con su propia ficha; el promedio de cada agente.'],
+        },
+      },
+      {
+        id: 'cc-admin', perms: ['callcenter_billing', 'callcenter_telephony'], paths: ['callcenter/billing', 'callcenter/telephony'],
+        title: { en: 'Billing and telephone exchange', es: 'Facturación y central telefónica' },
+        steps: {
+          en: ['**Billing to clients**: a campaign\'s period billed per agent hour, call or sale, as a sale to its client.', '**Telephone exchange**: the click to call address, each agent\'s extension, and the address where the exchange sends each call (Asterisk, 3CX, Twilio...).', 'Switch **Hide the number and ID from the agents** on when the agents call through the exchange.'],
+          es: ['**Facturación a clientes**: el período de una campaña facturado por hora de agente, llamada o venta, como una venta a su cliente.', '**Central telefónica**: la dirección de «clic para llamar», el anexo de cada agente y la dirección donde la central envía cada llamada (Asterisk, 3CX, Twilio...).', 'Encienda **Ocultar el número y el DNI a los agentes** cuando los agentes llaman por la central.'],
         },
       },
     ],

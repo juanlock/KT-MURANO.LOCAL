@@ -18,6 +18,13 @@
                 <a-input v-model:value="s.dial_url" :placeholder="dialExample" />
               </a-form-item>
               <a-form-item>
+                <template #label>{{ tr('Hide the number and ID from the agents', 'Ocultar el número y el DNI a los agentes') }}
+                  <a-tooltip :title="tr('The agent sees the lead\'s numbers as ••• ••• 123 and no ID document, and calls with the Call button. Only for agents with an extension and when the click to call address is set; supervisors and admins see everything. Saved with the Save button.', 'El agente ve los números del lead como ••• ••• 123 y no ve el DNI; llama con el botón Llamar. Solo para agentes con anexo y cuando la dirección de «clic para llamar» está puesta; supervisores y administradores ven todo. Se guarda con el botón Guardar.')"><InfoCircleOutlined class="info" /></a-tooltip>
+                </template>
+                <a-switch v-model:checked="s.hide_from_agent" />
+                <span v-if="s.hide_from_agent && !s.dial_url" class="muted small" style="margin-left: 8px">{{ tr('Needs the click to call address: without it the agents dial by hand and see the number.', 'Necesita la dirección de «clic para llamar»: sin ella los agentes marcan a mano y ven el número.') }}</span>
+              </a-form-item>
+              <a-form-item>
                 <template #label>{{ tr('Address where the exchange sends each call', 'Dirección donde la central envía cada llamada') }}
                   <a-tooltip :title="tr('Give it to whoever set up the exchange: at the end of each call it sends the data here (POST or GET). Anyone with this address can record calls: renew it if it leaks.', 'Entrégala a quien configuró la central: al terminar cada llamada envía aquí los datos (POST o GET). Quien tenga esta dirección puede registrar llamadas: renuévala si se filtra.')"><InfoCircleOutlined class="info" /></a-tooltip>
                 </template>
@@ -80,7 +87,7 @@ import { useTr, duration, RESULT_COLORS, errText } from '../../lib/callcenter';
 
 const tr = useTr();
 const fmt = useFormat();
-const s = ref({ provider: 'none', dial_url: '', webhook_url: '', agents: [], recent: [] });
+const s = ref({ provider: 'none', dial_url: '', hide_from_agent: false, webhook_url: '', agents: [], recent: [] });
 const loading = ref(true);
 const saving = ref(false);
 
@@ -137,7 +144,7 @@ async function save() {
   saving.value = true;
   try {
     s.value = await http.post('callcenter/telephony', {
-      provider: s.value.provider, dial_url: s.value.dial_url || null,
+      provider: s.value.provider, dial_url: s.value.dial_url || null, hide_from_agent: !!s.value.hide_from_agent,
       extensions: Object.fromEntries(s.value.agents.map(a => [a.user_id, a.extension || null])),
     });
     message.success(tr('Saved.', 'Guardado.'));

@@ -11,6 +11,7 @@ use App\Support\PublicUrl;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -405,7 +406,7 @@ class CallCenterAdminController extends CallCenterBase
         $loc = $this->locale();
 
         return response()->json([
-            'provider' => $s->provider, 'dial_url' => $s->dial_url,
+            'provider' => $s->provider, 'dial_url' => $s->dial_url, 'hide_from_agent' => (bool) ($s->hide_from_agent ?? false),
             'webhook_url' => rtrim(PublicUrl::server(), '/').'/api/cc-hook/'.$s->webhook_token,
             'agents' => $this->agents($cid)->map(fn ($a) => ['user_id' => (int) $a->id, 'name' => $a->username, 'email' => $a->email, 'extension' => $ext[$a->id] ?? null])->values(),
             'recent' => DB::table('cc_calls as c')->leftJoin('users as u', 'u.id', '=', 'c.user_id')->where('c.company_id', $cid)->where('c.source', 'telephony')
@@ -420,7 +421,7 @@ class CallCenterAdminController extends CallCenterBase
         $this->allow($request, 'callcenter_telephony');
         $cid = $this->company($request);
         $d = $request->validate(['provider' => 'required|in:none,asterisk,3cx,twilio,other', 'dial_url' => 'nullable|url|max:500',
-            'extensions' => 'nullable|array', 'extensions.*' => 'nullable|string|max:20']);
+            'extensions' => 'nullable|array', 'extensions.*' => 'nullable|string|max:20', 'hide_from_agent' => 'nullable|boolean']);
         $valid = $this->agents($cid)->pluck('id')->map(fn ($i) => (string) $i)->all();
         $ext = [];
         foreach ((array) ($d['extensions'] ?? []) as $uid => $e) {
@@ -431,7 +432,8 @@ class CallCenterAdminController extends CallCenterBase
         abort_if(count($ext) !== count(array_unique($ext)), 422, __('Two agents have the same extension.'));
         $this->settingsRow($cid);
         DB::table('cc_settings')->where('company_id', $cid)->update(['provider' => $d['provider'], 'dial_url' => $d['dial_url'] ?? null,
-            'extensions' => json_encode($ext), 'updated_at' => now()]);
+            'extensions' => json_encode($ext), 'updated_at' => now()]
+            + (Schema::hasColumn('cc_settings', 'hide_from_agent') ? ['hide_from_agent' => (bool) ($d['hide_from_agent'] ?? false)] : []));
 
         return $this->telephony($request);
     }

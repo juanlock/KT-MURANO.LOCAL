@@ -161,13 +161,14 @@ export const TYPES = {
   call_center: {
     label: { en: 'Call center', es: 'Call center' },
     tagline: { en: 'Campaigns, agents and results measured.', es: 'Campañas, agentes y resultados medidos.' },
-    intro: { en: 'For contact centers and sales teams.', es: 'Para centros de contacto y equipos de venta.' },
+    intro: { en: 'For contact centers that call for their clients.', es: 'Para centros de contacto que llaman por sus clientes.' },
     points: [
-      P('Marketing campaigns', 'Campañas de marketing', 'Segments and messages by email, SMS or WhatsApp.', 'Segmentos y mensajes por correo, SMS o WhatsApp.'),
-      P('Tickets', 'Tickets', 'Every call or email with an owner and status.', 'Cada llamada o correo con responsable y estado.'),
-      P('Projects', 'Proyectos', 'Client accounts organized with tasks and hours.', 'Cuentas de clientes organizadas con tareas y horas.'),
-      P('Recruitment', 'Reclutamiento', 'Job posts, candidates and interviews.', 'Avisos, candidatos y entrevistas.'),
-      P('Meetings', 'Reuniones', 'Team meetings with minutes and follow-up.', 'Reuniones de equipo con acta y seguimiento.'),
+      P('Campaigns that pick whom to call', 'Campañas que eligen a quién llamar', 'Filter the base by age, sex, location or any imported column and load it into the campaign.', 'Filtre la base por edad, sexo, ubicación o cualquier columna importada y cárguela en la campaña.'),
+      P('One lead at a time', 'Un lead a la vez', 'The agent gets the next lead; nobody else calls it. No lists, no downloads.', 'El agente recibe el siguiente lead; nadie más lo llama. Sin listas ni descargas.'),
+      P('The floor live', 'El piso en vivo', 'Calls, contacts, sales, conversion and pauses of each agent, right now.', 'Llamadas, contactos, ventas, conversión y pausas de cada agente, al momento.'),
+      P('Quality and shifts', 'Calidad y turnos', 'Score calls with your own sheet; plan shifts and see lateness.', 'Evalúe llamadas con su propia ficha; planifique turnos y vea tardanzas.'),
+      P('Billing your clients', 'Facturación a sus clientes', 'Per agent hour, call or sale, as an invoice.', 'Por hora de agente, llamada o venta, como factura.'),
+      P('Your data protected', 'Su base protegida', 'Access by role, a login per person; optionally the number and ID hidden from the agents.', 'Acceso por rol, una clave por persona; opcionalmente el número y el DNI ocultos a los agentes.'),
     ],
   },
   real_estate: {

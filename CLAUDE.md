@@ -581,6 +581,12 @@ the start of each session).
   not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
   connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and
   retries, leaving a warning in the log. The cron stays: it runs the backups, reminders and mail.
+- **No Hostinger CDN on murano.kcoltech.com (2026-11-18, the user via Hostinger support):** its CDN / WAF (`server: hcdn`) gave
+  intermittent 403s that cleared after ~5 minutes (temporary IP blocks; 2,150 403s a day on `GET /next`), so it was switched off:
+  Laravel answers straight from the origin (`server: LiteSpeed`) and sees the visitor's real IP. If a 403 comes back, check the
+  `server` header first (hcdn = the CDN is on again). The office IPs 50.254.87.110 and 38.140.244.18 are allowed in Hostinger's WAF.
+  hPanel still lists the subdomain as a Node.js / Vite app (failed deployments): unused -- Laravel runs on PHP -- and Hostinger can
+  only remove it by deleting the whole site, so it stays. Hostinger's assistant suggested a "Vite index.html fallback" twice: wrong for Murano.
 - **Work after the answer (2026-11-10):** notices by email and the POS receipt PDF run with `dispatch(...)->afterResponse()`.
   Apache's mod_php (XAMPP on a developer PC) can't end the request first: "Open register" waited 16 s for the email.
   `App\Http\Middleware\ReleaseResponse` (global) declares the body's length + `Connection: close` there, so the browser has its

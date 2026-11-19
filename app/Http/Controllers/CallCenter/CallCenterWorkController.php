@@ -35,6 +35,7 @@ class CallCenterWorkController extends CallCenterBase
         $progress = CallCenter::progress($campaigns->pluck('id')->all());
         $settings = DB::table('cc_settings')->where('company_id', $cid)->first();
         $ext = $settings ? ((json_decode((string) $settings->extensions, true) ?: [])[$uid] ?? null) : null;
+        $hide = $this->hides($request, $cid, $uid);
 
         return response()->json([
             'session' => $session ? ['kind' => $session->kind, 'reason' => $session->reason, 'reason_label' => CallCenter::label(CallCenter::PAUSES, $session->reason, $loc),
@@ -44,8 +45,9 @@ class CallCenterWorkController extends CallCenterBase
                 'call_from' => $c->call_from ? substr($c->call_from, 0, 5) : null, 'call_to' => $c->call_to ? substr($c->call_to, 0, 5) : null,
                 'progress' => $progress[$c->id] ?? null,
             ])->values(),
-            'current' => $held ? $this->leadCard($held, $loc) : null,
-            'today' => $this->today($uid),
+            'current' => $held ? $this->leadCard($held, $loc, $hide) : null,
+            'today' => $this->today($uid, $hide),
+            'hidden' => $hide,
             'results' => collect(CallCenter::RESULTS)->map(fn ($v, $k) => ['value' => $k, 'label' => $loc === 'es' ? $v[1] : $v[0], 'effect' => $v[2]])->values(),
             'pauses' => collect(CallCenter::PAUSES)->map(fn ($v, $k) => ['value' => $k, 'label' => $loc === 'es' ? $v[1] : $v[0]])->values(),
             'telephony' => ['dial' => (bool) ($settings && $settings->dial_url && $ext), 'extension' => $ext],
@@ -65,7 +67,30 @@ class CallCenterWorkController extends CallCenterBase
             ->orderBy('c.name')->get(['c.*', 'cl.name as client_name']);
     }
 
-    private function today(int $uid): array
+    /**
+     * The agent doesn't see the lead's phone numbers and ID document (user, 2026-11-18: the owner fears agents take the base):
+     * only when the company switched it on (Central telefónica) AND the agent can call by click through the exchange (it has
+     * the number, the agent doesn't need it). A supervisor / admin who may see the leads list sees everything anyway.
+     */
+    private function hides(Request $request, int $cid, int $uid): bool
+    {
+        $s = DB::table('cc_settings')->where('company_id', $cid)->first();
+        if (! $s || empty($s->hide_from_agent) || ! $s->dial_url || ! ((json_decode((string) $s->extensions, true) ?: [])[$uid] ?? null)) {
+            return false;
+        }
+
+        return ! $this->can($request, 'callcenter_leads');
+    }
+
+    /** "••• ••• 846": only the last 3 digits, so the agent can tell two numbers apart. */
+    public static function mask(?string $phone): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) $phone);
+
+        return $d === '' ? null : '••• ••• '.substr($d, -3);
+    }
+
+    private function today(int $uid, bool $hide = false): array
     {
         $calls = DB::table('cc_calls')->where('user_id', $uid)->whereDate('started_at', now()->toDateString());
         $contacts = CallCenter::contactResults();
@@ -88,12 +113,12 @@ class CallCenterWorkController extends CallCenterBase
                 ->get(['c.id', 'c.started_at', 'c.result', 'c.duration_sec', 'l.first_name', 'l.last_name', 'c.phone'])
                 ->map(fn ($r) => ['id' => $r->id, 'at' => $r->started_at, 'result' => $r->result,
                     'result_label' => CallCenter::label(CallCenter::RESULTS, $r->result, $this->locale()),
-                    'name' => trim($r->first_name.' '.$r->last_name), 'phone' => $r->phone, 'duration_sec' => (int) $r->duration_sec]),
+                    'name' => trim($r->first_name.' '.$r->last_name), 'phone' => $hide ? self::mask($r->phone) : $r->phone, 'duration_sec' => (int) $r->duration_sec]),
         ];
     }
 
     /** What the agent sees of the lead: its data, extra columns and earlier calls. */
-    private function leadCard(object $cl, string $loc): array
+    private function leadCard(object $cl, string $loc, bool $hide = false): array
     {
         $l = DB::table('cc_leads')->find($cl->lead_id);
         $age = $l->birth_date ? Carbon::parse($l->birth_date)->age : ($l->age !== null ? $l->age + Carbon::parse($l->created_at)->diffInYears(now()) : null);
@@ -108,8 +133,9 @@ class CallCenterWorkController extends CallCenterBase
             'is_callback' => $cl->callback_user_id !== null && $cl->next_call_at !== null,
             'next_call_at' => $cl->next_call_at, 'locked_at' => $cl->locked_at,
             'lead' => [
-                'id' => (int) $l->id, 'name' => trim($l->first_name.' '.$l->last_name), 'phone' => $l->phone, 'phone2' => $l->phone2, 'email' => $l->email,
-                'document' => $l->document, 'age' => $age !== null ? (int) $age : null, 'gender' => $l->gender, 'birth_date' => $l->birth_date,
+                'id' => (int) $l->id, 'name' => trim($l->first_name.' '.$l->last_name), 'email' => $l->email, 'hidden' => $hide,
+                'phone' => $hide ? self::mask($l->phone) : $l->phone, 'phone2' => $hide ? self::mask($l->phone2) : $l->phone2,
+                'document' => $hide ? null : $l->document, 'age' => $age !== null ? (int) $age : null, 'gender' => $l->gender, 'birth_date' => $l->birth_date,
                 'location' => implode(' · ', array_filter([$l->district, $l->province, $l->region, $l->city !== $l->province ? $l->city : null])),
                 'address' => $l->address, 'source' => $l->source, 'notes' => $l->notes, 'extra' => json_decode((string) $l->extra, true) ?: (object) [],
             ],
@@ -215,7 +241,7 @@ class CallCenterWorkController extends CallCenterBase
                     : __('The campaign has no leads left to call.')]);
         }
 
-        return response()->json(['current' => $this->leadCard($cl, $this->locale()), 'progress' => $progress]);
+        return response()->json(['current' => $this->leadCard($cl, $this->locale(), $this->hides($request, $cid, $uid)), 'progress' => $progress]);
     }
 
     public function save(Request $request)
@@ -228,6 +254,9 @@ class CallCenterWorkController extends CallCenterBase
             'notes' => 'nullable|string|max:5000', 'callback_at' => 'nullable|date|required_if:result,callback', 'sale_amount' => 'nullable|numeric|min:0|max:10000000',
             'started_at' => 'nullable|date', 'duration_sec' => 'nullable|integer|min:0|max:86400', 'phone' => 'nullable|string|max:40',
         ]);
+        if (! preg_match('/^\+?[\d\s().\-]{5,}$/', (string) ($d['phone'] ?? ''))) {
+            unset($d['phone']); // a masked number ("••• ••• 846") is never stored: the lead's own is
+        }
         $cl = DB::table('cc_campaign_leads')->where('company_id', $cid)->find($d['campaign_lead_id']);
         abort_unless($cl && $cl->status === 'locked' && (int) $cl->locked_by === $uid, 409,
             __('This lead is no longer yours (it was released after 15 minutes without saving). Ask for the next one.'));
@@ -321,7 +350,9 @@ class CallCenterWorkController extends CallCenterBase
         $s = DB::table('cc_settings')->where('company_id', $cid)->first();
         $ext = $s ? ((json_decode((string) $s->extensions, true) ?: [])[$uid] ?? null) : null;
         abort_unless($s && $s->dial_url && $ext, 422, __('The telephone exchange is not set up for your login (extension).'));
-        $phone = preg_replace('/[^\d+]/', '', (string) ($request->input('phone') ?: DB::table('cc_leads')->where('id', $cl->lead_id)->value('phone')));
+        // Which number: the lead's own (1) or its other one (2) -- never one sent by the screen, which may only have it masked.
+        $lead = DB::table('cc_leads')->where('id', $cl->lead_id)->first(['phone', 'phone2']);
+        $phone = preg_replace('/[^\d+]/', '', (string) ((int) $request->input('which') === 2 && $lead->phone2 ? $lead->phone2 : $lead->phone));
         $url = strtr($s->dial_url, ['{extension}' => rawurlencode($ext), '{phone}' => rawurlencode($phone)]);
         try {
             $res = Http::timeout(8)->get($url);
