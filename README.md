@@ -237,6 +237,18 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
   renumbered PP-0529 / PP-0530.
 
 Setup: `php artisan migrate`, `npm run build`.
+
+**Later the same night (not in production yet):**
+- **Turismo, "Mi parada":** the home screen of the one person of a
+  pass-through agency (Chepén, Trujillo): the next buses with their expected
+  time and GPS, who gets off and on (a no-show frees the seat for the rest of
+  the trip), last-minute passengers sold on the agent's open cash register
+  (no sale without it), parcels loaded / unloaded, "bus arrived" and "bus
+  dispatched".
+- **KT-TOOLS:** each company's material lives in `KT-TOOLS/files/<company>`;
+  the sync moves an old root folder (turismo, ARCE, kcoltech) there by itself.
+
+Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-17 (Optimum)
 
 - **Ready-made websites become the company's own:** Website → Settings →

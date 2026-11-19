@@ -798,6 +798,7 @@ const routes = [
             { path: 'transport/my-trip', name: 'transport-my-trip', component: () => import('../pages/transport/TransportMyTrip.vue'), meta: { title: 'Transport_MyTrip', permission: ['transport_report', 'transport_monitor'] } },
             { path: 'transport/parcels', name: 'transport-parcels', component: () => import('../pages/transport/TransportParcels.vue'), meta: { title: 'Transport_Parcels', permission: 'transport_parcels' } },
             { path: 'transport/boarding', name: 'transport-boarding', component: () => import('../pages/transport/TransportBoarding.vue'), meta: { title: 'Transport_Boarding', permission: ['transport_boarding', 'transport_supervise'] } },
+            { path: 'transport/stop', name: 'transport-stop', component: () => import('../pages/transport/TransportStop.vue'), meta: { title: 'Transport_Stop', permission: 'transport_stop' } },
             { path: 'fleet/parts', name: 'fleet-parts', component: () => import('../pages/fleet/Parts.vue'), meta: { title: 'Fleet_Parts', permission: 'fleet_parts' } },
             { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
             // Call center (2026-11-17).

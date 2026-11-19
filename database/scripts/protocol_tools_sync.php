@@ -28,6 +28,41 @@ if (! is_dir($drive)) {
 }
 $left = fn (string $rel) => str_ends_with(strtolower($rel), 'desktop.ini');
 
+// Company folders moved into KT-TOOLS\files (user's rule, 2026-11-18: "usa ese folder files como repositorio, no en la raíz"):
+// a PC (or Drive) that still has the old root folder first merges it into files\<name> (a file missing there, or newer, is
+// copied; nothing is lost), then the old folder is removed -- otherwise "nothing is ever deleted" would bring it back.
+$moved = ['turismo' => 'files/turismo', 'ARCE' => 'files/ARCE', 'kcoltech' => 'files/kcoltech'];
+$merged = 0;
+foreach ([$local, $drive] as $side) {
+    foreach ($moved as $old => $new) {
+        $from = $side.DIRECTORY_SEPARATOR.$old;
+        if (! is_dir($from)) {
+            continue;
+        }
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($from, FilesystemIterator::SKIP_DOTS)) as $f) {
+            if (! $f->isFile()) {
+                continue;
+            }
+            $to = $side.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $new).substr($f->getPathname(), strlen($from));
+            if (! is_file($to) || filemtime($to) < $f->getMTime()) {
+                if (! is_dir(dirname($to))) {
+                    mkdir(dirname($to), 0775, true);
+                }
+                copy($f->getPathname(), $to) && touch($to, $f->getMTime()) && $merged++;
+            }
+        }
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($from, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($it as $f) {
+            $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname());
+        }
+        @rmdir($from);
+        echo "KT-TOOLS: old root folder $old moved into $new on ".($side === $local ? 'this PC' : 'Drive')."\n";
+    }
+}
+if ($merged) {
+    echo "  $merged file(s) merged into files\\ first\n";
+}
+
 // Since 2026-11-17 the whole of KT-TOOLS is out of git (.gitignore /KT-TOOLS/): every file travels by Drive. A file
 // git still tracks (a PC before that commit) is left to git; an empty list from git is normal now.
 $git = trim((string) shell_exec('where git 2>NUL')) ? 'git' : (glob(getenv('LOCALAPPDATA').'/GitHubDesktop/app-*/resources/app/git/cmd/git.exe')[0] ?? 'git');

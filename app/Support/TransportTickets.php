@@ -135,6 +135,23 @@ class TransportTickets
         return ['every' => $every, 'paid' => $paid, 'free_now' => $paid >= $every - 1];
     }
 
+    /**
+     * The passenger is on board: the boarding scanner (transport/boarding) and "Mi parada" (transport/stop).
+     * Returns an error text, or null when done.
+     */
+    public static function board(object $ticket, int $userId): ?string
+    {
+        if ($ticket->boarded_at) {
+            return __('Already on board since :time.', ['time' => substr((string) $ticket->boarded_at, 11, 5)]);
+        }
+        if (! empty($ticket->no_show_at)) {
+            return 'This passenger was marked as a no-show: undo it first.';
+        }
+        DB::table('transport_tickets')->where('id', $ticket->id)->update(['boarded_at' => now(), 'boarded_by' => $userId, 'updated_at' => now()]);
+
+        return null;
+    }
+
     /** The passengers of the sale's ticket lines; a ticket line must bring one per ticket. */
     public static function record(object $sale, array $details): void
     {
