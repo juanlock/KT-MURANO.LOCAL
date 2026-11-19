@@ -496,8 +496,8 @@ the start of each session).
   screen, the maintenance history per vehicle.
 - **Turismo Cautivo's six roles (user's rule, 2026-11-19: the client was overwhelmed, "focalizar en lo que tiene ahorita"; migration
   2026_11_19_120000):** **Director** (Julio, `turismo-director@kcoltech.com`: every board), **Manager** (Mayte, `turismo-manager@`:
-  Reporte de salidas, Resumen del negocio, Gastos), **Operaciones** (Daniel: Mando operativo, Reclamos, Tablero de control, Tablero de
-  transporte), **Agencia** (ticket office + parcels + boarding of each agency, home Mi parada; replaces Terminal POS and Agente de agencia --
+  Reporte de salidas, Mando operativo, Resumen del negocio, Gastos), **Operaciones** (Daniel: Mando operativo WITHOUT amounts --
+  `TransportOutlook::withoutMoney` for any role without `transport_profit` --, Reclamos, Tablero de control, Tablero de transporte), **Agencia** (ticket office + parcels + boarding of each agency, home Mi parada; replaces Terminal POS and Agente de agencia --
   `TransportAgencies::posRole` returns it), **Piloto** (Mi viaje), **IT Admin** (configures transport; products and the transport setup
   screens are hidden from the others with `menu_hide:*`). Each role's dashboard = `roles.dashboard_tabs` (JSON, Roles -> "Pestañas del
   tablero"; null = every tab its permissions allow; `transport/owner` refuses a role whose list lacks `transport_owner`). Retired at Turismo:

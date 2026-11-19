@@ -188,7 +188,38 @@ class TransportOutlook
             'low_data' => $history['trips'] < 10 || $history['advanceShare'] < 5,
             'missing' => $profit['missing'] ?? [],
             'trips' => $trips,
+            'money' => true,
         ];
+    }
+
+    /**
+     * The board without money (user's rule, 2026-11-19, Turismo: Operaciones sees the projection and the red / amber / green, never
+     * income, costs or profit -- those are for the Director and the Manager). Removes every amount, keeps counts and statuses.
+     */
+    public static function withoutMoney(array $r): array
+    {
+        if (empty($r['enabled'])) {
+            return $r;
+        }
+        unset($r['totals']['projected_income'], $r['totals']['projected_cost'], $r['totals']['projected_profit'], $r['commission']);
+        $r['weeks'] = array_map(function ($w) {
+            unset($w['projected_profit'], $w['projected_income'], $w['projected_cost']);
+
+            return $w;
+        }, $r['weeks'] ?? []);
+        $r['channels'] = array_map(function ($c) {
+            unset($c['income']);
+
+            return $c;
+        }, $r['channels'] ?? []);
+        $r['trips'] = array_map(function ($t) {
+            unset($t['income'], $t['costs'], $t['projected_profit'], $t['fare']);
+
+            return $t;
+        }, $r['trips'] ?? []);
+        $r['money'] = false;
+
+        return $r;
     }
 
     /** {channel: %} from settings.transport_channel_commission (0 everywhere until that column exists). */

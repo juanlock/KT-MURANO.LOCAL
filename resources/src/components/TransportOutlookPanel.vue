@@ -25,7 +25,7 @@
                 </div>
                 <div class="to-week-figs">
                   <span>{{ w.projected_occupancy != null ? w.projected_occupancy + ' %' : '—' }}</span>
-                  <span :class="w.projected_profit >= 0 ? 'pos' : 'neg'">{{ money(w.projected_profit, 0) }}</span>
+                  <span v-if="showMoney" :class="w.projected_profit >= 0 ? 'pos' : 'neg'">{{ money(w.projected_profit, 0) }}</span>
                   <span v-if="w.seats_missing" class="to-muted">{{ tr('missing', 'faltan') }} {{ w.seats_missing }}</span>
                 </div>
               </template>
@@ -118,6 +118,8 @@ const loading = ref(false);
 const EMPTY = { enabled: false, trips: [], weeks: [], totals: {}, channels: [], focus: null, history: {}, missing: {} };
 const data = ref({ ...EMPTY });
 const totals = computed(() => data.value.totals || {});
+// A role without the profit permission gets the board without amounts (server side, 2026-11-19: Operaciones).
+const showMoney = computed(() => data.value.money !== false);
 
 async function load() {
   loading.value = true;
@@ -163,7 +165,9 @@ const tiles = computed(() => {
     { label: tr('Amber', 'En ámbar'), value: t.amber || 0, level: t.amber ? 'warn' : 'ok',
       help: tr('Pays the trip but not its share of the fixed costs (payroll, agency, depreciation). It must leave: these are marketing\'s target.', 'Paga el viaje pero no su parte de los costos fijos (planilla, agencia, depreciación). Debe salir: son el objetivo de marketing.') },
     { label: tr('Projected occupancy', 'Ocupación proyectada'), value: t.projected_occupancy != null ? `${t.projected_occupancy} %` : '—',
-      help: tr(`Projected profit ${money(t.projected_profit, 0)} (income ${money(t.projected_income, 0)} - costs ${money(t.projected_cost, 0)}).`, `Ganancia proyectada ${money(t.projected_profit, 0)} (ingresos ${money(t.projected_income, 0)} - costos ${money(t.projected_cost, 0)}).`) },
+      help: showMoney.value
+        ? tr(`Projected profit ${money(t.projected_profit, 0)} (income ${money(t.projected_income, 0)} - costs ${money(t.projected_cost, 0)}).`, `Ganancia proyectada ${money(t.projected_profit, 0)} (ingresos ${money(t.projected_income, 0)} - costos ${money(t.projected_cost, 0)}).`)
+        : tr('Projected passengers over the seats of the coming departures.', 'Pasajeros proyectados sobre los asientos de las salidas próximas.') },
     { label: tr('Tickets to break even', 'Pasajes que faltan'), value: t.seats_missing || 0, level: t.seats_missing ? 'warn' : 'ok',
       help: tr('Extra tickets the red and amber departures need, over the projection, to cover all their costs.', 'Pasajes extra que necesitan las salidas en rojo y ámbar, sobre lo proyectado, para cubrir todos sus costos.') },
     { label: tr('Sold online', '% online'), value: t.online_pct != null ? `${t.online_pct} %` : '—', help: channelHelp.value },
@@ -180,7 +184,7 @@ const tiles = computed(() => {
 });
 
 const channelHelp = computed(() => {
-  const list = (data.value.channels || []).map(c => `${channelName(c.channel)}: ${c.tickets} (${money(c.income, 0)})`).join(' · ');
+  const list = (data.value.channels || []).map(c => `${channelName(c.channel)}: ${c.tickets}${showMoney.value ? ` (${money(c.income, 0)})` : ''}`).join(' · ');
   const comm = Object.entries(data.value.commission || {}).filter(([, v]) => v > 0).map(([k, v]) => `${channelName(k)} ${v} %`).join(', ');
   return `${tr('Tickets sold so far on the coming departures', 'Pasajes vendidos hasta ahora en las salidas próximas')}: ${list}. ${comm ? tr(`Commission counted: ${comm}.`, `Comisión contada: ${comm}.`) : tr('No channel commission set: none counted.', 'Sin comisión por canal configurada: no se cuenta.')}`;
 });
@@ -192,8 +196,8 @@ const focusHelp = computed(() => tr(
 
 function weekHelp(w) {
   return tr(
-    `${w.trips} departures: ${w.red} red, ${w.amber} amber, ${w.green} green. Sold ${w.sold}, projected ${w.projected} tickets, occupancy ${w.projected_occupancy ?? '—'} %. Projected profit ${money(w.projected_profit, 0)}. Tickets missing to break even: ${w.seats_missing} (${w.amber_seats_missing} on amber).`,
-    `${w.trips} salidas: ${w.red} en rojo, ${w.amber} en ámbar, ${w.green} en verde. Vendidos ${w.sold}, proyectados ${w.projected} pasajes, ocupación ${w.projected_occupancy ?? '—'} %. Ganancia proyectada ${money(w.projected_profit, 0)}. Pasajes que faltan para equilibrio: ${w.seats_missing} (${w.amber_seats_missing} en ámbar).`,
+    `${w.trips} departures: ${w.red} red, ${w.amber} amber, ${w.green} green. Sold ${w.sold}, projected ${w.projected} tickets, occupancy ${w.projected_occupancy ?? '—'} %.${showMoney.value ? ` Projected profit ${money(w.projected_profit, 0)}.` : ''} Tickets missing to break even: ${w.seats_missing} (${w.amber_seats_missing} on amber).`,
+    `${w.trips} salidas: ${w.red} en rojo, ${w.amber} en ámbar, ${w.green} en verde. Vendidos ${w.sold}, proyectados ${w.projected} pasajes, ocupación ${w.projected_occupancy ?? '—'} %.${showMoney.value ? ` Ganancia proyectada ${money(w.projected_profit, 0)}.` : ''} Pasajes que faltan para equilibrio: ${w.seats_missing} (${w.amber_seats_missing} en ámbar).`,
   );
 }
 
@@ -206,6 +210,7 @@ function methodHelp(t) {
 }
 
 function costHelp(t) {
+  if (!t.costs) return riskName(t.risk);
   const v = t.costs.variable;
   const f = t.costs.fixed;
   const est = t.estimated?.length ? tr(` (estimated: ${t.estimated.join(', ')})`, ` (estimado: ${t.estimated.map(x => ({ fuel: 'combustible', tolls: 'peajes' }[x] || x)).join(', ')})`) : '';
@@ -223,8 +228,8 @@ const columns = computed(() => [
   { title: tr('Projected', 'Proyectado'), key: 'projected', align: 'right' },
   { title: tr('Status', 'Estado'), key: 'risk', align: 'center' },
   { title: tr('Missing', 'Faltan'), key: 'missing', align: 'right' },
-  { title: tr('Proj. profit', 'Ganancia proy.'), key: 'profit', align: 'right' },
-]);
+  showMoney.value && { title: tr('Proj. profit', 'Ganancia proy.'), key: 'profit', align: 'right' },
+].filter(Boolean));
 </script>
 
 <style scoped>

@@ -30,6 +30,9 @@ class TransportOutlookController extends Controller
         }
         $days = max(7, min(42, (int) ($request->input('days') ?: 21)));
 
-        return response()->json(TransportOutlook::compute($cid, $this->warehouseScopeIds(), $days));
+        $out = TransportOutlook::compute($cid, $this->warehouseScopeIds(), $days);
+
+        // Amounts (income, costs, projected profit) only for a role that sees profit (2026-11-19: not Operaciones).
+        return response()->json(HelpdeskAccess::can($user, 'transport_profit') ? $out : TransportOutlook::withoutMoney($out));
     }
 }
