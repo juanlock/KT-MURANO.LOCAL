@@ -94,7 +94,27 @@ class TransportController extends Controller
             'vehicles' => DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')
                 ->get(['id', 'name', 'plate_number', 'status'])->map(fn ($v) => ['id' => (int) $v->id, 'label' => trim($v->name.' '.($v->plate_number ? '('.$v->plate_number.')' : '')), 'status' => $v->status]),
             'crew' => $crew,
+            'crew_rules' => self::crewRules($cid),
         ]);
+    }
+
+    /**
+     * The company's crew (user's rules for Turismo, 2026-11-18): hostesses or not (settings.transport_hostesses), and from how
+     * many hours a trip needs a copilot (settings.transport_copilot_after_h; null = always 2 pilots, the earlier rule).
+     */
+    public static function crewRules(int $cid): array
+    {
+        $s = \Illuminate\Support\Facades\Schema::hasColumn('settings', 'transport_hostesses')
+            ? DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['transport_hostesses', 'transport_copilot_after_h']) : null;
+
+        return ['hostesses' => $s ? (bool) $s->transport_hostesses : true,
+            'copilot_after_h' => $s && $s->transport_copilot_after_h !== null ? (float) $s->transport_copilot_after_h : null];
+    }
+
+    /** Pilots a trip of $minutes needs under those rules. */
+    public static function pilotsNeeded(array $rules, int $minutes): int
+    {
+        return $rules['copilot_after_h'] === null || $minutes > $rules['copilot_after_h'] * 60 ? 2 : 1;
     }
 
     private function locationRows(?int $cid, ?Request $request = null)
@@ -312,13 +332,23 @@ class TransportController extends Controller
             'departure_at' => 'required|date', 'arrival_at' => 'nullable|date|after:departure_at',
             'status' => 'required|in:'.implode(',', self::TRIP_STATUSES), 'notes' => 'nullable|string|max:2000',
             'fuel_cost' => 'nullable|numeric|min:0|max:1000000',
-            'pilots' => 'required|array|size:2', 'pilots.*' => 'integer|distinct',
-            'hostesses' => 'required|array|min:1|max:2', 'hostesses.*' => 'integer|distinct',
+            'pilots' => 'required|array|min:1|max:2', 'pilots.*' => 'integer|distinct',
+            'hostesses' => 'nullable|array|max:2', 'hostesses.*' => 'integer|distinct',
         ], [
-            'pilots.size' => 'A trip needs exactly 2 pilots.',
-            'hostesses.min' => 'A trip needs 1 or 2 hostesses.', 'hostesses.max' => 'A trip needs 1 or 2 hostesses.',
+            'pilots.min' => 'A trip needs 1 or 2 pilots.', 'pilots.max' => 'A trip needs 1 or 2 pilots.',
+            'hostesses.max' => 'A trip takes up to 2 hostesses.',
         ]);
+        $v['hostesses'] = $v['hostesses'] ?? [];
         $route = $this->own('transport_routes', (int) $v['route_id'], $cid);
+        // The crew the company's rules ask for (2026-11-18): a copilot only on long trips where set; hostesses only where used.
+        $rules = self::crewRules($cid);
+        $minutes = ! empty($v['arrival_at']) ? (int) Carbon::parse($v['departure_at'])->diffInMinutes(Carbon::parse($v['arrival_at'])) : (int) ($route->duration_min ?: 240);
+        if (count($v['pilots']) < self::pilotsNeeded($rules, $minutes)) {
+            throw ValidationException::withMessages(['pilots' => __('This trip needs a pilot and a copilot.')]);
+        }
+        if ($rules['hostesses'] && ! $v['hostesses']) {
+            throw ValidationException::withMessages(['hostesses' => 'A trip needs 1 or 2 hostesses.']);
+        }
         $this->own('vehicles', (int) $v['vehicle_id'], $cid);
         if (array_intersect($v['pilots'], $v['hostesses'])) {
             throw ValidationException::withMessages(['hostesses' => 'The same person can\'t be pilot and hostess.']);

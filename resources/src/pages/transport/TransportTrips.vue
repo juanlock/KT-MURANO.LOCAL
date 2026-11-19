@@ -58,11 +58,11 @@
             <a-form-item :label="es ? 'Estado' : 'Status'"><a-select v-model:value="form.status" :options="statusOptions" /></a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item :label="es ? 'Piloto y copiloto *' : 'Pilot and copilot *'" :extra="!pilotOptions.length ? (es ? 'Marque a los pilotos en RR. HH. › Empleados › Tipo de personal.' : 'Mark the pilots in HRM › Employees › Staff type.') : ''">
+            <a-form-item :label="pilotLabel" :extra="!pilotOptions.length ? (es ? 'Marque a los pilotos en RR. HH. › Empleados › Tipo de personal.' : 'Mark the pilots in HRM › Employees › Staff type.') : ''">
               <a-select v-model:value="form.pilots" mode="multiple" :max-count="2" :options="pilotOptions" option-filter-prop="label" />
             </a-form-item>
           </a-col>
-          <a-col :xs="24" :md="12">
+          <a-col v-if="crewRules.hostesses" :xs="24" :md="12">
             <a-form-item :label="es ? 'Azafatas (1 o 2) *' : 'Hostesses (1 or 2) *'">
               <a-select v-model:value="form.hostesses" mode="multiple" :max-count="2" :options="hostessOptions" option-filter-prop="label" />
             </a-form-item>
@@ -113,6 +113,13 @@ const meta = ref({ routes: [], vehicles: [], crew: [] });
 const routeOptions = computed(() => sortByLabel(meta.value.routes.map(r => ({ value: r.id, label: r.label }))));
 const vehicleOptions = computed(() => sortByLabel(meta.value.vehicles.map(v => ({ value: v.id, label: v.label }))));
 const pilotOptions = computed(() => sortByLabel(meta.value.crew.filter(c => c.staff_type === 'pilot').map(c => ({ value: c.id, label: c.name }))));
+// The company's crew rules (2026-11-18): no hostesses at Turismo; a copilot only past copilot_after_h hours.
+const crewRules = computed(() => meta.value.crew_rules || { hostesses: true, copilot_after_h: null });
+const pilotLabel = computed(() => {
+  const h = crewRules.value.copilot_after_h;
+  if (h == null) return es.value ? 'Piloto y copiloto *' : 'Pilot and copilot *';
+  return es.value ? `Piloto * (copiloto en viajes de más de ${h} h)` : `Pilot * (copilot on trips over ${h} h)`;
+});
 const hostessOptions = computed(() => sortByLabel(meta.value.crew.filter(c => c.staff_type === 'hostess').map(c => ({ value: c.id, label: c.name }))));
 
 const rows = ref([]);

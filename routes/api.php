@@ -822,6 +822,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/expenses', 'expenses');
         Route::get('/departures', 'departures');
     });
+    // "Mando operativo" (2026-11-18): the coming departures, projected sales and whether they cover their costs.
+    Route::get('transport/outlook', [\App\Http\Controllers\TransportOutlookController::class, 'index']);
     // Daily departures (2026-11-10): the agency's day planned, completed and closed (PDF + email + history).
     Route::prefix('transport/daily')->controller(\App\Http\Controllers\TransportDailyController::class)->group(function () {
         Route::get('/', 'show');

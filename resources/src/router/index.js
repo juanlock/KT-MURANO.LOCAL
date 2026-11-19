@@ -789,6 +789,7 @@ const routes = [
             { path: 'transport/daily', name: 'transport-daily', component: () => import('../pages/transport/TransportDaily.vue'), meta: { title: 'Transport_Daily', permission: ['transport_departures_view', 'transport_departures_manage'] } },
             { path: 'transport/agency', name: 'transport-agency', component: () => import('../pages/transport/TransportAgency.vue'), meta: { title: 'Transport_MyAgency', permission: 'transport_agency_view' } },
             // Quality control: the complaints board alone, the "Control de Calidad" role's home (2026-11-18).
+            { path: 'transport/outlook', name: 'transport-outlook', component: () => import('../pages/transport/TransportOutlook.vue'), meta: { title: 'Transport_Outlook', permission: ['transport_outlook', 'transport_profit'] } },
             { path: 'transport/quality', name: 'transport-quality', component: () => import('../pages/transport/TransportQuality.vue'), meta: { title: 'Transport_Quality', permission: ['forms_view', 'forms_manage'] } },
             // How the system works, for presenting it (2026-11-18): opened from Manual -> Your company.
             { path: 'transport/how-it-works', name: 'transport-how-it-works', component: () => import('../pages/transport/TransportHowItWorks.vue'), meta: { title: 'Transport_HowItWorks', permission: ['dashboard', 'transport_profit', 'transport_monitor', 'transport_agency_view', 'transport_fleet_board'] } },
