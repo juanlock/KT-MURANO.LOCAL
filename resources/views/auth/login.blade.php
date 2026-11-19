@@ -125,7 +125,7 @@
       /* Brand logo at 60% (user, 2026-10-25), a little further left and up. */
       .hero-brand img {
         display: block;
-        width: min(75%, 400px);
+        width: min(60%, 310px); /* 2026-11-19: a bit smaller (the user) */
         height: auto;
         margin-bottom: clamp(1.5rem, 3.5vh, 2.5rem);
         transform: translate(clamp(-28px, -1.6vw, -12px), clamp(-56px, -5vh, -24px));
@@ -280,6 +280,20 @@
         max-width: 70%;
         object-fit: contain;
       }
+
+      /* The product's name in the card (2026-11-19: the user missed "Murano"; it replaces the repeated AI mark and
+         "Welcome back"): the wordmark with KcolTech's gradient bar under it. */
+      .murano-word { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; margin: 0 0 0.9rem; }
+      .murano-word b {
+        font-size: clamp(2.4rem, 3.4vw, 3.1rem); font-weight: 900; letter-spacing: 0.08em; line-height: 1;
+        color: var(--navy);
+      }
+      .murano-word i {
+        display: block; width: 72%; height: 5px; border-radius: 3px;
+        background: linear-gradient(90deg, #22d3ee, #6366f1 40%, #d946ef 60%, #fb923c 85%, #facc15);
+      }
+      .murano-word small { font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+      @media (max-width: 640px) { .murano-word b { font-size: 2.1rem; } }
 
       .auth-card-title {
         font-size: clamp(1.75rem, 2.3vw, 2.3rem);
@@ -750,14 +764,18 @@
                 $loginLogoUrl = str_contains($loginLogo, '/') ? asset($loginLogo) : asset('images/'.$loginLogo);
                 // The stock logo, or Murano's own (AdminSystem, 2026-11-16) -> the Murano mark of the login design
                 // (the hero beside it already shows the full logo).
-                if (str_contains($loginLogo, 'logo-default') || str_contains($loginLogo, 'murano-cuadrado') || $loginLogo === 'logo.png') {
-                    $loginLogoUrl = asset('images/login/murano-mark.png');
-                }
+                $stockLogo = str_contains($loginLogo, 'logo-default') || str_contains($loginLogo, 'murano-cuadrado') || $loginLogo === 'logo.png';
             @endphp
-            <div class="auth-logo">
-              <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'KcolTech - Murano' }}">
-            </div>
-            <h2 class="auth-card-title">{{ login_locale_text($app_settings->login_panel_title) }}</h2>
+            @if ($stockLogo)
+              {{-- Murano's own login (2026-11-19, the user): the product's name instead of the AI mark (already in the hero's logo)
+                   and of "Welcome back". --}}
+              <h1 class="murano-word" aria-label="Murano"><b>MURANO</b><i></i><small>{{ app()->getLocale() === 'es' ? 'Sistema de gestión' : 'Business management' }}</small></h1>
+            @else
+              <div class="auth-logo">
+                <img src="{{ $loginLogoUrl }}" alt="{{ $app_settings->app_name ?? 'KcolTech - Murano' }}">
+              </div>
+              <h2 class="auth-card-title">{{ login_locale_text($app_settings->login_panel_title) }}</h2>
+            @endif
             <p class="auth-card-subtitle">
               {{ login_locale_text($app_settings->login_panel_subtitle) }}
             </p>
