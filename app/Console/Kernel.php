@@ -73,6 +73,8 @@ class Kernel extends ConsoleKernel
         $cmd('murano:server-backup')->dailyAt('03:20')->withoutOverlapping(60);
         // Yesterday's errors in the log -> email to the SuperAdmin (only when there are any).
         $cmd('murano:error-digest')->dailyAt('07:00')->withoutOverlapping();
+        // A shared-password login (users.password_locked) seen from 3+ IPs in 24 h -> email to the SuperAdmin (2026-11-19).
+        $cmd('murano:shared-login-alert')->hourly()->withoutOverlapping();
         // Install-wide integrations only while some company uses them (ModuleFlags::anyCompany).
         $uses = fn (string $key) => fn () => \App\Support\ModuleFlags::anyCompany($key);
 

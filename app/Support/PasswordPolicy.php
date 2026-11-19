@@ -35,6 +35,10 @@ class PasswordPolicy
                 if (! $user) {
                     return;
                 }
+                // A shared test login (users.password_locked, 2026-11-19): only an admin changes its password.
+                if ((bool) (DB::table('users')->where('id', $user->id)->value('password_locked') ?? false)) {
+                    return $fail($es ? 'Este acceso no permite cambiar la contraseña. Pídaselo al administrador.' : 'This login can\'t change its password. Ask the administrator.');
+                }
                 if (LoginSecurity::isStandardPassword($user, $value)) {
                     return $fail($es ? 'No puede usar una contraseña estándar: elija una propia.' : 'You can\'t use a standard password: choose your own.');
                 }

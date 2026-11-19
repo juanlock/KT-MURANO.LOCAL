@@ -138,7 +138,8 @@ class LoginSecurity
 
     public static function mustChangePassword(object $user, ?string $plain = null): bool
     {
-        if (self::isDemo($user)) {
+        // A demo person, or a login whose password only an admin changes (users.password_locked, 2026-11-19): never asked.
+        if (self::isDemo($user) || ($user->password_locked ?? false)) {
             return false;
         }
 
