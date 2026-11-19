@@ -1,5 +1,9 @@
 {
-    "A lead with this phone number already exists.": "Ya existe un lead con este número de teléfono.",
+    "This trip needs a pilot and a copilot.": "Este viaje necesita piloto y copiloto.",
+    "A trip needs 1 or 2 pilots.": "Un viaje lleva 1 o 2 pilotos.",
+    "A trip takes up to 2 hostesses.": "Un viaje lleva hasta 2 azafatas.",
+    "A trip needs 1 or 2 hostesses.": "Un viaje necesita 1 o 2 azafatas.",
+    "A lead with this phone number already exists.":"Ya existe un lead con este número de teléfono.",
     "Age \":a\" is not valid.": "La edad \":a\" no es válida.",
     "Birth date \":d\" is not a date.": "La fecha de nacimiento \":d\" no es una fecha.",
     "Choose the column that holds the phone number.": "Elige la columna que tiene el teléfono.",

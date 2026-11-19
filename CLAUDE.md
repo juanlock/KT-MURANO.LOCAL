@@ -456,6 +456,26 @@ the start of each session).
   Cautivo** (migration 2026_11_18_150000: role, turismo-calidad@, Daniel = administracion@transportescautivo.com moved to it).
   **Pending: apply it to every company** (CompanyRoles / CompanyLogins + the demos; a non-transport company needs a complaints
   page of its own -- the board today reads the transport complaints form).
+  **At Turismo Cautivo it is merged into "Operaciones" (user's rule, 2026-11-18):** Daniel is the head of operations, so the agency
+  Supervisor, Supervisor de flota and Control de Calidad roles became ONE role, Operaciones (`TransportAgencies::operations()`, home
+  `/transport/fleet-board`, no profit); a company with that role never gets the three back (`supervisors()` / `fleetSupervisor()`
+  skip it). Open with the user: keep Control de Calidad as the standard for the other companies, or Operaciones everywhere.
+- **Turismo Cautivo's operating model (user's points after the presentation, 2026-11-18; migration 2026_11_18_190000):** the line is
+  Lima (start) <-> Chiclayo (end), Trujillo / Chepén are pass-through agencies run by ONE person (role **Agente de agencia**: POS,
+  boarding, parcels, attendance); head office, HR and accounting in Chiclayo -- Mayte (role **Administración y Contabilidad**, login
+  turismo-contabilidad@kcoltech.com until her email is known) and Daniel (Operaciones). **No hostesses, no snacks**
+  (`settings.transport_hostesses` = 0, `transport_meal_cost` = 0); **one pilot**, a copilot only on trips over
+  `settings.transport_copilot_after_h` (12 h; null = always 2, the old rule; `TransportController::crewRules()`); 19 buses and
+  38 pilots, 85 % of the staff on the payroll, pilots included (demo pilots monthly, S/ 2,500). **~80 % of the tickets are sold
+  online by Jelaf / PeruBus** (`transport_tickets.channel` agency / jelaf / perubus / phone; such a ticket has no sale:
+  `sale_id` null; `settings.transport_channel_commission` JSON % per channel, unknown yet); Jelaf also sends the passenger list
+  per trip -- how its data reaches us is settled with Jelaf (meeting the week of 2026-11-23). The dashboard opens on **Reporte de
+  salidas** (Mayte and Julio's first board), then **Mando operativo** (`transport_outlook`, also `/transport/outlook`: upcoming
+  departures red / amber / green against variable and full cost, booking curve, marketing focus by week). The demo sells
+  online ahead (`TransportDemoDay::advance`, 3 weeks: `AHEAD_DAYS`). The client fills the requirement workbooks
+  `KT-TOOLS/turismo/requerimientos/Req00..Req12` (our values to confirm in green). Still to build: Jelaf import, the parcels
+  module (labels, scan states, distribution panel, cargo vehicle), attendance by phone (GPS + selfie), the pass-through agent's
+  screen, the maintenance history per vehicle.
 - **Admins and the SuperAdmin are never signed out for inactivity (user's rule, 2026-11-18).** The company's "Sign out after
   inactivity" (`settings.idle_logout_minutes`, `UserController` -> `idle_logout_minutes`, `lib/idleLogout.js`) applies only to
   the other logins; per role / per module is how those are handled later (not built yet). The install-wide server lifetime

@@ -223,6 +223,18 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 - **Backups never hold up the work:** the backup before writing to production
   is made on the server in seconds; bringing it to Drive waits for the next
   Pa Llevar / A Dormir.
+- **Turismo after the presentation:** Daniel's role is now **Operaciones**
+  (agency supervisor + fleet supervisor + quality control in one); new roles
+  **Administración y Contabilidad** (Mayte) and **Agente de agencia** (the one
+  person of Chepén / Trujillo); one pilot per trip (a copilot only over 12 h),
+  no hostesses, no snacks; each ticket has its sales channel (agency, Jelaf,
+  PeruBus, phone); the dashboard opens on the departures report, then the new
+  **Mando operativo** (upcoming departures red / amber / green against their
+  costs, and which week marketing should push; also in the menu).
+- **KcolTech:** its 41 services show up on quotations and sales again; the
+  quotation PDF looks like the invoice (no product code line); a sale prefix
+  typed with its dash (PP-) keeps its series, and today's two invoices were
+  renumbered PP-0529 / PP-0530.
 
 Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-17 (Optimum)

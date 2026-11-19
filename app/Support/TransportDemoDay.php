@@ -28,12 +28,16 @@ class TransportDemoDay
     /** How far back the demo's departures go (user's request, 2026-11-11: two months; 2026-11-12: six months; 2026-11-18: eight). */
     private const HISTORY_DAYS = 243;
 
+    /** How far ahead the demo's departures go (2026-11-18: three weeks, for the predictive board; it was a week). */
+    private const AHEAD_DAYS = 21;
+
     public static function run(int $companyId): array
     {
         return [
             'days' => self::days($companyId), 'schedule' => self::schedule($companyId), 'statuses' => self::statuses($companyId), 'trimmed' => self::trim($companyId),
             'maintenance' => self::maintenance($companyId), 'complaints' => self::complaints($companyId),
             'tickets' => self::tickets($companyId),
+            'advance' => self::advance($companyId),
             'crew' => self::crew($companyId),
             'control' => self::control($companyId),
             'services' => self::services($companyId),
@@ -229,14 +233,76 @@ class TransportDemoDay
         return [$s['number'], false];
     }
 
-    private static function insertDemoTicket(int $cid, object $t, object $line, array $seat, array $names, int $from, int $to, float $price, $at): void
+    private static function insertDemoTicket(int $cid, object $t, object $line, array $seat, array $names, int $from, int $to, float $price, $at, string $channel = 'agency'): void
     {
-        self::tag($cid, 'transport_tickets', DB::table('transport_tickets')->insertGetId([
+        $extra = \Illuminate\Support\Facades\Schema::hasColumn('transport_tickets', 'channel') ? ['channel' => $channel] : [];
+        self::tag($cid, 'transport_tickets', DB::table('transport_tickets')->insertGetId($extra + [
             'company_id' => $cid, 'sale_id' => $line->sale_id, 'product_id' => $line->product_id, 'route_id' => $line->route_id, 'trip_id' => $t->id, 'warehouse_id' => $line->warehouse_id,
             'seat_number' => $seat[0], 'is_vip' => $seat[1], 'from_location_id' => $from, 'to_location_id' => $to, 'code' => TransportLegs::ticketCode(), 'doc_type' => 'dni', 'passenger_type' => 'adult',
             'dni' => (string) random_int(10000000, 79999999), 'first_name' => $names[0], 'last_name' => $names[1], 'luggage' => random_int(1, 10) <= 7,
             'price' => round($seat[1] ? $price * 1.2 : $price, 2), 'created_at' => $at, 'updated_at' => $at,
         ]));
+    }
+
+    /**
+     * Advance online sales (user's data, 2026-11-18: ~80 % of Turismo's tickets are sold online by Jelaf / PeruBus, days
+     * ahead): each demo departure from tomorrow to AHEAD_DAYS ahead gets, sold over the past days, its online share of seats
+     * along a booking curve (more as the day comes). Weeks sell unevenly (one strong, one average, one weak, by the week's
+     * number) so the predictive board has a week to push. Tickets of no sale of ours (sale_id null), channel jelaf / perubus,
+     * the whole route. Safe to run often: each trip is only topped up to where its curve is today.
+     */
+    public static function advance(int $cid): int
+    {
+        $ids = self::ids($cid, 'transport_trips');
+        if (! $ids || ! \Illuminate\Support\Facades\Schema::hasColumn('transport_tickets', 'channel')) {
+            return 0;
+        }
+        $products = DB::table('products')->whereIn('id', self::ids($cid, 'products'))->where('code', 'like', 'PAS-%')->where('code', 'not like', '%-VIP')->whereNull('deleted_at')
+            ->get(['id', 'code', 'price'])->keyBy(fn ($p) => (int) substr($p->code, 4));
+        $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
+            ->leftJoin('transport_locations as o', 'o.id', '=', 'r.origin_id')
+            ->whereIn('t.id', $ids)->whereNull('t.deleted_at')->where('t.status', 'scheduled')
+            ->where('t.departure_at', '>', now()->addDay())->where('t.departure_at', '<=', now()->addDays(self::AHEAD_DAYS))->orderBy('t.departure_at')
+            ->get(['t.id', 't.route_id', 't.departure_at', 't.status', 'r.origin_id', 'r.destination_id', 'o.warehouse_id', 'v.seats', 'v.seats_lower', 'v.vip_seats']);
+        if ($trips->isEmpty()) {
+            return 0;
+        }
+        $online = DB::table('transport_tickets')->whereIn('trip_id', $trips->pluck('id'))->whereIn('channel', ['jelaf', 'perubus'])
+            ->selectRaw('trip_id, count(*) n')->groupBy('trip_id')->pluck('n', 'trip_id');
+        $state = self::seatState($trips);
+        $firsts = ['Ana', 'Luis', 'María', 'Carlos', 'Rosa', 'Jorge', 'Elena', 'Pedro', 'Lucía', 'Miguel', 'Sofía', 'Diego'];
+        $lasts = ['Quispe', 'Flores', 'Sánchez', 'García', 'Rojas', 'Díaz', 'Torres', 'Vargas', 'Ramos', 'Castillo', 'Huamán', 'Paredes'];
+        $made = 0;
+        DB::transaction(function () use ($cid, $trips, $products, $online, &$state, $firsts, $lasts, &$made) {
+            foreach ($trips as $t) {
+                $product = $products[$t->route_id] ?? null;
+                $seats = count(TransportLegs::seatMap($t));
+                if (! $product || ! $seats) {
+                    continue;
+                }
+                $dep = \Carbon\Carbon::parse($t->departure_at);
+                $daysLeft = now()->diffInHours($dep) / 24;
+                $curve = max(0.04, min(1, 1 - $daysLeft / 24));          // share of the final online sales already sold
+                $week = [1.25, 0.95, 0.6][crc32('wk'.$dep->format('oW')) % 3]; // strong / average / weak week
+                $want = (int) floor($seats * self::demoFill((int) $t->id) * 0.8 * $week * $curve);
+                $path = TransportLegs::path((int) $t->route_id);
+                $b = max(1, count($path) - 1);
+                for ($have = (int) ($online[$t->id] ?? 0); $have < $want; $have++) {
+                    $seat = self::takeSeat($state, $t, 0, $b);
+                    if (! $seat) {
+                        break;
+                    }
+                    // Sold some day between 20 days before and now (never after now, never after the departure).
+                    $at = now()->subMinutes(crc32('adv'.$t->id.'-'.$have) % (int) max(60, min(20 * 1440, $dep->diffInMinutes(now()) + 60 * 24 * 3)));
+                    $line = (object) ['sale_id' => null, 'product_id' => $product->id, 'route_id' => $t->route_id, 'warehouse_id' => $t->warehouse_id];
+                    self::insertDemoTicket($cid, $t, $line, $seat, [$firsts[crc32('f'.$t->id.$have) % 12], $lasts[crc32('l'.$t->id.$have) % 12]],
+                        (int) $t->origin_id, (int) $t->destination_id, (float) $product->price, $at, crc32('ch'.$t->id.$have) % 100 < 69 ? 'jelaf' : 'perubus');
+                    $made++;
+                }
+            }
+        });
+
+        return $made;
     }
 
     /** A demo trip that ran below its share of seats gets one more sale, made 2 hours before it left. */
@@ -308,7 +374,7 @@ class TransportDemoDay
     private static function demoPassengers(int $cid, $trips, bool $all): int
     {
         $state = self::seatState($trips);
-        $done = array_flip(DB::table('transport_tickets')->where('company_id', $cid)->distinct()->pluck('sale_id')->all());
+        $done = array_flip(DB::table('transport_tickets')->where('company_id', $cid)->whereNotNull('sale_id')->distinct()->pluck('sale_id')->all());
         $lines = DB::table('sales as s')->join('sale_details as d', 'd.sale_id', '=', 's.id')->join('products as p', 'p.id', '=', 'd.product_id')
             ->leftJoin('clients as c', 'c.id', '=', 's.client_id')
             ->whereIn('s.id', self::ids($cid, 'sales'))->where('p.code', 'like', 'PAS-%')
@@ -599,9 +665,11 @@ class TransportDemoDay
                 DB::table('transport_trip_swaps')->whereIn('trip_id', $chunk)->delete();
             }
         }
+        // The company's crew (2026-11-18): Turismo has no hostesses and one pilot, a copilot only past copilot_after_h hours.
+        $rules = \App\Http\Controllers\TransportController::crewRules($cid);
         $trips = DB::table('transport_trips as t')->join('transport_routes as r', 'r.id', '=', 't.route_id')
             ->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('t.status', '!=', 'cancelled')->whereNotNull('t.arrival_at')
-            ->where('t.departure_at', '<=', now()->addDays(8))->orderBy('t.departure_at')->orderBy('t.id')
+            ->where('t.departure_at', '<=', now()->addDays(self::AHEAD_DAYS + 1))->orderBy('t.departure_at')->orderBy('t.id')
             ->get(['t.id', 't.departure_at', 't.arrival_at', 't.status', 'r.origin_id', 'r.destination_id']);
         $crewOf = DB::table('transport_trip_crew')->whereIn('trip_id', $trips->pluck('id'))->orderBy('id')->get(['trip_id', 'employee_id', 'role'])->groupBy('trip_id');
         $demoStaff = array_flip(self::ids($cid, 'employees'));
@@ -615,7 +683,14 @@ class TransportDemoDay
         $origins = $trips->pluck('origin_id')->unique()->values()->all();
         $state = [];
         $n = 0;
+        // Turismo's own figure (2026-11-18): 38 pilots for 19 buses. With pilots on the payroll the demo keeps that many;
+        // the rest get no trips and leave (payrollCrew).
+        $keep = $rules['hostesses'] ? null : $staff->filter(fn ($e) => $e->staff_type === 'pilot' && isset($demoStaff[$e->id]))->sortBy('id')
+            ->take(self::PAYROLL_PILOTS)->pluck('id')->flip();
         foreach ($staff as $e) {
+            if ($keep !== null && isset($demoStaff[$e->id]) && ($e->staff_type === 'hostess' || ! isset($keep[$e->id]))) {
+                continue;
+            }
             $state[(int) $e->id] = ['type' => $e->staff_type, 'at' => isset($demoStaff[$e->id]) ? (int) $origins[$n++ % count($origins)] : null,
                 'free' => 0, 'rate' => $e->trip_rate, 'user' => $e->user_id, 'demo' => isset($demoStaff[$e->id])];
         }
@@ -642,7 +717,7 @@ class TransportDemoDay
             return (int) array_key_first($cands);
         };
 
-        DB::transaction(function () use ($trips, $crewOf, $demo, $cid, &$state, $pick, $template, &$made) {
+        DB::transaction(function () use ($trips, $crewOf, $demo, $cid, &$state, $pick, $template, &$made, $rules) {
             foreach ($trips as $t) {
                 $dep = strtotime((string) $t->departure_at);
                 $arr = strtotime((string) $t->arrival_at);
@@ -659,7 +734,12 @@ class TransportDemoDay
                 }
                 $taken = [];
                 $rows = [];
-                foreach (['pilot', 'pilot', 'hostess'] as $i => $type) {
+                $minutes = (int) round(($arr - $dep) / 60);
+                $types = array_fill(0, \App\Http\Controllers\TransportController::pilotsNeeded($rules, $minutes), 'pilot');
+                if ($rules['hostesses']) {
+                    $types[] = 'hostess';
+                }
+                foreach ($types as $i => $type) {
                     if ($type === 'hostess' && ! $template['hostess']) {
                         continue;
                     }
@@ -684,8 +764,41 @@ class TransportDemoDay
             TransportAgencies::staffRoles($cid);
         }
         $made['swaps'] = self::swaps($cid, $demo);
+        if ($redo && ! $rules['hostesses']) {
+            $made += self::payrollCrew($cid);
+        }
 
         return $made;
+    }
+
+    /**
+     * A company without hostesses whose pilots are on the payroll (Turismo, user's data 2026-11-18: "el 85 % está en planilla,
+     * incluidos los pilotos"): after the crews are made again, the demo's hostesses and the demo pilots left without trips
+     * leave (employee soft-deleted with a leaving date, login disabled), and the rest are paid a monthly salary, not per trip.
+     */
+    private const PILOT_SALARY = 2500;
+
+    private const PAYROLL_PILOTS = 38;
+
+    private static function payrollCrew(int $cid): array
+    {
+        $demoStaff = self::ids($cid, 'employees');
+        $busy = DB::table('transport_trip_crew')->distinct()->pluck('employee_id')->flip();
+        $gone = DB::table('employees')->whereIn('id', $demoStaff ?: [0])->whereNull('deleted_at')
+            ->where(fn ($q) => $q->where('staff_type', 'hostess')->orWhere('staff_type', 'pilot'))->get(['id', 'staff_type', 'user_id'])
+            ->filter(fn ($e) => $e->staff_type === 'hostess' || ! isset($busy[$e->id]));
+        foreach ($gone as $e) {
+            DB::table('employees')->where('id', $e->id)->update(['leaving_date' => now()->toDateString(), 'deleted_at' => now(), 'updated_at' => now()]);
+            if ($e->user_id) {
+                DB::table('users')->where('id', $e->user_id)->update(['statut' => 0, 'updated_at' => now()]);
+            }
+        }
+        $paid = DB::table('employees')->whereIn('id', $demoStaff ?: [0])->whereNull('deleted_at')->where('staff_type', 'pilot')
+            ->update(['pay_type' => 'monthly', 'basic_salary' => self::PILOT_SALARY, 'trip_rate' => 0, 'updated_at' => now()]);
+        DB::table('transport_trip_crew as c')->join('employees as e', 'e.id', '=', 'c.employee_id')->whereIn('e.id', $demoStaff ?: [0])
+            ->where('e.staff_type', 'pilot')->update(['c.trip_rate' => 0]);
+
+        return ['left' => $gone->count(), 'pilots_on_payroll' => $paid];
     }
 
     /** Long demo trips past half way get the copilot's swap, except 1 in 25 (the "never swapped" alert). */
@@ -738,8 +851,9 @@ class TransportDemoDay
             'office_shift_id' => $like->office_shift_id, 'joining_date' => now()->subMonths(6 + $seed % 30)->toDateString(), 'employment_type' => 'full_time',
             'total_leave' => 0, 'remaining_leave' => 0, 'basic_salary' => 0,
         ]);
-        DB::table('employees')->where('id', $e->id)->update(['staff_type' => $type, 'pay_type' => 'per_trip', 'trip_rate' => $like->trip_rate,
-            'pay_effective_from' => now()->subDays(200)->toDateString(), 'basic_salary' => 0]);
+        $payroll = ! \App\Http\Controllers\TransportController::crewRules($cid)['hostesses']; // Turismo: pilots on the payroll (2026-11-18)
+        DB::table('employees')->where('id', $e->id)->update(['staff_type' => $type, 'pay_type' => $payroll ? 'monthly' : 'per_trip',
+            'trip_rate' => $payroll ? 0 : $like->trip_rate, 'pay_effective_from' => now()->subDays(200)->toDateString(), 'basic_salary' => $payroll ? self::PILOT_SALARY : 0]);
         self::tag($cid, 'employees', (int) $e->id);
         $userId = (int) DB::table('employees')->where('id', $e->id)->value('user_id');
         if ($userId) {
@@ -762,7 +876,7 @@ class TransportDemoDay
             return 0;
         }
         $made = 0;
-        $end = now()->startOfDay()->addDays(7);
+        $end = now()->startOfDay()->addDays(self::AHEAD_DAYS);
         for ($day = \Carbon\Carbon::parse($last)->startOfDay()->addDay(); $day->lte($end); $day->addDay()) {
             $source = $day->copy()->subDays(6);
             $trips = DB::table('transport_trips')->whereIn('id', self::ids($cid, 'transport_trips'))->whereNull('deleted_at')
@@ -885,7 +999,7 @@ class TransportDemoDay
 
         $made = 0;
         $tplStart = \Carbon\Carbon::parse($tplDay);
-        for ($day = now()->startOfDay()->subDays(self::HISTORY_DAYS); $day->lte(now()->startOfDay()->addDays(7)); $day->addDay()) {
+        for ($day = now()->startOfDay()->subDays(self::HISTORY_DAYS); $day->lte(now()->startOfDay()->addDays(self::AHEAD_DAYS)); $day->addDay()) {
             $d = $day->toDateString();
             if ($d === $tplDay) {
                 continue;

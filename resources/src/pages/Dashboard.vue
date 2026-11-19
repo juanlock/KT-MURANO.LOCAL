@@ -86,13 +86,19 @@
       >
         <!-- In the order the owner reads them (user's request, 2026-11-11), the first one opens by default: how the business
              goes, where the money comes from and what puts it at risk, then the day's operation. -->
-        <a-tab-pane v-if="ownerPanel" key="transport_owner">
-          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
-          <TransportOwnerPanel :range="rangeFields" />
-        </a-tab-pane>
+        <!-- Turismo, 2026-11-18: the departures report is the first board the owner and accounting need; then the predictive
+             "Mando operativo" (upcoming departures at risk, where to push marketing). -->
         <a-tab-pane v-if="departuresPanel" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="outlookPanel" key="transport_outlook">
+          <template #tab><AimOutlined /> {{ es ? 'Mando operativo' : 'Operations outlook' }}</template>
+          <TransportOutlookPanel />
+        </a-tab-pane>
+        <a-tab-pane v-if="ownerPanel" key="transport_owner">
+          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
+          <TransportOwnerPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="profitPanel" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
@@ -377,6 +383,8 @@
 <script setup>
 import { t as tEs } from '../i18n/index.js';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
+import TransportOutlookPanel from '../components/TransportOutlookPanel.vue';
 import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import DateRangeFields from '../components/DateRangeFields.vue';
 import {
@@ -385,7 +393,7 @@ import {
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
   CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
-  LineChartOutlined, FundOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined, InboxOutlined,
+  LineChartOutlined, FundOutlined, AimOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined, InboxOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
@@ -437,10 +445,12 @@ const ownerPanel = computed(() => show('transport_owner') && auth.can('dashboard
   && (auth.can('transport_view') || auth.can('transport_manage')));
 const es = computed(() => useUiStore().locale === 'es');
 // Same order as the tabs (the owner's reading order, 2026-11-11); the first one the user has opens by default.
-const transportPanels = computed(() => [ownerPanel.value && 'transport_owner', departuresPanel.value && 'transport_departures', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean));
+const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
+const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));
-const transportPick = ref(null);
+// ?tab=transport_outlook (a role's home page or a link) opens that tab.
+const transportPick = ref(typeof useRoute().query.tab === 'string' ? useRoute().query.tab : null);
 const transportTab = computed({
   get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value : transportTabs.value[0]),
   set: v => { transportPick.value = v; },

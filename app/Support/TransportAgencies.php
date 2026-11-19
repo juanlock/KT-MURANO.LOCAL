@@ -66,6 +66,52 @@ class TransportAgencies
         return $map;
     }
 
+    /**
+     * Operations (user's rule, 2026-11-18, Turismo Cautivo: "juntar los roles supervisor de agencia, calidad y supervisor de
+     * flota a Operaciones (Daniel)"): one role with the agency supervisor's, the fleet supervisor's and quality control's work,
+     * plus the predictive board and the staff's attendance. No profit or owner's figures. A company that has it never gets the
+     * three separate roles again (supervisors() / fleetSupervisor() skip it).
+     */
+    public const OPERATIONS_ROLE = 'Operaciones';
+
+    public const MERGED_ROLES = [self::SUPERVISOR_ROLE, 'Supervisor de flota', 'Control de Calidad'];
+
+    public const OPERATIONS_EXTRA = ['transport_boarding', 'transport_monitor', 'forms_view', 'attendance', 'report_attendance_summary', 'transport_outlook'];
+
+    public static function hasOperations(int $companyId): bool
+    {
+        return DB::table('roles')->where('company_id', $companyId)->where('name', self::OPERATIONS_ROLE)->whereNull('deleted_at')->exists();
+    }
+
+    /** Makes (or refreshes) the Operations role, moves the users of the three merged roles to it and retires those roles. */
+    public static function operations(int $companyId): int
+    {
+        $role = DB::table('roles')->where('company_id', $companyId)->where('name', self::OPERATIONS_ROLE)->whereNull('deleted_at')->value('id');
+        if (! $role) {
+            $role = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => self::OPERATIONS_ROLE, 'label' => self::OPERATIONS_ROLE,
+                'description' => 'Operations: every agency\'s departures, the control board, the fleet and its maintenance, pilots\' fatigue, complaints, attendance and the predictive board. No profit.',
+                'home_path' => '/transport/fleet-board', 'status' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $perms = array_values(array_unique(array_merge(self::SUPERVISOR_PERMISSIONS, self::FLEET_PERMISSIONS, self::OPERATIONS_EXTRA)));
+        DB::table('permission_role')->where('role_id', $role)->delete();
+        DB::table('permission_role')->insert(DB::table('permissions')->whereIn('name', $perms)->pluck('id')
+            ->map(fn ($p) => ['permission_id' => $p, 'role_id' => $role])->all());
+
+        $old = DB::table('roles')->where('company_id', $companyId)->whereIn('name', self::MERGED_ROLES)->whereNull('deleted_at')->pluck('id');
+        if ($old->isNotEmpty()) {
+            $users = DB::table('users')->whereIn('role_id', $old)->pluck('id')
+                ->merge(DB::table('role_user')->whereIn('role_id', $old)->pluck('user_id'))->unique();
+            foreach ($users as $uid) {
+                DB::table('role_user')->where('user_id', $uid)->delete();
+                DB::table('role_user')->insert(['user_id' => $uid, 'role_id' => $role]);
+                DB::table('users')->where('id', $uid)->update(['role_id' => $role, 'updated_at' => now()]);
+            }
+            DB::table('roles')->whereIn('id', $old)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        }
+
+        return (int) $role;
+    }
+
     public const FLEET_ROLE = 'Supervisor de flota';
 
     /** Keeps the fleet running (user's request, 2026-11-13): maintenance, the pilots' reports and hours. No money. */
@@ -79,8 +125,8 @@ class TransportAgencies
      */
     public static function fleetSupervisor(int $companyId): void
     {
-        if (! DB::table('permissions')->where('name', 'transport_fleet_board')->exists()) {
-            return; // before the migration that brings it
+        if (! DB::table('permissions')->where('name', 'transport_fleet_board')->exists() || self::hasOperations($companyId)) {
+            return; // before the migration that brings it; or merged into Operations
         }
         $role = DB::table('roles')->where('company_id', $companyId)->where('name', self::FLEET_ROLE)->whereNull('deleted_at')->value('id');
         if (! $role) {
@@ -125,6 +171,9 @@ class TransportAgencies
      */
     public static function supervisors(int $companyId, array $map): void
     {
+        if (self::hasOperations($companyId)) {
+            return; // merged into Operations (2026-11-18)
+        }
         $role = DB::table('roles')->where('company_id', $companyId)->where('name', self::SUPERVISOR_ROLE)->whereNull('deleted_at')->value('id');
         if (! $role) {
             $role = DB::table('roles')->insertGetId(['company_id' => $companyId, 'name' => self::SUPERVISOR_ROLE, 'label' => self::SUPERVISOR_ROLE,
