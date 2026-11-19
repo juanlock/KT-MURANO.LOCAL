@@ -166,8 +166,8 @@ class SalesContractController extends Controller
             'billing_day_mode' => 'nullable|in:'.implode(',', SalesContract::DAY_MODES),
             'billing_day' => 'nullable|integer|min:1|max:31',
             'notes' => 'array',
-            'notes.*' => 'nullable|string|max:500',
-            'invoice_note' => 'nullable|string|max:1000',
+            'notes.*' => 'nullable|string|max:15000', // notes are never cut (2026-11-19); TEXT holds ~16k characters
+            'invoice_note' => 'nullable|string|max:15000',
             'contract_id' => 'nullable|integer',
         ]);
         $s = $this->scheduleParams($v);
@@ -408,7 +408,7 @@ class SalesContractController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'description' => 'nullable|string',
-            'invoice_note' => 'nullable|string|max:1000',
+            'invoice_note' => 'nullable|string|max:15000',
             'status' => 'required|in:'.implode(',', SalesContract::STATUSES),
             'hide_from_customer' => 'nullable|boolean',
             'billing_enabled' => 'nullable|boolean',
@@ -423,7 +423,7 @@ class SalesContractController extends Controller
             'items' => 'array',
             'items.*.product_id' => 'nullable|integer',
             'items.*.name' => 'required|string|max:255',
-            'items.*.note' => 'nullable|string|max:500',
+            'items.*.note' => 'nullable|string|max:15000',
             'items.*.quantity' => 'required|numeric|min:0.001',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.tax_percent' => 'nullable|numeric|min:0',
