@@ -38,7 +38,7 @@ $archive = \App\Support\BackupPaths::archive();
 if ($archive !== \App\Support\BackupPaths::latest()) {
     $clouds['Google Drive'] = dirname($archive).DIRECTORY_SEPARATOR.'KT-TOOLS';
 }
-$oneDrive = env('KT_TOOLS_ONEDRIVE') ?: ((getenv('OneDrive') ?: getenv('OneDriveConsumer')) ? rtrim(getenv('OneDrive') ?: getenv('OneDriveConsumer'), '\\/').'\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS' : null);
+$oneDrive = env('KT_TOOLS_ONEDRIVE') ?: env('ONEDRIVE_TOOLS_DIR') ?: ((getenv('OneDrive') ?: getenv('OneDriveConsumer')) ? rtrim(getenv('OneDrive') ?: getenv('OneDriveConsumer'), '\\/').'\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS' : null);
 if ($oneDrive && is_dir(dirname($oneDrive))) {
     $clouds['OneDrive'] = $oneDrive;
 }

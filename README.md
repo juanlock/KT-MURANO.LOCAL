@@ -247,6 +247,10 @@ Setup: `php artisan migrate`, `npm run build`.
   dispatched".
 - **KT-TOOLS:** each company's material lives in `KT-TOOLS/files/<company>`;
   the sync moves an old root folder (turismo, ARCE, kcoltech) there by itself.
+- **KT-TOOLS in two clouds:** Pa Llevar / A Dormir copy it to Google Drive
+  and OneDrive as their last step; Wake-up only brings the newest copy of
+  each file down; nothing is ever deleted in a cloud. Each PC sets
+  `ONEDRIVE_TOOLS_DIR` in its `.env`.
 
 Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-17 (Optimum)
