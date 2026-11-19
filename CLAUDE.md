@@ -88,10 +88,10 @@ and leaves a **copy of the latest backup in its root**
 `protocol_backup_tidy.php`; user's rule, 2026-10-19).
 **KT-TOOLS outside git goes through Google Drive (user's rule, 2026-11-04):** photos and material for a company
 (e.g. `KT-TOOLS/files/turismo`, moved there by the user on 2026-11-18) don't depend on one PC: `database/scripts/protocol_tools_sync.php` syncs them both ways with
-`<archive>\..\KT-TOOLS` (newest wins, nothing deleted). Wake-up, Pa Llevar and A Dormir run it. **Everything in KT-TOOLS reaches
+the clouds (push / pull, see "KT-TOOLS in the clouds" below). Wake-up, Pa Llevar and A Dormir run it. **Everything in KT-TOOLS reaches
 every PC (user's rule, 2026-11-15):** what git doesn't carry travels through Drive -- backups (`database`, `SQL`), `Temp`,
 `.env_modelo` and reports with customer data included (only `desktop.ini` left out); GitHub still never gets backups / `.env`
-(2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` from Drive's mirror too.
+(2026-10-27) nor files over 100 MB. The backup tidy removes an old root copy in `KT-TOOLS/database` on the PC only.
 **Never wait on a slow backup step (user's rule, 2026-11-18: "déjalos pendiente y pasa a la siguiente"):** the backup
 before a production write is still made first, but ON the server (`ProdDump::serverBackup`, mysqldump | gzip into
 `murano_deploy/backups_pending/`, ~6 s); bringing it into `<archive>/production/` (download, clean, zip -- 12 min when Drive
@@ -102,6 +102,16 @@ report it as pending.
 screenshots, zips, flyers, manuals and the scripts that build them -- never the Desktop or Downloads (they don't sync between
 PCs) and never a company folder in the root of KT-TOOLS (the user moved turismo, ARCE and kcoltech into `files\`; the old root
 turismo, ARCE and kcoltech copies were deleted locally and on Drive with the user's yes). Then the KT-TOOLS sync.
+**KT-TOOLS in the clouds, like git (user's rules, 2026-11-18):** two copies hold the latest pushed KT-TOOLS -- Google Drive
+`G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\KT-TOOLS` and OneDrive `D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`
+(same paths on Thundera and Optimum; `.env` `KT_TOOLS_ONEDRIVE` overrides). **Push = the LAST step of Pa Llevar and A Dormir**
+(`$toolsMode = 'push'`): both clouds become exactly this PC's `D:\WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS` (a folder created or a
+file deleted here is created / deleted there) and get a `_sync.json` receipt (PC, time, file list). **Pull = Wake-up**
+(`$toolsMode = 'pull'`): it **never writes or deletes in a cloud**; it compares both, takes the newest complete push and makes
+this PC equal to it (files changed here after the last sync are kept). A cloud client may still be downloading another PC's push
+when Wake-up runs: a half-downloaded cloud looks like missing files -- the pull waits, falls back to the other cloud or changes
+nothing; never conclude files were deleted. (2026-11-18 night: Optimum's runs had deleted on Drive the old root turismo / ARCE /
+kcoltech folders and old backup copies, and Drive showed a duplicate `KT-TOOLS (1)` -- the reason for this rule.)
 **Ask before leaving anything out of git or the sync** (user, 2026-11-15: "pregúntame, no tomes decisiones").
 **KT-TOOLS is never in git (user's rule, 2026-11-17):** `.gitignore` has `/KT-TOOLS/` and its 117 tracked files (logos, flyer,
 manuals, reports, ARCE, files...) were removed from the index (kept on disk, uploaded to Drive first). The whole folder

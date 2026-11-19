@@ -34,14 +34,8 @@ $place = function (string $file, string $pc, string $date, string $time, ?string
     $target = $dir.DIRECTORY_SEPARATOR.$standard;
     if (is_file($target)) {
         if (filesize($target) === filesize($file)) {
-            @unlink($file);   // a copy of a file already in place
-            $removed++;
-            // KT-TOOLS travels whole through Drive (2026-11-15): the same old copy leaves Drive's KT-TOOLS too, or the
-            // sync would bring it back on every PC.
-            $mirror = dirname(\App\Support\BackupPaths::archive()).DIRECTORY_SEPARATOR.'KT-TOOLS'.DIRECTORY_SEPARATOR.'database'.DIRECTORY_SEPARATOR.basename($file);
-            if (is_file($mirror) && filesize($mirror) === filesize($target)) {
-                @unlink($mirror);
-            }
+            @unlink($file);   // a copy of a file already in place (on this PC only: the clouds change only with the
+            $removed++;       // KT-TOOLS push of Pa Llevar / A Dormir, which then mirrors this removal -- 2026-11-18)
         }
         return;
     }

@@ -21,8 +21,6 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
 
 2a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before today's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
 
-2b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
-
 3. **Kelsy catch-up** -- every request of this conversation not yet in `kt_logs` gets its row (`.claude/commands/kelsy.md`, written to production by `protocol_kt_log.php`).
 
 4. **README** -- `README.md`, from the `kt_logs` rows being committed: the "Latest changes" block `### <YYYY-MM-DD> (<location>)` at the top (extend today's if it exists), one bullet per change the user would notice, the user's language, no file names; `Setup:` lines when needed (`php artisan migrate`, `npm run build`, `composer install`). Mark the block **"(not in production yet)"** -- these changes were not deployed. Keep the last 5 blocks. Never secrets or customer data.
@@ -34,6 +32,8 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
 
 6. **Push** -- `git push` to `origin`. Rejected because the remote is ahead: `git pull --no-rebase`, resolve only trivial conflicts (ask for anything real), push again. **Never force-push.** **Claude pushes by SSH, never the user by hand** (user's rule, 2026-11-17): same per-PC key and `.git/config` as Pa Llevar's step 8 (`~/.ssh/id_ed25519_github`, `remote.origin.pushurl` SSH, `core.sshCommand`); a PC without them: create and set them, show the user the public key to paste in GitHub, push once it's there. Never ask for a password or token.
 
-7. **Report -- in the chat**: PC, local backup (files + sizes), production backup (file + size), kt_logs rows added, README block, commit hash + subject, push result, what was left out and why, and a reminder that **production was not updated** (Pa Llevar does that when the work is ready).
+6b. **KT-TOOLS to the clouds -- the LAST step** (user's rule, 2026-11-18): `php artisan tinker --execute="$toolsMode = 'push'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): Google Drive (`G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\KT-TOOLS`) and OneDrive (`D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`) become exactly `D:\WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS` (new / changed up, deleted here = deleted there) and get a `_sync.json` receipt the next Wake-up reads. The only moment the clouds change. Report the counts per cloud.
+
+7. **Report -- in the chat**: PC, local backup (files + sizes), production backup (file + size), KT-TOOLS push per cloud, kt_logs rows added, README block, commit hash + subject, push result, what was left out and why, and a reminder that **production was not updated** (Pa Llevar does that when the work is ready).
 
 Why this exists: Pa Llevar ends the day by updating production; A Dormir ends the day on any developer PC without spending time or risk on production for changes that are not ready, while the code still travels to the other PCs through GitHub and both databases are backed up.

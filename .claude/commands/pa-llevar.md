@@ -23,7 +23,6 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 5a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before the day's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
 
-5b. **KT-TOOLS to Google Drive** -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): what is in KT-TOOLS outside git, both ways; newest wins, nothing is deleted. Report the counts.
 
 6. **README** -- `README.md` (the page GitHub shows), from the `kt_logs` rows being committed:
    - **"Latest changes"**: a `### <YYYY-MM-DD> (<location>)` block at the top (extend today's if it exists): one bullet per change the user would notice, with a short line of detail (where it is, what it does, who can use it), the user's language, no file names; then `Setup: php artisan migrate` / `npm run build` / `composer install` when needed. Keep the **last 5 blocks**.
@@ -38,6 +37,8 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 8. **Push** -- `git push` to `origin`. Rejected because the remote is ahead: `git pull --no-rebase`, resolve only trivial conflicts (ask for anything real), push again. **Never force-push.** **Claude pushes by SSH, never the user by hand** (user's rule, 2026-11-17): each PC has its own key `~/.ssh/id_ed25519_github` (no passphrase, added once in GitHub -> Settings -> SSH keys) and this clone's `.git/config` has `remote.origin.pushurl = git@github.com:juanlock/KT-MURANO.LOCAL.git` + `core.sshCommand = C:/Windows/System32/OpenSSH/ssh.exe -i <key> -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new`. A PC without them ("could not read Username" / "Permission denied (publickey)"): create the key (`ssh-keygen -t ed25519 -N "" -C murano-<PC> -f ~/.ssh/id_ed25519_github`), set both config values, show the user the public key to paste in GitHub, and push once it's there. Never ask for a password or token.
 
 9. **Deploy** -- step 1, then the dev data, step 1b (now that everything is committed and pushed).
+
+9b. **KT-TOOLS to the clouds -- the LAST step** (user's rule, 2026-11-18): `php artisan tinker --execute="$toolsMode = 'push'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): Google Drive (`G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\KT-TOOLS`) and OneDrive (`D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`) become exactly `D:\WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS` (new / changed up, deleted here = deleted there) and get a `_sync.json` receipt the next Wake-up reads. The only moment the clouds change. Report the counts per cloud.
 
 10. **Report** to the user: production sync, manual entries changed, build, kt_logs rows added, backup file + size, commit hash + subject, push result, and anything left out and why. Write the same summary into this protocol's `kt_logs` row (Kelsy), so it can be read tomorrow even if the chat closes.
 
