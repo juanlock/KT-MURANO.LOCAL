@@ -247,10 +247,11 @@ Setup: `php artisan migrate`, `npm run build`.
   dispatched".
 - **KT-TOOLS:** each company's material lives in `KT-TOOLS/files/<company>`;
   the sync moves an old root folder (turismo, ARCE, kcoltech) there by itself.
-- **KT-TOOLS in two clouds:** Pa Llevar / A Dormir copy it to Google Drive
-  and OneDrive as their last step; Wake-up only brings the newest copy of
-  each file down; nothing is ever deleted in a cloud. Each PC sets
-  `ONEDRIVE_TOOLS_DIR` in its `.env`.
+- **KT-TOOLS in two clouds, like git:** Pa Llevar / A Dormir end by making
+  Google Drive and OneDrive exactly equal to the PC's KT-TOOLS (what was
+  deleted on the PC is deleted there too); Wake-up only reads them and makes
+  the PC equal to the newest complete push. OneDrive is found from the PC's
+  OneDrive folder (`D:\NetLock\OneDrive\...` on Thundera and Optimum).
 
 Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-17 (Optimum)
