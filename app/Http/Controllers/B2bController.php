@@ -68,7 +68,9 @@ class B2bController extends Controller
             'clients' => DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')->where('name', '!=', 'Walk-in Customer')
                 ->orderBy('name')->get(['id', 'name', 'tax_number']),
             'products' => DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')
-                ->get(['id', 'code', 'name', 'price', 'type']),
+                ->get(['id', 'code', 'name', 'price', 'type', 'unit_sale_id']),
+            'units' => DB::table('units')->where(fn ($w) => $w->where('company_id', $cid)->orWhereNull('company_id'))->whereNull('deleted_at')
+                ->orderBy('ShortName')->get(['id', 'name', 'ShortName']),
             'carriers' => DB::table('b2b_carriers')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->orderBy('name')->get(),
             'reasons' => DB::table('b2b_transfer_reasons')->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $cid))
                 ->where('active', 1)->orderBy('sunat_code')->get(['id', 'sunat_code', 'name', 'direction']),
@@ -211,6 +213,23 @@ class B2bController extends Controller
         return response()->json(['ok' => true, 'sale_id' => $saleId, 'ref' => DB::table('sales')->where('id', $saleId)->value('Ref')]);
     }
 
+    /** Hordex's "Registrar Nueva Factura" (2026-11-20): an invoice typed directly, without guides (no stock movement, like Hordex). */
+    public function storeInvoice(Request $request)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->where('company_id', $cid)],
+            'date' => 'required|date', 'series' => 'nullable|string|max:8', 'number' => 'nullable|integer|min:1',
+            'payment_term_id' => 'nullable|integer', 'purchase_order' => 'nullable|string|max:60', 'notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1', 'items.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('company_id', $cid)],
+            'items.*.quantity' => 'required|numeric|gt:0', 'items.*.price' => 'required|numeric|min:0', 'items.*.unit_id' => 'nullable|integer',
+        ]);
+        $saleId = B2b::createInvoice($cid, (int) $request->user('api')->id, (int) $d['client_id'], $d['items'], $d);
+
+        return response()->json(['ok' => true, 'sale_id' => $saleId, 'ref' => DB::table('sales')->where('id', $saleId)->value('Ref')]);
+    }
+
     // ------------------------------------------------------------------ collections
 
     private function invoiceQuery(int $cid)
@@ -221,7 +240,7 @@ class B2bController extends Controller
 
     public function invoices(Request $request)
     {
-        $this->allow($request, 'b2b_collections');
+        $this->allow($request, 'b2b_collections', 'b2b_invoice');
         $cid = $this->company($request);
         $today = now()->toDateString();
         $q = $this->invoiceQuery($cid)
@@ -255,6 +274,9 @@ class B2bController extends Controller
             ->where('p.sale_id', $id)->whereNull('p.deleted_at')->orderBy('p.date')->orderBy('p.id')
             ->get(['p.id', 'p.date', 'p.montant as amount', 'p.notes', 'i.kind', 'i.document', 'i.document_date', 'i.percent', 'i.expected', 'k.name as concept', 'm.name as method']);
         $s->guides = DB::table('b2b_guides')->where('sale_id', $id)->get(['id', 'series', 'number', 'issue_date']);
+        $s->lines = DB::table('sale_details as d')->leftJoin('products as p', 'p.id', '=', 'd.product_id')->leftJoin('units as u', 'u.id', '=', 'd.sale_unit_id')
+            ->where('d.sale_id', $id)->orderBy('d.id')->get(['p.code', 'p.name', 'd.quantity', 'd.price', 'd.total', 'u.ShortName as unit']);
+        $s->term = DB::table('b2b_sale_info as b')->join('b2b_payment_terms as t', 't.id', '=', 'b.payment_term_id')->where('b.sale_id', $id)->value('t.name');
         $s->concepts = DB::table('b2b_concepts')->where('company_id', $cid)->where('active', 1)
             ->where(fn ($q) => $q->whereNull('client_id')->orWhere('client_id', $s->client_id))->orderBy('name')->get(['id', 'name', 'kind', 'percent']);
 

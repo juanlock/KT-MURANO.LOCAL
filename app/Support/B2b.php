@@ -109,10 +109,6 @@ class B2b
             abort_if($guides->pluck('client_id')->unique()->count() !== 1, 422, __('The guides must be of the same client.'));
             abort_if($guides->contains(fn ($g) => $g->status !== 'dispatched'), 422, __('Only dispatched guides that are not invoiced yet can be invoiced.'));
 
-            $s = self::settings($cid);
-            $series = strtoupper(trim($data['series'] ?? '') ?: $s['invoice_series']);
-            $number = self::nextInvoiceNumber($cid, $series);
-            $date = $data['date'] ?? now()->toDateString();
             $prices = $data['prices'] ?? [];
             $lines = [];
             foreach (DB::table('b2b_guide_items')->whereIn('guide_id', $guideIds)->get() as $it) {
@@ -120,19 +116,44 @@ class B2b
                 $lines[$k] ??= ['product_id' => $it->product_id, 'quantity' => 0];
                 $lines[$k]['quantity'] += (float) $it->quantity;
             }
+            foreach ($lines as $k => $l) {
+                $lines[$k]['price'] = isset($prices[$l['product_id']]) ? (float) $prices[$l['product_id']]
+                    : (float) DB::table('products')->where('id', $l['product_id'])->value('price');
+            }
+            $data['purchase_order'] ??= $guides->pluck('purchase_order')->filter()->unique()->implode(', ') ?: null;
+            $saleId = self::createInvoice($cid, $userId, (int) $guides->first()->client_id, array_values($lines), $data, $guides->first()->warehouse_id);
+            DB::table('b2b_guides')->whereIn('id', $guideIds)->update(['sale_id' => $saleId, 'status' => 'invoiced', 'updated_at' => now()]);
+
+            return $saleId;
+        });
+    }
+
+    /**
+     * One invoice (a sale + b2b_sale_info), from guides or typed directly (Hordex's "Registrar Nueva Factura", 2026-11-20).
+     * $lines = [{product_id, quantity, price (without IGV)}]; $data: date, series, number (typed; else the next one),
+     * payment_term_id, purchase_order, notes. Runs inside the caller's transaction or its own.
+     */
+    public static function createInvoice(int $cid, int $userId, int $clientId, array $lines, array $data, ?int $warehouseId = null): int
+    {
+        return DB::transaction(function () use ($cid, $userId, $clientId, $lines, $data, $warehouseId) {
+            $s = self::settings($cid);
+            $series = strtoupper(trim($data['series'] ?? '') ?: $s['invoice_series']);
+            $number = ! empty($data['number']) ? (int) $data['number'] : self::nextInvoiceNumber($cid, $series);
+            abort_if(DB::table('b2b_sale_info')->where('company_id', $cid)->where('series', $series)->where('number', $number)->exists()
+                || DB::table('sales')->where('company_id', $cid)->whereNull('deleted_at')->where('Ref', self::ref($series, $number))->exists(),
+                422, __('That invoice number already exists.'));
+            $date = $data['date'] ?? now()->toDateString();
             $net = 0;
             foreach ($lines as $k => $l) {
-                $price = isset($prices[$l['product_id']]) ? (float) $prices[$l['product_id']]
-                    : (float) DB::table('products')->where('id', $l['product_id'])->value('price');
-                $lines[$k]['price'] = round($price, 4);
-                $lines[$k]['total'] = round($price * $l['quantity'], 2);
+                $lines[$k]['price'] = round((float) $l['price'], 4);
+                $lines[$k]['total'] = round($lines[$k]['price'] * (float) $l['quantity'], 2);
                 $net += $lines[$k]['total'];
             }
             $igv = round($net * (float) $s['igv'] / 100, 2);
             $term = ! empty($data['payment_term_id']) ? DB::table('b2b_payment_terms')->where('company_id', $cid)->where('id', $data['payment_term_id'])->first() : null;
             $saleId = DB::table('sales')->insertGetId([
                 'company_id' => $cid, 'user_id' => $userId, 'date' => $date, 'time' => now()->format('H:i:s'), 'Ref' => self::ref($series, $number),
-                'is_pos' => 0, 'client_id' => $guides->first()->client_id, 'warehouse_id' => $guides->first()->warehouse_id ?: self::warehouse($cid),
+                'is_pos' => 0, 'client_id' => $clientId, 'warehouse_id' => $warehouseId ?: self::warehouse($cid),
                 'tax_rate' => (float) $s['igv'], 'TaxNet' => $igv, 'discount' => 0, 'shipping' => 0, 'GrandTotal' => round($net + $igv, 2),
                 'paid_amount' => 0, 'payment_statut' => 'unpaid', 'statut' => 'completed', 'notes' => $data['notes'] ?? null,
                 'created_at' => now(), 'updated_at' => now(),
@@ -141,17 +162,16 @@ class B2b
                 DB::table('sale_details')->insert([
                     'date' => $date, 'sale_id' => $saleId, 'product_id' => $l['product_id'], 'price' => $l['price'], 'quantity' => $l['quantity'],
                     'total' => $l['total'], 'TaxNet' => 0, 'tax_method' => '2', 'discount' => 0, 'discount_method' => '2',
-                    'sale_unit_id' => DB::table('products')->where('id', $l['product_id'])->value('unit_sale_id'),
+                    'sale_unit_id' => $l['unit_id'] ?? DB::table('products')->where('id', $l['product_id'])->value('unit_sale_id'),
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
             }
             DB::table('b2b_sale_info')->insert([
                 'sale_id' => $saleId, 'company_id' => $cid, 'series' => $series, 'number' => $number,
-                'purchase_order' => $data['purchase_order'] ?? $guides->pluck('purchase_order')->filter()->unique()->implode(', ') ?: null,
+                'purchase_order' => $data['purchase_order'] ?? null,
                 'payment_term_id' => $term->id ?? null, 'due_date' => $term ? date('Y-m-d', strtotime($date.' +'.(int) $term->days.' days')) : $date,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('b2b_guides')->whereIn('id', $guideIds)->update(['sale_id' => $saleId, 'status' => 'invoiced', 'updated_at' => now()]);
             self::used($cid, $series, $number);
 
             return $saleId;

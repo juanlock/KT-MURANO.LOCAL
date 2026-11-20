@@ -811,6 +811,7 @@ const routes = [
             { path: 'b2b/collections', name: 'b2b-collections', component: () => import('../pages/b2b/B2bCollections.vue'), meta: { title: 'B2B_Menu_Collections', permission: 'b2b_collections' } },
             { path: 'b2b/kardex', name: 'b2b-kardex', component: () => import('../pages/b2b/B2bKardex.vue'), meta: { title: 'B2B_Kardex', permission: 'b2b_view' } },
             { path: 'b2b/purchases', name: 'b2b-purchases', component: () => import('../pages/b2b/B2bPurchases.vue'), meta: { title: 'Compras', permission: 'b2b_view' } },
+            { path: 'b2b/invoices', name: 'b2b-invoices', component: () => import('../pages/b2b/B2bInvoices.vue'), meta: { title: 'Facturas', permission: ['b2b_invoice', 'b2b_collections'] } },
             { path: 'b2b/products', name: 'b2b-products', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'products' }, meta: { title: 'Productos', permission: 'b2b_view' } },
             { path: 'b2b/providers', name: 'b2b-providers', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'providers' }, meta: { title: 'Proveedores', permission: 'b2b_view' } },
             { path: 'b2b/clients', name: 'b2b-clients', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'clients' }, meta: { title: 'Clientes', permission: 'b2b_view' } },

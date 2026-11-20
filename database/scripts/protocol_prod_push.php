@@ -212,8 +212,11 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
     if (! in_array('id', $c)) { $pivots[$t] = $c; continue; }
     $hasC = in_array('created_at', $c); $hasU = in_array('updated_at', $c);
     $byId = isset($devMaxAtPull[$t]);
-    if (! $hasC && ! $hasU && ! $byId) continue;   // no way to tell what changed in dev
-    $changed = $dropLive($t, $d->table($t)->where(function ($q) use ($hasC, $hasU, $since, $byId, $devMaxAtPull, $t) {
+    // One company sent on its own: every row of it (imported history keeps its old dates, and a table born today has no
+    // id at the pull); rows without company_id still by the dates / ids, kept when they hang from that company.
+    $wholeCompany = $keepOnly && in_array('company_id', $c, true);
+    if (! $hasC && ! $hasU && ! $byId && ! $wholeCompany) continue;   // no way to tell what changed in dev
+    $changed = $wholeCompany ? $dropLive($t, $d->table($t)->whereIn('company_id', $liveIds)->get($c)) : $dropLive($t, $d->table($t)->where(function ($q) use ($hasC, $hasU, $since, $byId, $devMaxAtPull, $t) {
         if ($hasC) $q->orWhere('created_at', '>', $since);
         if ($hasU) $q->orWhere('updated_at', '>', $since);
         if ($byId) $q->orWhere('id', '>', $devMaxAtPull[$t]);
@@ -226,11 +229,13 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
         $pr = $prodRows[$row['id']] ?? null;
         $isNew = ($hasC && (string) $row['created_at'] > $since) || $isNewInDev($t, $row);
         if (! $pr) {
-            if ($isNew) { $ins[] = $row; continue; }
+            if ($isNew || $keepOnly) { $ins[] = $row; continue; }
             $conflicts[] = "$t #{$row['id']}: changed in dev but missing in production";
             continue;
         }
         $pr = (array) $pr;
+        // One company sent on its own: production's row with that id belongs to another company -> a new id, never an update.
+        if ($wholeCompany && (int) ($pr['company_id'] ?? 0) !== (int) $row['company_id']) { $remap[$t][$row['id']] = $allocId($t); $ins[] = $row; continue; }
         // Created in dev, but production gave that id to another row meanwhile: it goes up with a new id.
         if ($isNew && (! $hasC || ($pr['created_at'] ?? null) != $row['created_at'])) { $remap[$t][$row['id']] = $allocId($t); $ins[] = $row; continue; }
         $skipCols = array_merge(['id', 'updated_at'], $noUpdateCols[$t] ?? []);

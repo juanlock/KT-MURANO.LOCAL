@@ -859,6 +859,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/guides/{id}/cancel', 'cancelGuide')->whereNumber('id');
         Route::post('/invoice', 'invoice');
         Route::get('/invoices', 'invoices');
+        Route::post('/invoices', 'storeInvoice');
         Route::get('/invoices/{id}', 'invoiceDetail')->whereNumber('id');
         Route::post('/invoices/{id}/payments', 'addPayments')->whereNumber('id');
         Route::delete('/payments/{id}', 'deletePayment')->whereNumber('id');

@@ -17,7 +17,7 @@ return new class extends Migration
         ['/app/b2b/providers', 'Proveedores', 'library'],
         ['/app/b2b/products', 'Productos', 'archive'],
         ['/app/b2b/purchases', 'Compras', 'shopping-cart'],
-        ['/app/sales/list', 'Facturas', 'receipt'],
+        ['/app/b2b/invoices', 'Facturas', 'receipt'],
         ['/app/b2b/guides', 'Guías', 'truck'],
         ['/app/b2b/kardex', 'Kardex', 'clipboard-list'],
         ['/app/b2b/collections', 'Control de pagos', 'wallet'],
@@ -34,9 +34,10 @@ return new class extends Migration
         // Murano's own purchases list back in its group (2026-11-20: the IT Admin keeps it; the Manager uses Hordex's Compras).
         // Same for Murano's customers, suppliers and products lists (the Manager uses Hordex's Clientes / Proveedores / Productos):
         // back under the group the template company 999 has them in.
-        foreach (['/app/purchases/list', '/app/People/Customers', '/app/People/Suppliers', '/app/products/list'] as $key) {
+        foreach (['/app/purchases/list', '/app/People/Customers', '/app/People/Suppliers', '/app/products/list', '/app/sales/list'] as $key) {
             $parent = DB::table('menu_positions')->where('company_id', 999)->where('item_key', $key)->value('parent_key')
-                ?? ['/app/purchases/list' => 'purchases', '/app/People/Customers' => 'People', '/app/People/Suppliers' => 'custom_suppliers', '/app/products/list' => 'products'][$key];
+                ?? ['/app/purchases/list' => 'purchases', '/app/People/Customers' => 'People', '/app/People/Suppliers' => 'custom_suppliers',
+                    '/app/products/list' => 'products', '/app/sales/list' => 'sales'][$key];
             DB::table('menu_positions')->where('company_id', $cid)->where('item_key', $key)->whereNull('parent_key')
                 ->update(['parent_key' => $parent, 'label' => null, 'icon' => null, 'sort_order' => 0, 'updated_at' => now()]);
         }
