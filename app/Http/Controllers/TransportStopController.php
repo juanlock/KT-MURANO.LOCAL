@@ -50,7 +50,7 @@ class TransportStopController extends Controller
         $scope = $this->warehouseScopeIds();
 
         return DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->whereNotNull('warehouse_id')
-            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope ?: [0]))->orderBy('name')->get(['id', 'name', 'warehouse_id']);
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope ?: [0]))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name', 'warehouse_id']);
     }
 
     /** The agency asked for (one of the user's), else their first one. */

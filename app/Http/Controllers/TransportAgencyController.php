@@ -44,7 +44,7 @@ class TransportAgencyController extends Controller
     {
         $scope = $this->warehouseScopeIds();
         $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')
-            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope ?: [0]))->orderBy('name')->get(['id', 'name', 'warehouse_id']);
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope ?: [0]))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name', 'warehouse_id']);
         $ids = $agencies->pluck('id')->map(fn ($v) => (int) $v)->all();
         $places = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')
             ->where(fn ($q) => $q->whereIn('id', $ids ?: [0])->orWhereIn('hub_id', $ids ?: [0]))->get(['id', 'name']);

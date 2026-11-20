@@ -149,7 +149,7 @@ class TransportOperationsController extends Controller
 
         $scope = $this->warehouseScopeIds();
         $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->whereNotNull('warehouse_id')
-            ->when($scope !== null, fn ($x) => $x->whereIn('warehouse_id', $scope))->orderBy('name')->get(['name', 'warehouse_id']);
+            ->when($scope !== null, fn ($x) => $x->whereIn('warehouse_id', $scope))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['name', 'warehouse_id']);
 
         return response()->json([
             'date' => $date,
@@ -305,7 +305,7 @@ class TransportOperationsController extends Controller
         $this->allow($request, 'transport_parcels');
         $cid = $this->company($request);
         $scope = $this->warehouseScopeIds();
-        $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)->orderBy('name')->get(['id', 'name', 'warehouse_id']);
+        $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name', 'warehouse_id']);
         $rates = [];
         foreach (DB::table('transport_routes')->where('company_id', $cid)->whereNull('deleted_at')->whereNotNull('parcel_rate_m3')->get(['origin_id', 'destination_id', 'parcel_rate_m3']) as $r) {
             $rates[$r->origin_id.'-'.$r->destination_id] = (float) $r->parcel_rate_m3;

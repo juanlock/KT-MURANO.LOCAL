@@ -249,7 +249,7 @@ function openDay(r) {
 }
 // "All agencies" first, then the agencies alphabetically.
 const agencyOptions = computed(() => [{ value: 'all', label: L('All agencies', 'Todas las agencias') }]
-  .concat(sortByLabel((data.value.agencies || []).map(a => ({ value: a.id, label: a.name })))));
+  .concat((data.value.agencies || []).map(a => ({ value: a.id, label: a.name }))));
 function pickAgency(id) {
   agencyId.value = id;
   return load();
@@ -260,14 +260,14 @@ async function editInAgency(r) {
   const row = (data.value.rows || []).find(x => x.id === r.id);
   if (row && !closed.value) openTrip(row);
 }
-const routeOptions = computed(() => sortByLabel((data.value.routes || []).map(r => ({ value: r.id, label: r.destination }))));
+const routeOptions = computed(() => (data.value.routes || []).map(r => ({ value: r.id, label: r.destination }))); // line order, from the server
 const vehicleOptions = computed(() => sortByLabel((data.value.vehicles || []).map(v => ({ value: v.id, label: v.name + (v.seats ? ` · ${v.seats}` : '') }))));
 // The agency and its terminals first, then the rest (each part alphabetical).
 const pointOptions = computed(() => {
   const all = data.value.points || [];
   return [
-    { label: L('This agency', 'Esta agencia'), options: sortByLabel(all.filter(p => p.own).map(p => ({ value: p.id, label: p.name }))) },
-    { label: L('Other places', 'Otros lugares'), options: sortByLabel(all.filter(p => !p.own).map(p => ({ value: p.id, label: p.name }))) },
+    { label: L('This agency', 'Esta agencia'), options: all.filter(p => p.own).map(p => ({ value: p.id, label: p.name })) },
+    { label: L('Other places', 'Otros lugares'), options: all.filter(p => !p.own).map(p => ({ value: p.id, label: p.name })) },
   ].filter(g => g.options.length);
 });
 const emptyText = computed(() => (date.value > today ? L('No departures planned for this day yet.', 'Todavía no hay salidas planificadas para este día.') : L('No departures that day.', 'No hay salidas ese día.')));

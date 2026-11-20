@@ -14,6 +14,30 @@ use Illuminate\Support\Facades\DB;
  */
 class TransportAgencies
 {
+    /**
+     * Agencies / terminals in the order of the line (user's rule, 2026-11-19: Lima -> Trujillo -> Chepén -> Chiclayo, never
+     * alphabetical): transport_locations.line_order (a terminal has its agency's), then the name. $alias = the table alias.
+     */
+    public static function lineOrder($query, string $alias = '')
+    {
+        $p = $alias !== '' ? $alias.'.' : '';
+
+        return \Illuminate\Support\Facades\Schema::hasColumn('transport_locations', 'line_order')
+            ? $query->orderByRaw("COALESCE({$p}line_order, 999)")->orderByRaw("CASE WHEN {$p}kind = 'agency' THEN 0 ELSE 1 END")->orderBy($p.'name')
+            : $query->orderBy($p.'name');
+    }
+
+    /** The line position of each location id (for sorting rows built in PHP). */
+    public static function lineMap(int $companyId): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('transport_locations', 'line_order')) {
+            return [];
+        }
+
+        return \Illuminate\Support\Facades\DB::table('transport_locations')->where('company_id', $companyId)
+            ->pluck('line_order', 'id')->map(fn ($v) => $v === null ? 999 : (int) $v)->all();
+    }
+
     public const POS_ROLE = 'Terminal POS';
 
     /** One role for an agency's staff (tickets, parcels, boarding), replacing Terminal POS where it exists (2026-11-19). */

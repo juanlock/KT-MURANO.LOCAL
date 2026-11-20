@@ -142,9 +142,9 @@ const locations = ref([]);
 const has = (s, t) => String(s || '').toLowerCase().includes(t);
 const filteredRoutes = computed(() => { const t = q.value.trim().toLowerCase(); return t ? routes.value.filter(r => has(r.label, t)) : routes.value; });
 const filteredLocations = computed(() => { const t = q.value.trim().toLowerCase(); return t ? locations.value.filter(l => has(l.name, t) || has(l.city, t)) : locations.value; });
-const locationOptions = computed(() => sortByLabel(locations.value.filter(l => l.active).map(l => ({ value: l.id, label: l.name }))));
+const locationOptions = computed(() => locations.value.filter(l => l.active).map(l => ({ value: l.id, label: l.name }))); // line order, from the server
 // The agency a terminal belongs to (dashboard counts).
-const agencyOptions = computed(() => sortByLabel(locations.value.filter(l => l.kind === 'agency' && l.id !== locationForm.value.id).map(l => ({ value: l.id, label: l.name }))));
+const agencyOptions = computed(() => locations.value.filter(l => l.kind === 'agency' && l.id !== locationForm.value.id).map(l => ({ value: l.id, label: l.name })));
 const locationName = computed(() => Object.fromEntries(locations.value.map(l => [l.id, l.name])));
 
 const routeColumns = computed(() => [

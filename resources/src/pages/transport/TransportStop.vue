@@ -246,7 +246,7 @@ const tab = ref('up');
 const busy = ref(null);
 let timer = null;
 
-const agencyOptions = computed(() => sortByLabel(agencies.value.map(a => ({ value: a.id, label: a.name }))));
+const agencyOptions = computed(() => agencies.value.map(a => ({ value: a.id, label: a.name }))); // line order, from the server
 const visibleBuses = computed(() => buses.value.filter(b => showDone.value || b.pending || b.id === tripId.value));
 const doneCount = computed(() => buses.value.filter(b => !b.pending).length);
 const dayLabel = computed(() => (day.value ? fmtDate(day.value) : ''));

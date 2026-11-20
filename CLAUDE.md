@@ -474,6 +474,12 @@ the start of each session).
   Supervisor, Supervisor de flota and Control de Calidad roles became ONE role, Operaciones (`TransportAgencies::operations()`, home
   `/transport/fleet-board`, no profit); a company with that role never gets the three back (`supervisors()` / `fleetSupervisor()`
   skip it). Open with the user: keep Control de Calidad as the standard for the other companies, or Operaciones everywhere.
+- **Turismo's agencies always in the order of the line (user's rule, 2026-11-19): LIMA, TRUJILLO, CHEPÉN, CHICLAYO** (or the
+  reverse) -- every list, filter, button, dropdown, table and chart by agency, and route lists (origin, then destination on the
+  line); never alphabetical (an exception to the dropdowns rule). `transport_locations.line_order` (1-4; a terminal has its
+  agency's number; migration 2026_11_19_220000), `TransportAgencies::lineOrder($query, $alias)` (line, the agency before its
+  terminals, then the name) and `lineMap()` for rows built in PHP; the screens keep the server's order (no `sortByLabel` on agency
+  lists). Rankings stay by their value (best-selling routes, risks by level). A new agency / transport company: set its line_order.
 - **Turismo Cautivo's operating model (user's points after the presentation, 2026-11-18; migration 2026_11_18_190000):** the line is
   Lima (start) <-> Chiclayo (end), Trujillo / Chepén are pass-through agencies run by ONE person (role **Agente de agencia**: POS,
   boarding, parcels, attendance); head office, HR and accounting in Chiclayo -- Mayte (role **Administración y Contabilidad**, login

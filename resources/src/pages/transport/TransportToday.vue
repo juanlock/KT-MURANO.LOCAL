@@ -104,7 +104,7 @@ const warehouseId = ref(undefined);
 const rows = ref([]);
 const agencies = ref([]);
 const loading = ref(false);
-const agencyOptions = computed(() => sortByLabel(agencies.value.map(a => ({ value: a.warehouse_id, label: a.name }))));
+const agencyOptions = computed(() => agencies.value.map(a => ({ value: a.warehouse_id, label: a.name }))); // line order, from the server
 
 async function load() {
   loading.value = true;

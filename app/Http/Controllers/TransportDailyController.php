@@ -64,7 +64,7 @@ class TransportDailyController extends Controller
         $scope = $this->warehouseScopeIds();
 
         return DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)
-            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->orderBy('name')->get(['id', 'name']);
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name']);
     }
 
     private function agency(Request $request, int $cid): object
@@ -210,13 +210,13 @@ class TransportDailyController extends Controller
             'copy_from' => $copyFrom ? substr((string) $copyFrom, 0, 10) : null,
             'rows' => $rows, 'totals' => $this->totals($rows),
             'routes' => DB::table('transport_routes as r')->join('transport_locations as d', 'd.id', '=', 'r.destination_id')->where('r.company_id', $cid)
-                ->where('r.origin_id', $agency->id)->whereNull('r.deleted_at')->where('r.active', 1)->orderBy('d.name')
+                ->where('r.origin_id', $agency->id)->whereNull('r.deleted_at')->where('r.active', 1)->orderByRaw('COALESCE(d.line_order, 999)')->orderBy('d.name')
                 ->get(['r.id', 'd.name as destination', 'r.duration_min'])->map(fn ($r) => ['id' => (int) $r->id, 'destination' => $r->destination, 'minutes' => (int) $r->duration_min])->values(),
             'vehicles' => DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->where(fn ($q) => $q->where('type', 'bus')->orWhereNotNull('seats'))
                 ->orderBy('name')->get(['id', 'name', 'plate_number', 'seats'])
                 ->map(fn ($v) => ['id' => (int) $v->id, 'name' => trim($v->name.($v->plate_number ? ' ('.$v->plate_number.')' : '')), 'seats' => $v->seats ? (int) $v->seats : null])->values(),
             // Boarding points: the agency and its terminals first.
-            'points' => DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->orderBy('name')
+            'points' => DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))
                 ->get(['id', 'name', 'hub_id'])->map(fn ($l) => ['id' => (int) $l->id, 'name' => $l->name, 'own' => (int) $l->id === (int) $agency->id || (int) $l->hub_id === (int) $agency->id])->values(),
         ]);
     }

@@ -147,8 +147,8 @@ function onTable(p) { page.value = p.current; perPage.value = p.pageSize; load()
 // ---- form
 const meta = ref({ origins: [], destinations: [], rates: {}, payment_methods: [], eta_days: [1, 3], cargo_factors: {} });
 const methodOptions = computed(() => sortByLabel((meta.value.payment_methods || []).map(m => ({ value: m.id, label: m.name }))));
-const originOptions = computed(() => sortByLabel(meta.value.origins.map(l => ({ value: l.id, label: l.name }))));
-const destinationOptions = computed(() => sortByLabel(meta.value.destinations.filter(l => l.id !== form.value.from_location_id).map(l => ({ value: l.id, label: l.name }))));
+const originOptions = computed(() => meta.value.origins.map(l => ({ value: l.id, label: l.name }))); // line order (Lima -> Chiclayo), from the server
+const destinationOptions = computed(() => meta.value.destinations.filter(l => l.id !== form.value.from_location_id).map(l => ({ value: l.id, label: l.name })));
 const cargoOptions = computed(() => [{ value: 'general', label: 'General' }, { value: 'fragile', label: es.value ? 'Frágil o de valor' : 'Fragile or valuable' }]);
 const formOpen = ref(false);
 const saving = ref(false);

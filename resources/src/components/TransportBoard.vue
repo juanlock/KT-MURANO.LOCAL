@@ -295,7 +295,7 @@ const fleetStates = computed(() => [
   { key: 'transit', label: tf('Transport_In_Transit', 'In transit') },
   { key: 'maintenance', label: tf('Transport_In_Maintenance', 'In maintenance') },
 ].map(s => ({ ...s, count: data.value.fleet.filter(v => v.state === s.key).length })));
-const routeList = computed(() => [...map.value.routes].sort((x, y) => x.names.localeCompare(y.names)));
+const routeList = computed(() => [...map.value.routes]); // line order (Lima -> Chiclayo), from the server
 // The room left for the three columns: card padding + the strip + the red line, when there is one.
 const gridHeight = computed(() => {
   if (!fit.value) return null;

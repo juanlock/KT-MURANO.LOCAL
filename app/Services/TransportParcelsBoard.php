@@ -24,7 +24,7 @@ class TransportParcelsBoard
         $today = now()->toDateString();
         $agencies = DB::table('transport_locations')->where('company_id', $companyId)->where('kind', 'agency')->whereNull('deleted_at')
             ->when($warehouses !== null, fn ($q) => $q->whereIn('warehouse_id', $warehouses ?: [0]))
-            ->orderBy('name')->get(['id', 'name', 'warehouse_id']);
+            ->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name', 'warehouse_id']);
         $names = DB::table('transport_locations')->where('company_id', $companyId)->pluck('name', 'id');
         // A terminal belongs to its agency (hub_id): a parcel received there counts for the agency.
         $hub = DB::table('transport_locations')->where('company_id', $companyId)->pluck('hub_id', 'id');
@@ -85,7 +85,10 @@ class TransportParcelsBoard
             $perAgency[$a]['income'] += (float) $p->price;
             $perAgency[$a]['delivered'] += $p->status === 'delivered' ? 1 : 0;
         }
-        usort($perAgency, fn ($a, $b) => $b['income'] <=> $a['income']);
+        // In the order of the line (Lima -> Trujillo -> Chepén -> Chiclayo; user's rule, 2026-11-19), not by income.
+        $line = \App\Support\TransportAgencies::lineMap($companyId);
+        uksort($perAgency, fn ($x, $y) => [$line[$x] ?? 999, $perAgency[$x]['name']] <=> [$line[$y] ?? 999, $perAgency[$y]['name']]);
+        $perAgency = array_values($perAgency);
 
         // Pending today by where they must be delivered: still in the agency, or on a bus.
         $pending = [];

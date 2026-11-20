@@ -18,7 +18,7 @@ class TransportDepartures
     public static function compute(int $companyId, string $date, ?int $agencyId, ?array $warehouses): array
     {
         $agencies = DB::table('transport_locations')->where('company_id', $companyId)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)
-            ->when($warehouses !== null, fn ($q) => $q->whereIn('warehouse_id', $warehouses))->orderBy('name')->get(['id', 'name']);
+            ->when($warehouses !== null, fn ($q) => $q->whereIn('warehouse_id', $warehouses))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'name']);
         $ids = $agencies->pluck('id')->all();
         $date = self::reportDay($companyId, $date, $ids);
 

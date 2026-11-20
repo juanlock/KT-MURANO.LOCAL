@@ -121,7 +121,7 @@ class TransportController extends Controller
     {
         $q = $request ? $this->scoped('transport_locations', $request) : DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at');
 
-        return $q->orderBy('name')->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id', 'daily_cost'])
+        return $q->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['id', 'company_id', 'name', 'city', 'address', 'phone', 'description', 'image', 'kind', 'active', 'lat', 'lng', 'hub_id', 'daily_cost'])
             ->map(function ($l) {
                 $l->image_url = $l->image ? asset($l->image) : null;
 
@@ -135,7 +135,7 @@ class TransportController extends Controller
             ->join('transport_locations as o', 'o.id', '=', 'transport_routes.origin_id')
             ->join('transport_locations as d', 'd.id', '=', 'transport_routes.destination_id');
 
-        return $q->orderBy('o.name')->orderBy('d.name')->get(['transport_routes.id', 'transport_routes.company_id', 'transport_routes.origin_id', 'transport_routes.destination_id',
+        return $q->orderByRaw('COALESCE(o.line_order, 999), COALESCE(d.line_order, 999)')->orderBy('o.name')->orderBy('d.name')->get(['transport_routes.id', 'transport_routes.company_id', 'transport_routes.origin_id', 'transport_routes.destination_id',
             'transport_routes.distance_km', 'transport_routes.duration_min', 'transport_routes.toll_cost', 'transport_routes.parcel_rate_m3', 'transport_routes.active', 'o.name as origin', 'd.name as destination'])
             ->map(fn ($r) => (array) $r + ['label' => $r->origin.' → '.$r->destination,
                 'stops' => DB::table('transport_route_stops')->where('route_id', $r->id)->orderBy('seq')->get(['location_id', 'km', 'minutes', 'dwell_min'])]);
@@ -684,7 +684,7 @@ class TransportController extends Controller
 
         // One row per agency; sales of a location that is no agency go together at the end.
         $agencies = DB::table('transport_locations')->where('company_id', $cid)->whereNull('deleted_at')->where('kind', 'agency')->where('active', 1)
-            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->orderBy('name')->get(['name', 'warehouse_id']);
+            ->when($scope !== null, fn ($q) => $q->whereIn('warehouse_id', $scope))->tap(fn ($q) => \App\Support\TransportAgencies::lineOrder($q))->get(['name', 'warehouse_id']);
         $row = fn (?string $name, $wids) => [
             'name' => $name,
             'today' => round((float) $income->whereIn('warehouse_id', $wids)->sum('today_total'), 2),
