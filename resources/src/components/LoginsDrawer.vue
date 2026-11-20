@@ -10,6 +10,9 @@
     <div class="bar">
       <a-segmented v-model:value="type" :options="typeOptions" />
       <a-input-search v-model:value="search" allow-clear :placeholder="tx('Search name, user or email', 'Buscar nombre, usuario o correo')" style="width: 210px" />
+      <a-button v-if="disabledCount" :type="showDisabled ? 'primary' : 'default'" @click="showDisabled = !showDisabled">
+        {{ showDisabled ? tx('Hide disabled', 'Ocultar desactivados') : tx('Show disabled', 'Mostrar desactivados') }} ({{ disabledCount }})
+      </a-button>
       <a-button @click="load"><template #icon><ReloadOutlined /></template></a-button>
     </div>
     <!-- Roles as buttons, like the types above (user's request, 2026-11-11). -->
@@ -146,9 +149,13 @@ const TYPES = {
 };
 const typeLabel = v => (TYPES[v] ? tx(...TYPES[v]) : v);
 // Fixed order (access first, then staff, then outside people), not alphabetical.
-const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')} (${logins.value.length})` }]
-  .concat(Object.keys(TYPES).filter(k => logins.value.some(l => l.type === k))
-    .map(k => ({ value: k, label: `${typeLabel(k)} (${logins.value.filter(l => l.type === k).length})` }))));
+// Disabled logins hidden until "Mostrar desactivados" (user, 2026-11-20: they confused); counts follow what is shown.
+const showDisabled = ref(false);
+const disabledCount = computed(() => logins.value.filter(l => !l.active).length);
+const shown = computed(() => (showDisabled.value ? logins.value : logins.value.filter(l => l.active)));
+const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')} (${shown.value.length})` }]
+  .concat(Object.keys(TYPES).filter(k => shown.value.some(l => l.type === k))
+    .map(k => ({ value: k, label: `${typeLabel(k)} (${shown.value.filter(l => l.type === k).length})` }))));
 // The role as the screen shows it: in Spanish its label (roles.label: Recepción,
 // Médico especialista...), else its name.
 const roleName = r => (ui.locale === 'es' && r.role_label ? r.role_label : r.role);
@@ -158,7 +165,7 @@ const role = ref('all');
 const roleOptions = computed(() => {
   const counts = {};
   const names = {};
-  const ofType = logins.value.filter(l => type.value === 'all' || l.type === type.value);
+  const ofType = shown.value.filter(l => type.value === 'all' || l.type === type.value);
   ofType.filter(l => l.role).forEach(l => { counts[l.role] = (counts[l.role] || 0) + 1; names[l.role] = roleName(l); });
   return [{ value: 'all', label: `${tx('All roles', 'Todos los roles')} (${ofType.length})` }]
     .concat(sortByLabel(Object.entries(counts).map(([name, n]) => ({ value: name, label: `${names[name]} (${n})` }))));
@@ -166,7 +173,7 @@ const roleOptions = computed(() => {
 watch(type, () => { if (role.value !== 'all' && !roleOptions.value.some(o => o.value === role.value)) role.value = 'all'; });
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase();
-  return logins.value.filter(l => (type.value === 'all' || l.type === type.value) && (role.value === 'all' || l.role === role.value)
+  return shown.value.filter(l => (type.value === 'all' || l.type === type.value) && (role.value === 'all' || l.role === role.value)
     && (!q || [l.name, l.username, l.email, l.role, l.role_label].some(v => String(v || '').toLowerCase().includes(q))));
 });
 const columns = computed(() => [

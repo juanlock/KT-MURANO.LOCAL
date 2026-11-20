@@ -114,6 +114,9 @@
         <div class="ts-line">
           <span>{{ $t('Cost_Of_Goods_Sold') }}</span><b>{{ money(num(profit.cogs)) }}</b>
         </div>
+        <!-- Products without a cost (Hordex, 2026-11-20): a "100 % profit" would be false. -->
+        <div v-if="noCosts" class="ts-empty">{{ tr('The products have no cost recorded: the profit cannot be worked out.', 'Los productos no tienen costo registrado: no se puede calcular el beneficio.') }}</div>
+        <template v-else>
         <div class="ts-margin">
           <div class="ts-margin-top">
             <span>{{ $t('Gross_Profit') }}</span><b>{{ money(num(profit.gross)) }}</b>
@@ -132,6 +135,7 @@
           </div>
           <div class="ts-margin-pct">{{ num(profit.net_pct) }}% {{ $t('Of_Sales') }}</div>
         </div>
+        </template>
         <div class="ts-foot">
           <span>{{ $t('Tax_Collected') }} <b>{{ money(num(profit.tax_collected)) }}</b></span>
           <span>{{ $t('Tax_Paid') }} <b>{{ money(num(profit.tax_paid)) }}</b></span>
@@ -179,7 +183,7 @@
         </header>
         <div class="ts-line"><span>{{ $t('On_Hand_At_Cost') }}</span><b>{{ money(num(stock.at_cost)) }}</b></div>
         <div class="ts-line"><span>{{ $t('On_Hand_At_Retail') }}</span><b>{{ money(num(stock.at_retail)) }}</b></div>
-        <div class="ts-line"><span>{{ $t('Potential_Margin') }}</span><b>{{ money(num(stock.margin)) }}</b></div>
+        <div v-if="num(stock.at_cost) > 0" class="ts-line"><span>{{ $t('Potential_Margin') }}</span><b>{{ money(num(stock.margin)) }}</b></div>
         <div class="ts-line ts-line--dim"><span>{{ $t('Units_In_Stock') }}</span><b>{{ num(stock.units).toLocaleString() }}</b></div>
         <div class="ts-line ts-line--dim"><span>{{ $t('OutOfStock') }}</span><b>{{ num(stock.out_of_stock) }}</b></div>
       </section>
@@ -227,6 +231,7 @@ import {
   WarningOutlined, TeamOutlined,
 } from '@ant-design/icons-vue';
 import { useFormat } from '../composables/useFormat';
+import { useTr } from '../lib/useTr';
 import http from '../lib/http';
 
 const props = defineProps({ open: { type: Boolean, default: false } });
@@ -250,6 +255,8 @@ const pay = computed(() => summary.value.payments || {});
 const payMethods = computed(() => pay.value.methods || []);
 const profit = computed(() => summary.value.profit || {});
 const tiles = computed(() => summary.value.tiles || {});
+const noCosts = computed(() => num(profit.value.cogs) === 0 && num(sales.value.net) > 0);
+const tr = useTr();
 
 // Money-in share of the flow bar; 50/50 when nothing moved yet.
 const flowInPct = computed(() => {
@@ -289,7 +296,8 @@ const periodLabel = computed(() => {
   return `${date(from)} — ${date(to)}`;
 });
 
-watch(() => props.open, v => { if (v && !loaded.value) load(); });
+// Reloaded every time it opens (2026-11-20): it kept the first company's figures after a SuperAdmin switched company.
+watch(() => props.open, v => { if (v) { loaded.value = false; load(); } });
 </script>
 
 <style scoped>

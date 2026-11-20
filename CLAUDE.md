@@ -1052,6 +1052,10 @@ the start of each session).
   alertas" (`settings.alerts_enabled`, SuperAdmin or `setting_system`) and, when on, WHICH alerts (`settings.alerts_types`; at least
   one, only those of the company's modules: `PendingWorkController::types()` / `saveTypes()` / `config()`). Off or nothing picked =
   no bell (`pendingWork.enabled`). A new alert type joins that catalog; it is never shown to a company that didn't pick it.
+- **A header icon that belongs to a module shows only when the company has that module on (user's rule, 2026-11-20).**
+  Clock in / out = attendance = the HRM module (`hrm`): no HRM, no clock icon (`AppTopbar` `canClock` uses
+  `auth.moduleEnabled('hrm')`) and `attendance_self` refuses it on the server. A new header icon tied to a module checks
+  that module the same way, besides the role's permission and the header-icon switch.
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared

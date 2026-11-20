@@ -4,7 +4,7 @@
     <!-- Hordex's "Facturas" (user, 2026-11-20: "igual que Guías"): "Listado de Facturas" on the left, "Registrar Nueva Factura"
          on the right; a click on an invoice shows it there. -->
     <a-row :gutter="14">
-      <a-col :xs="24" :xl="14">
+      <a-col :xs="24" :xl="11">
         <a-card size="small" class="side panel">
           <div class="side-head"><h3>Listado de Facturas</h3></div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => openInvoice(r.id)" compact-toolbar table-key="b2b-invoices">
@@ -27,7 +27,7 @@
         </a-card>
       </a-col>
 
-      <a-col :xs="24" :xl="10">
+      <a-col :xs="24" :xl="13">
         <a-card size="small" class="side panel">
           <!-- New invoice -->
           <template v-if="mode === 'new'">
@@ -160,11 +160,11 @@ const crud = useCrudTable('b2b/invoices', {
 const reload = () => crud.reload();
 const statusOptions = [{ value: 'all', label: 'Todas' }, { value: 'pending', label: 'Pendientes' }, { value: 'overdue', label: 'Vencidas' }, { value: 'paid', label: 'Canceladas' }];
 const columns = [
-  { title: 'Factura', key: 'Ref', dataIndex: 'Ref', sorter: true, width: 115 },
-  { title: 'Emisión', key: 'date', dataIndex: 'date', sorter: true, width: 95 },
-  { title: 'Razón Social', key: 'client_name', dataIndex: 'client_name', sorter: true, ellipsis: true },
-  { title: 'Total', key: 'GrandTotal', dataIndex: 'GrandTotal', sorter: true, width: 115, align: 'right' },
-  { title: 'Estado', key: 'estado', width: 64, align: 'center' },
+  { title: 'Factura', key: 'Ref', dataIndex: 'Ref', sorter: true, width: 108 },
+  { title: 'Emisión', key: 'date', dataIndex: 'date', sorter: true, width: 92 },
+  { title: 'Razón Social', key: 'client_name', dataIndex: 'client_name', sorter: true, ellipsis: true, width: 190 },
+  { title: 'Total', key: 'GrandTotal', dataIndex: 'GrandTotal', sorter: true, width: 105, align: 'right' },
+  { title: 'Estado', key: 'estado', width: 58, align: 'center' },
 ];
 const estado = r => (r.statut === 'canceled' ? 'ANULADA' : r.payment_statut === 'paid' ? 'CANCELADA' : 'PENDIENTE');
 
@@ -176,9 +176,11 @@ const igvRate = computed(() => Number(opts.value.settings?.igv || 18));
 
 const mode = ref('new');
 const saving = ref(false);
+// Forma de pago by default: "FACTURA 30 DIAS" (user, 2026-11-20).
+const defaultTerm = () => (opts.value.terms || []).find(t => /^factura\s+30\s+d[ií]as$/i.test(String(t.name).trim()))?.id;
 const blankLine = () => ({ product_id: undefined, price: 0, quantity: 1, unit_id: undefined });
 const blank = () => ({ series: opts.value.settings?.invoice_series || 'E001', number: opts.value.next_invoice, date: dayjs().format('YYYY-MM-DD'),
-  payment_term_id: undefined, client_id: undefined, purchase_order: '', items: [blankLine()] });
+  payment_term_id: defaultTerm(), client_id: undefined, purchase_order: '', items: [blankLine()] });
 const form = reactive({ items: [] });
 const net = computed(() => form.items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0));
 const igv = computed(() => Math.round(net.value * igvRate.value) / 100);

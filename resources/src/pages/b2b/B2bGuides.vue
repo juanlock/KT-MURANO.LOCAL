@@ -285,7 +285,9 @@ async function startInvoice(ids) {
     lines[it.product_id].quantity += Number(it.quantity);
   }));
   Object.assign(inv, { guides: full, client: full[0].client_name, lines: Object.values(lines), series: opts.value.settings?.invoice_series || 'E001',
-    date: dayjs().format('YYYY-MM-DD'), payment_term_id: undefined });
+    date: dayjs().format('YYYY-MM-DD'),
+    // Forma de pago by default: "FACTURA 30 DIAS" (user, 2026-11-20).
+    payment_term_id: (opts.value.terms || []).find(t => /^factura\s+30\s+d[ií]as$/i.test(String(t.name).trim()))?.id });
   mode.value = 'invoice';
 }
 async function emitInvoice() {

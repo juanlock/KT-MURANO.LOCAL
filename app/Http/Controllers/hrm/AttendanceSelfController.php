@@ -23,6 +23,8 @@ class AttendanceSelfController extends Controller
         abort_unless($ok, 403);
         $emp = DB::table('employees')->where('user_id', $user->id)->whereNull('deleted_at')->first(['id', 'company_id', 'office_shift_id', 'firstname', 'lastname']);
         abort_unless($emp, 422, 'Your user is not linked to an employee record.');
+        // Attendance is part of the HRM module: refused when the company has it off (2026-11-20).
+        \App\Support\ModuleFlags::abortUnlessEnabled((int) $emp->company_id, 'hrm');
 
         return $emp;
     }

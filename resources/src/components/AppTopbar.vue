@@ -370,7 +370,8 @@ defineProps({
 const emit = defineEmits(['toggle-sidebar', 'logout']);
 
 // ---------------- Clock in / Clock out (own attendance) ----------------
-const canClock = computed(() => auth.user?.type !== 'SuperAdmin' && auth.can('attendance_self'));
+// Only with the company's HRM module on (attendance lives there; user's rule, 2026-11-20: Hordex has no attendance).
+const canClock = computed(() => auth.user?.type !== 'SuperAdmin' && auth.can('attendance_self') && auth.moduleEnabled('hrm'));
 const clock = ref({ in: false, since: null, busy: false });
 async function loadClock() {
   if (!canClock.value) return;

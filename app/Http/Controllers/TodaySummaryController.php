@@ -139,7 +139,9 @@ class TodaySummaryController extends Controller
                 ->leftJoin('product_variants', 'product_variants.id', '=', 'product_warehouse.product_variant_id')
                 ->whereNull('product_warehouse.deleted_at')
                 ->whereNull('products.deleted_at')
-                ->where('products.type', '!=', 'is_service'),
+                ->where('products.type', '!=', 'is_service')
+                // Only stock on hand: a negative balance (goods sent before being entered, Hordex) is not value (2026-11-20).
+                ->where('product_warehouse.qte', '>', 0),
             'product_warehouse.warehouse_id'
         )
             ->selectRaw('COALESCE(SUM(product_warehouse.qte * COALESCE(product_variants.cost, products.cost, 0)),0) at_cost,
@@ -206,6 +208,7 @@ class TodaySummaryController extends Controller
         $openingReceived = $own(
             DB::table('client_opening_balance_payments')
                 ->join('payment_methods', 'payment_methods.id', '=', 'client_opening_balance_payments.payment_method_id')
+                ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('client_opening_balance_payments.client_id', DB::table('clients')->where('company_id', $cid)->select('id')))
                 ->whereNull('client_opening_balance_payments.deleted_at')
                 ->whereDate('client_opening_balance_payments.date', '>=', $fromDate)->whereDate('client_opening_balance_payments.date', '<=', $toDate),
             'client_opening_balance_payments.user_id'
@@ -220,6 +223,7 @@ class TodaySummaryController extends Controller
         $openingGiven = $own(
             DB::table('provider_opening_balance_payments')
                 ->join('payment_methods', 'payment_methods.id', '=', 'provider_opening_balance_payments.payment_method_id')
+                ->when($this->reportCompanyId(), fn ($q, $cid) => $q->whereIn('provider_opening_balance_payments.provider_id', DB::table('providers')->where('company_id', $cid)->select('id')))
                 ->whereNull('provider_opening_balance_payments.deleted_at')
                 ->whereDate('provider_opening_balance_payments.date', '>=', $fromDate)->whereDate('provider_opening_balance_payments.date', '<=', $toDate),
             'provider_opening_balance_payments.user_id'
@@ -289,6 +293,7 @@ class TodaySummaryController extends Controller
             // Same record restriction the attendance report applies.
             $onShift = (int) $own(
                 DB::table('attendances')
+                    ->when($this->reportCompanyId(), fn ($q, $cid) => $q->where('company_id', $cid))
                     ->whereNull('deleted_at')
                     ->whereDate('date', '>=', $fromDate)->whereDate('date', '<=', $toDate)
                     ->where(function ($q) {

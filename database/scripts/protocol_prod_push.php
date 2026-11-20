@@ -77,6 +77,9 @@ $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM informati
 if (! in_array('is_live', $colsOf($p, 'companies'), true)) { echo "Production has no companies.is_live yet -- deploy the code first (migration 2026_10_26_190000).\n"; return; }
 // Dev -> dev carries every company, the live ones included (they are never sent to production, but every dev PC has them).
 $live = $devToDev ? [] : $p->table('companies')->where('is_live', 1)->pluck('name', 'id')->all();
+// $alsoSkip = [id, ...] (2026-11-20): companies already working in production but not marked is_live yet (HORDEX) --
+// skipped like the live ones in this run.
+if (! $devToDev && ! empty($alsoSkip)) foreach ($p->table('companies')->whereIn('id', $alsoSkip)->pluck('name', 'id') as $sid => $sname) $live[$sid] = $sname;
 if (! $devToDev) echo '  companies in production (never sent): ', implode(', ', array_map(fn ($id, $n) => "$n ($id)", array_keys($live), $live)), PHP_EOL;
 $liveIds = array_map('intval', array_keys($live));
 // Dev -> dev after a Pa Llevar ($onlyCompanies = the live ids): everything else already went to production, so ONLY

@@ -203,6 +203,34 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-20 (Thundera)
+
+- **New module "Distribución B2B" and the company HORDEX EIRL** (migrated from its
+  earlier system, in production): Inicio, Clientes, Proveedores, Productos, Compras,
+  Facturas, Guías, Kardex, Control de pagos and Reportes, laid out like its earlier
+  screens (list on the left, form / detail on the right, a click on a row shows it).
+  Guías: "XML" button reads the SUNAT electronic guide. Facturas: the invoice
+  document (number box, state, amount in words, the chain's withholdings) with
+  Anular / Imprimir / PDF; default payment term "FACTURA 30 DIAS". Reportes: five
+  Excel exports. Only its own modules are on.
+- **Side menu pin** (icons only, submenus on hover); a company can start pinned.
+- **Tables:** compact rows by default, a stronger row highlight, click on a row
+  to open its detail (where a page uses it).
+- **Install the app on this computer** (account menu): installs as
+  "Murano - <company>" with the company's logo, and that computer is trusted.
+- **Sign-in:** a login can ask an emailed code from every new place (IP).
+- **Users:** "email already taken" only when creating a login or changing its
+  email; a customer login of another company never blocks a staff login.
+- **Company logins:** disabled logins hidden, with a "Mostrar desactivados" button.
+- **Como Vamos!:** reloads on every open (it kept the previous company), only the
+  company's attendance / opening balances, stock valued on positive quantities,
+  no false profit when products have no cost.
+- **Clock in / out icon** only when the company has the HRM module.
+- **Projects:** timeline tab, tabs reordered and more visible.
+- **Dev PCs stay in sync** with each other (protocols), never touching production.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-19 (Optimum)
 
 - **Projects work like Asana:** each project opens as its own workspace with
@@ -309,19 +337,6 @@ Setup: `php artisan migrate`, `npm run build`.
   3 agents (`php artisan callcenter:demo --company=1016`).
 - **KT-TOOLS is out of git:** the whole folder travels between the PCs only
   through Google Drive (Wake-up / Pa Llevar / A Dormir sync it).
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-16 (Thundera)
-
-- **KcolTech's new logo** (menu, PDFs, company card, website, forms).
-- **Murano's own logo** on the login pages, the SuperAdmin (AdminSystem) and
-  the user manual; the KcolTech logo stays KcolTech's only.
-- **Murano flyer** (3 pages, Spanish) to offer Murano to any company: public
-  link https://murano.kcoltech.com/murano-flyer.pdf; the SuperAdmin opens or
-  copies it from the manual's header.
-
-Already in production (deployed today with the user's yes).
 
 Setup: `php artisan migrate`, `npm run build`.
 
