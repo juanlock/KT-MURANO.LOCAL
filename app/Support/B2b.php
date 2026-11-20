@@ -65,6 +65,51 @@ class B2b
         DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->update(['b2b_settings' => json_encode($s)]);
     }
 
+    /** An amount in words, Hordex's way: 1416 -> "UN MIL CUATROCIENTOS DIECISEIS Y 00/100" (100 = CIEN, 1e6 = UN MILLON). */
+    public static function words(float $amount): string
+    {
+        $int = (int) floor(round($amount, 2));
+        $cents = (int) round((round($amount, 2) - $int) * 100);
+
+        return self::wordsInt($int).' Y '.str_pad((string) $cents, 2, '0', STR_PAD_LEFT).'/100';
+    }
+
+    private static function wordsInt(int $n): string
+    {
+        $u = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
+        $teen = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISEIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
+        $twenty = ['VEINTE', 'VEINTIUN', 'VEINTIDOS', 'VEINTITRES', 'VEINTICUATRO', 'VEINTICINCO', 'VEINTISEIS', 'VEINTISIETE', 'VEINTIOCHO', 'VEINTINUEVE'];
+        $tens = ['', '', '', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
+        $hundreds = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
+        if ($n === 0) {
+            return 'CERO';
+        }
+        if ($n < 10) {
+            return $u[$n];
+        }
+        if ($n < 20) {
+            return $teen[$n - 10];
+        }
+        if ($n < 30) {
+            return $twenty[$n - 20];
+        }
+        if ($n < 100) {
+            return $tens[intdiv($n, 10)].($n % 10 ? ' Y '.$u[$n % 10] : '');
+        }
+        if ($n === 100) {
+            return 'CIEN';
+        }
+        if ($n < 1000) {
+            return $hundreds[intdiv($n, 100)].($n % 100 ? ' '.self::wordsInt($n % 100) : '');
+        }
+        if ($n < 1000000) {
+            return self::wordsInt(intdiv($n, 1000)).' MIL'.($n % 1000 ? ' '.self::wordsInt($n % 1000) : '');
+        }
+        $m = intdiv($n, 1000000);
+
+        return ($m === 1 ? 'UN MILLON' : self::wordsInt($m).' MILLONES').($n % 1000000 ? ' '.self::wordsInt($n % 1000000) : '');
+    }
+
     public static function ref(string $series, int $number): string
     {
         return $series.'-'.str_pad((string) $number, 6, '0', STR_PAD_LEFT);

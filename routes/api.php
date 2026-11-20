@@ -861,6 +861,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/invoice', 'invoice');
         Route::get('/invoices', 'invoices');
         Route::post('/invoices', 'storeInvoice');
+        Route::post('/invoices/{id}/cancel', 'cancelInvoice')->whereNumber('id');
+        Route::get('/invoices/{id}/pdf', 'invoicePdf')->whereNumber('id');
         Route::get('/invoices/{id}', 'invoiceDetail')->whereNumber('id');
         Route::post('/invoices/{id}/payments', 'addPayments')->whereNumber('id');
         Route::delete('/payments/{id}', 'deletePayment')->whereNumber('id');

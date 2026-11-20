@@ -362,13 +362,75 @@ class B2bController extends Controller
             ->get(['p.id', 'p.date', 'p.montant as amount', 'p.notes', 'i.kind', 'i.document', 'i.document_date', 'i.percent', 'i.expected', 'k.name as concept', 'm.name as method']);
         $s->guides = DB::table('b2b_guides')->where('sale_id', $id)->get(['id', 'series', 'number', 'issue_date']);
         $s->lines = DB::table('sale_details as d')->leftJoin('products as p', 'p.id', '=', 'd.product_id')->leftJoin('units as u', 'u.id', '=', 'd.sale_unit_id')
-            ->where('d.sale_id', $id)->orderBy('d.id')->get(['p.code', 'p.name', 'd.quantity', 'd.price', 'd.total', 'u.ShortName as unit']);
+            ->where('d.sale_id', $id)->orderBy('d.id')->get(['p.code', 'p.name', 'd.quantity', 'd.price', 'd.total', 'u.ShortName as unit', 'u.name as unit_name']);
         $s->term = DB::table('b2b_sale_info as b')->join('b2b_payment_terms as t', 't.id', '=', 'b.payment_term_id')->where('b.sale_id', $id)->value('t.name');
         $s->concepts = DB::table('b2b_concepts')->where('company_id', $cid)->where('active', 1)
             ->where(fn ($q) => $q->whereNull('client_id')->orWhere('client_id', $s->client_id))->orderBy('name')->get(['id', 'name', 'kind', 'percent']);
+        foreach ($this->invoiceDocument($cid, $s) as $k => $v) {
+            $s->$k = $v;
+        }
 
         return response()->json($s);
     }
+
+    /**
+     * What Hordex's invoice document shows (parciales/detalleFactura, 2026-11-20): RUC, unit names, amount in words, the
+     * state (ANULADA / CANCELADA / VENCIDA / PENDIENTE) and, for a client that withholds (agente de retención), the
+     * withholdings -- 3 % fiscal + the client's own deductions / rebate -- and the total to receive.
+     */
+    private function invoiceDocument(int $cid, object $s): array
+    {
+        $client = DB::table('clients')->where('id', $s->client_id)->first(['tax_number', 'notes']);
+        $trunc = fn ($v) => floor($v * 100) / 100;
+        $total = (float) $s->GrandTotal;
+        $ret = [];
+        if ($client && stripos((string) $client->notes, 'retenci') !== false) {
+            $ret[] = ['name' => 'Retención Fiscal 3%', 'amount' => $trunc($total * 0.03)];
+            foreach (DB::table('b2b_concepts')->where('company_id', $cid)->where('client_id', $s->client_id)->where('active', 1)
+                ->whereIn('kind', ['deduction', 'rebate'])->where('percent', '>', 0)->where('name', 'not like', 'Crossdocking%')->orderBy('id')->get() as $k) {
+                $ret[] = ['name' => $k->name.' '.rtrim(rtrim(number_format((float) $k->percent, 2), '0'), '.').'%', 'amount' => $trunc($total * $k->percent / 100)];
+            }
+        }
+        $state = $s->statut === 'canceled' ? 'ANULADA' : ($s->payment_statut === 'paid' ? 'CANCELADA'
+            : ($s->due_date && $s->due_date < now()->toDateString() ? 'VENCIDA' : 'PENDIENTE'));
+
+        return [
+            'tax_number' => $client->tax_number ?? null, 'words' => B2b::words($total).' SOLES', 'state' => $state,
+            'retentions' => $ret, 'to_receive' => $ret ? round($total - array_sum(array_column($ret, 'amount')), 2) : null,
+        ];
+    }
+
+    /** Hordex's "ANULAR FACTURA": not when paid; its guides go back to "to invoice". */
+    public function cancelInvoice(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        DB::transaction(function () use ($cid, $id) {
+            $s = DB::table('sales')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->lockForUpdate()->first();
+            abort_unless($s, 404);
+            abort_if($s->statut === 'canceled', 422, __('The invoice is already cancelled.'));
+            abort_if((float) $s->paid_amount > 0, 422, __('The invoice has payments: remove them first.'));
+            DB::table('sales')->where('id', $id)->update(['statut' => 'canceled', 'updated_at' => now()]);
+            DB::table('b2b_guides')->where('company_id', $cid)->where('sale_id', $id)->update(['sale_id' => null, 'status' => 'dispatched', 'updated_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** The invoice as Hordex printed it, PDF (inline: the page prints it or downloads it). */
+    public function invoicePdf(Request $request, int $id)
+    {
+        $data = $this->invoiceDetail($request, $id)->getData();
+        $cid = $this->company($request);
+        $co = DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->first(['CompanyName', 'logo', 'CompanyAdress', 'CompanyPhone', 'email', 'vat_number']);
+        $logo = $co && $co->logo && is_file(public_path($co->logo)) ? 'data:image/'.pathinfo($co->logo, PATHINFO_EXTENSION).';base64,'.base64_encode(file_get_contents(public_path($co->logo))) : null;
+        $html = view('pdf.b2b_invoice', ['f' => $data, 'co' => $co, 'logo' => $logo])->render();
+
+        return response(\PDF::loadHTML($html)->setPaper('a4')->output(), 200, [
+            'Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$data->Ref.'.pdf"',
+        ]);
+    }
+
 
     public function addPayments(Request $request, int $id)
     {
