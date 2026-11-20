@@ -1,0 +1,14 @@
+[
+    {
+        "remote": "murano_deploy\/backups_pending\/u893406529_dbmurano2_2026-11-19_11-20-34-PM_before_migrate.sql.gz",
+        "db": "u893406529_dbmurano2",
+        "label": "before_migrate",
+        "at": "2026-11-19 23:20:38"
+    },
+    {
+        "remote": "murano_deploy\/backups_pending\/u893406529_dbmurano2_2026-11-19_11-23-19-PM_before_push.sql.gz",
+        "db": "u893406529_dbmurano2",
+        "label": "before_push",
+        "at": "2026-11-19 23:23:23"
+    }
+]
