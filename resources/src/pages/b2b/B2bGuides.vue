@@ -40,8 +40,14 @@
           <!-- New guide -->
           <template v-if="mode === 'new'">
             <div class="side-head">
-              <h3>{{ tr('Register new guide', 'Registrar Nueva Guía') }} <span class="mono muted">{{ ref(form.series, opts.next_guide) }}</span></h3>
+              <h3>{{ tr('Register new guide', 'Registrar Nueva Guía') }} <span class="mono muted">{{ ref(form.series, form.number || opts.next_guide) }}</span></h3>
+              <a-space>
+                <a-button size="small" :loading="readingXml" @click="xmlInput.click()"><CloudUploadOutlined /> XML</a-button>
+                <a-button v-if="form.number" size="small" @click="newGuide">{{ tr('Clear', 'Limpiar') }}</a-button>
+              </a-space>
+              <input ref="xmlInput" type="file" accept=".xml,text/xml,application/xml" style="display: none" @change="importXml" />
             </div>
+            <a-alert v-if="xmlWarnings.length" type="warning" show-icon class="xml-warn" :message="xmlWarnings.join(' · ')" />
             <a-form layout="vertical" class="tight">
               <a-row :gutter="8">
                 <a-col :span="8"><a-form-item :label="tr('Issue date', 'Fecha de emisión')"><a-date-picker v-model:value="form.issue_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
@@ -154,7 +160,7 @@
 import { ref as vref, reactive, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { PlusOutlined, DeleteOutlined, FileDoneOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, DeleteOutlined, FileDoneOutlined, CloudUploadOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
@@ -207,9 +213,38 @@ const mode = vref('new');
 const saving = vref(false);
 const blank = () => ({ series: opts.value.settings?.guide_series || 'EG07', issue_date: dayjs().format('YYYY-MM-DD'), transfer_date: dayjs().format('YYYY-MM-DD'),
   client_id: undefined, address_id: undefined, reason_id: (opts.value.reasons || []).find(r => r.sunat_code === '01')?.id, carrier_id: undefined,
-  plate: '', driver_license: '', purchase_order: '', items: [{ product_id: undefined, quantity: 1, unit: 'UND' }] });
+  plate: '', driver_license: '', purchase_order: '', delivery_address: undefined, number: undefined, items: [{ product_id: undefined, quantity: 1, unit: 'UND' }] });
 const form = reactive({ items: [] });
-function newGuide() { Object.assign(form, blank()); mode.value = 'new'; }
+function newGuide() { Object.assign(form, blank()); xmlWarnings.value = []; mode.value = 'new'; }
+
+// ---- Hordex's "XML" button: the SUNAT electronic guide fills the form (its own series and number).
+const xmlInput = vref(null);
+const readingXml = vref(false);
+const xmlWarnings = vref([]);
+async function importXml(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!/\.xml$/i.test(file.name)) { message.error(tr('Only XML files', 'Solo se admiten archivos con formato XML')); return; }
+  readingXml.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await http.post('b2b/guides/xml', fd);
+    newGuide();
+    Object.assign(form, {
+      series: r.series || form.series, number: r.number || undefined, issue_date: r.issue_date || form.issue_date,
+      transfer_date: r.transfer_date || form.transfer_date, client_id: r.client_id || undefined, address_id: r.address_id || undefined,
+      delivery_address: r.delivery_address || undefined, reason_id: r.reason_id || form.reason_id, carrier_id: r.carrier_id || undefined,
+      plate: r.plate || '', driver_license: r.driver_license || '', purchase_order: r.purchase_order || '',
+      items: r.items?.length ? r.items.map(i => ({ product_id: i.product_id || undefined, quantity: i.quantity, unit: i.unit || 'UND' })) : form.items,
+    });
+    xmlWarnings.value = r.warnings || [];
+    message.success(tr('XML read: check and save the guide', 'XML leído: revise y guarde la guía'));
+  } catch (err) {
+    message.error(err?.data?.message || tr('Could not read the XML', 'No se pudo leer el XML'));
+  } finally { readingXml.value = false; }
+}
 function addLine() { form.items.push({ product_id: undefined, quantity: 1, unit: 'UND' }); }
 function onCarrier(id) {
   const c = (opts.value.carriers || []).find(x => x.id === id);
@@ -296,6 +331,7 @@ onMounted(async () => { await loadOptions(); newGuide(); crud.fetchRows(); });
 .lines tfoot td { border: 0; padding: 2px 6px; }
 .lines tfoot .tot td { font-weight: 700; font-size: 14px; }
 .save { margin-top: 10px; }
+.xml-warn { margin-bottom: 8px; }
 .mono { font-family: ui-monospace, Consolas, monospace; }
 .num { font-variant-numeric: tabular-nums; }
 .muted { opacity: 0.6; }

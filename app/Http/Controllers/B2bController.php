@@ -139,12 +139,96 @@ class B2bController extends Controller
         return response()->json($g);
     }
 
+    /**
+     * POST b2b/guides/xml (file) -- Hordex's "XML" button (2026-11-20): reads the SUNAT electronic remission guide
+     * (UBL 2.1 DespatchAdvice) and returns the new-guide form filled: series / number, dates, reason (HandlingCode),
+     * client (RUC), delivery point (SUNAT annex), PO (Note "OC: ..."), carrier (RUC), plate, license and the lines
+     * (SellersItemIdentification = product code). Nothing is saved; what isn't found comes back in `warnings`.
+     */
+    public function guideFromXml(Request $request)
+    {
+        $this->allow($request, 'b2b_guides');
+        $cid = $this->company($request);
+        $request->validate(['file' => 'required|file|max:2048']);
+        libxml_use_internal_errors(true);
+        $xml = simplexml_load_string((string) file_get_contents($request->file('file')->getRealPath()), 'SimpleXMLElement', LIBXML_NONET);
+        // === false: a DespatchAdvice has only prefixed children, so the element itself casts to false.
+        abort_if($xml === false, 422, __('The file is not a valid XML.'));
+        $ns = $xml->getNamespaces(true);
+        abort_unless(isset($ns['cbc'], $ns['cac']), 422, __('This XML is not a SUNAT remission guide.'));
+        $xml->registerXPathNamespace('cac', $ns['cac']);
+        $xml->registerXPathNamespace('cbc', $ns['cbc']);
+        $one = function (array $paths) use ($xml) {
+            foreach ($paths as $p) {
+                $n = @$xml->xpath($p);
+                if ($n && trim((string) $n[0]) !== '') {
+                    return trim((string) $n[0]);
+                }
+            }
+
+            return null;
+        };
+        $ids = array_map('strval', $xml->xpath('//cbc:ID') ?: []);
+        $warn = [];
+
+        $docId = $one(['/*/cbc:ID']) ?? ($ids[0] ?? '');
+        [$series, $number] = array_pad(explode('-', $docId, 2), 2, null);
+        $date = fn ($v) => $v ? substr($v, 0, 10) : null;
+        $issue = $date($one(['/*/cbc:IssueDate']));
+        $start = $date($one(['//cac:ShipmentStage/cac:TransitPeriod/cbc:StartDate', '//cbc:StartDate']));
+        $handling = $one(['//cac:Shipment/cbc:HandlingCode', '//cbc:HandlingCode']);
+        $clientRuc = $one(['//cac:DeliveryCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID', '//cac:DeliveryCustomerParty/cbc:CustomerAssignedAccountID']) ?? ($ids[4] ?? null);
+        $annex = $one(['//cac:Delivery/cac:DeliveryAddress/cbc:AddressTypeCode', '//cac:DeliveryAddress/cbc:AddressTypeCode']);
+        $street = $one(['//cac:Delivery/cac:DeliveryAddress/cac:AddressLine/cbc:Line', '//cac:DeliveryAddress/cac:AddressLine/cbc:Line']);
+        $note = $one(['/*/cbc:Note', '//cbc:Note']) ?? '';
+        $po = str_contains($note, ':') ? trim(explode(':', $note, 2)[1]) : null;
+        $carrierRuc = $one(['//cac:ShipmentStage/cac:CarrierParty/cac:PartyIdentification/cbc:ID']) ?? ($ids[6] ?? null);
+        $plate = $one(['//cac:TransportHandlingUnit/cac:TransportEquipment/cbc:ID', '//cac:TransportMeans/cac:RoadTransport/cbc:LicensePlateID']) ?? ($ids[13] ?? null);
+        $license = $one(['//cac:DriverPerson/cac:IdentityDocumentReference/cbc:ID']) ?? ($ids[8] ?? null);
+
+        $client = $clientRuc ? DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')->where('tax_number', $clientRuc)->first(['id', 'name']) : null;
+        if (! $client) {
+            $warn[] = __('Client not found').': RUC '.($clientRuc ?: '?');
+        }
+        $address = $client && $annex !== null ? DB::table('b2b_client_addresses')->where('company_id', $cid)->where('client_id', $client->id)
+            ->whereNull('deleted_at')->where('sunat_annex', $annex)->value('id') : null;
+        $reason = $handling ? DB::table('b2b_transfer_reasons')->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $cid))
+            ->where('sunat_code', $handling)->value('id') : null;
+        $carrier = $carrierRuc ? DB::table('b2b_carriers')->where('company_id', $cid)->whereNull('deleted_at')->where('ruc', $carrierRuc)->value('id') : null;
+        if ($carrierRuc && ! $carrier) {
+            $warn[] = __('Carrier not found').': RUC '.$carrierRuc;
+        }
+        $items = [];
+        foreach ($xml->xpath('//cac:DespatchLine') ?: [] as $line) {
+            $line->registerXPathNamespace('cac', $ns['cac']);
+            $line->registerXPathNamespace('cbc', $ns['cbc']);
+            $code = trim((string) ($line->xpath('cac:Item/cac:SellersItemIdentification/cbc:ID')[0] ?? ''));
+            $qtyNode = $line->xpath('cbc:DeliveredQuantity')[0] ?? null;
+            $name = trim((string) ($line->xpath('cac:Item/cbc:Description')[0] ?? ''));
+            $pid = $code !== '' ? DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->where('code', $code)->value('id') : null;
+            if (! $pid) {
+                $warn[] = __('Product not found').': '.($code ?: '?').($name ? ' '.$name : '');
+            }
+            $items[] = ['product_id' => $pid, 'quantity' => (float) $qtyNode, 'unit' => 'UND'];
+        }
+        if ($series && $number && DB::table('b2b_guides')->where('company_id', $cid)->where('series', strtoupper($series))->where('number', (int) $number)->whereNull('deleted_at')->exists()) {
+            $warn[] = __('That guide number already exists.').' '.B2b::ref(strtoupper($series), (int) $number);
+        }
+
+        return response()->json([
+            'series' => $series ? strtoupper($series) : null, 'number' => $number ? (int) $number : null,
+            'issue_date' => $issue, 'transfer_date' => $start ?: $issue, 'reason_id' => $reason, 'client_id' => $client->id ?? null,
+            'address_id' => $address, 'delivery_address' => $address ? null : $street, 'purchase_order' => $po, 'carrier_id' => $carrier,
+            'plate' => $plate, 'driver_license' => $license, 'items' => $items, 'warnings' => $warn,
+        ]);
+    }
+
     public function storeGuide(Request $request)
     {
         $this->allow($request, 'b2b_guides');
         $cid = $this->company($request);
         $d = $request->validate([
-            'series' => 'nullable|string|max:8', 'issue_date' => 'required|date', 'transfer_date' => 'nullable|date',
+            'series' => 'nullable|string|max:8', 'number' => 'nullable|integer|min:1', 'issue_date' => 'required|date', 'transfer_date' => 'nullable|date',
             'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->where('company_id', $cid)],
             'address_id' => 'nullable|integer', 'delivery_address' => 'nullable|string|max:255', 'reason_id' => 'required|integer',
             'carrier_id' => 'nullable|integer', 'plate' => 'nullable|string|max:15', 'driver_license' => 'nullable|string|max:30',
@@ -156,7 +240,10 @@ class B2bController extends Controller
         $series = strtoupper(trim($d['series'] ?? '') ?: $s['guide_series']);
 
         $id = DB::transaction(function () use ($cid, $d, $series, $request) {
-            $number = B2b::nextGuideNumber($cid, $series);
+            // A guide imported from its SUNAT XML keeps that XML's number (Hordex's "XML" button).
+            $number = ! empty($d['number']) ? (int) $d['number'] : B2b::nextGuideNumber($cid, $series);
+            abort_if(DB::table('b2b_guides')->where('company_id', $cid)->where('series', $series)->where('number', $number)->whereNull('deleted_at')->exists(),
+                422, __('That guide number already exists.').' '.B2b::ref($series, $number));
             $carrier = ! empty($d['carrier_id']) ? DB::table('b2b_carriers')->where('company_id', $cid)->where('id', $d['carrier_id'])->first() : null;
             $address = ! empty($d['address_id']) ? DB::table('b2b_client_addresses')->where('company_id', $cid)->where('id', $d['address_id'])->first() : null;
             $id = DB::table('b2b_guides')->insertGetId([

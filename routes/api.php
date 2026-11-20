@@ -855,6 +855,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::put('/masters/{type}/{id}', 'saveMaster')->where('type', '[a-z]+')->whereNumber('id');
         Route::get('/guides', 'guides');
         Route::post('/guides', 'storeGuide');
+        Route::post('/guides/xml', 'guideFromXml');
         Route::get('/guides/{id}', 'guide')->whereNumber('id');
         Route::post('/guides/{id}/cancel', 'cancelGuide')->whereNumber('id');
         Route::post('/invoice', 'invoice');
