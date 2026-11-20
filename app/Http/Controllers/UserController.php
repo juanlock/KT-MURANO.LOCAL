@@ -348,8 +348,9 @@ class UserController extends BaseController
         $companyId = $this->resolveActingCompanyId($request);
 
         $this->validate($request, [
-            // Soft-deleted users don't hold on to their email.
-            'email' => ['required', Rule::unique('users')->whereNull('deleted_at')],
+            // Soft-deleted users don't hold on to their email. Users -> Add makes admin logins only: a customer portal login with
+            // the same email doesn't count (user's rule, 2026-11-16 / 2026-11-20: Hordex's Miguel = KcolTech's customer).
+            'email' => ['required', Rule::unique('users')->whereNull('deleted_at')->where(fn ($q) => $q->where('type', '!=', 'customer'))],
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
@@ -719,7 +720,17 @@ class UserController extends BaseController
         $this->validate($request, [
             // Soft-deleted users don't hold on to their email -- otherwise a
             // deleted user sharing this email blocks every save of this one.
-            'email' => ['required', 'email', Rule::unique('users')->ignore($id)->whereNull('deleted_at')],
+            // Customer logins are unique only among that company's customers; staff / supplier / agent logins install-wide
+            // among themselves (a customer login of another company with the same email doesn't count; 2026-11-20).
+            // Editing without changing the email never asks (user, 2026-11-20: "debe salir cuando se crea, no cuando se edita").
+            'email' => ['required', 'email', strcasecmp((string) $request->email, (string) User::where('id', $id)->value('email')) === 0 ? 'nullable' : Rule::unique('users')->ignore($id)->whereNull('deleted_at')->where(function ($q) use ($id) {
+                $target = User::where('id', $id)->first(['type', 'company_id']);
+                if ($target && $target->type === 'customer') {
+                    $q->where(fn ($w) => $w->where('type', '!=', 'customer')->orWhere('company_id', $target->company_id));
+                } else {
+                    $q->where('type', '!=', 'customer');
+                }
+            })],
             // Roles are per-company copies: only this user's company's own.
             'role' => ['required', Rule::exists('roles', 'id')->where('company_id', $targetCompanyId)->whereNull('deleted_at')],
             'pin' => 'nullable|digits_between:4,8',
@@ -897,8 +908,9 @@ class UserController extends BaseController
             'firstname' => 'required',
             'lastname' => 'required',
             'username' => 'required',
-            'email' => 'required|email|unique:users',
-            'email' => Rule::unique('users')->ignore($id),
+            // Unchanged email = no check; a new one must be free among staff logins (customer logins don't count; 2026-11-20).
+            'email' => ['required', 'email', strcasecmp((string) $request->email, (string) Auth::user()->email) === 0 ? 'nullable'
+                : Rule::unique('users')->ignore(Auth::user()->id)->whereNull('deleted_at')->where(fn ($q) => $q->where('type', '!=', 'customer'))],
             'phone' => 'required',
         ]
         );
