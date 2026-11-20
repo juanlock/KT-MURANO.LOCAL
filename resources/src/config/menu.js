@@ -942,11 +942,8 @@ export const MENU = [
         children: [
             { label: 'Dashboard', to: '/app/projects/dashboard', permissions: ['projects'] },
             { label: 'Projects', to: '/app/projects', permissions: ['projects'] },
-            { label: 'Tasks', to: '/app/tasks', permissions: ['tasks'] },
-            { label: 'Task Board', to: '/app/tasks/board', permissions: ['tasks'] },
-            { label: 'Milestones', to: '/app/projects/milestones', permissions: ['project_milestones'] },
-            { label: 'Timesheets', to: '/app/projects/timesheets', permissions: ['project_timesheets'] },
-            { label: 'Project Reports', to: '/app/projects/reports', permissions: ['project_reports'] },
+            // 2026-11-19 (user, "like Asana"): tasks, board, milestones, timesheets, calendar and the report are tabs
+            // INSIDE each project (/projects/{id}), not cross-project lists in the menu. Their old addresses still open.
         ],
     },
     {

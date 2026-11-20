@@ -13,6 +13,22 @@ use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesProjects; // multicompany (2026-11-19): tasks of the list company's projects only
+
+    /** Projects offered by the forms / filters: the list company's. */
+    private function projectList(Request $request)
+    {
+        return $this->scopeListToCompany(Project::where('deleted_at', '=', null), $request)->orderBy('id', 'desc')->get(['id', 'title', 'company_id']);
+    }
+
+    /** The task's company is its project's (never another company's project). */
+    private function projectCompanyId(Request $request): int
+    {
+        $this->abortUnlessProjectInScope($request, $request['project_id']);
+
+        return (int) Project::whereKey($request['project_id'])->value('company_id');
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -45,7 +61,7 @@ class TaskController extends Controller
             3 => 'end_date',
             4 => 'company_id',
         ];
-        $tasks = Task::with('company', 'project')->where('deleted_at', '=', null);
+        $tasks = $this->onlyScopedProjects(Task::with('company', 'project')->where('deleted_at', '=', null), $request);
 
         // Multiple Filter
         $Filtred = $helpers->filter($tasks, $columns, $param, $request)
@@ -80,29 +96,29 @@ class TaskController extends Controller
             $item['title'] = $task->title;
             $item['start_date'] = $task->start_date;
             $item['end_date'] = $task->end_date;
-            $item['project_title'] = $task['project']->title;
-            $item['company_name'] = $task['company']->name;
+            $item['project_title'] = optional($task['project'])->title;
+            $item['company_name'] = optional($task['company'])->name;
             $item['status'] = $task->status;
 
             $data[] = $item;
         }
 
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
-        $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
+        $projects = $this->projectList($request);
 
-        $count_not_started = Task::where('deleted_at', '=', null)
+        $count_not_started = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'not_started')
             ->count();
 
-        $count_in_progress = Task::where('deleted_at', '=', null)
+        $count_in_progress = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'progress')
             ->count();
 
-        $count_cancelled = Task::where('deleted_at', '=', null)
+        $count_cancelled = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'cancelled')
             ->count();
 
-        $count_completed = Task::where('deleted_at', '=', null)
+        $count_completed = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'completed')
             ->count();
 
@@ -128,7 +144,7 @@ class TaskController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Task::class);
 
-        $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
+        $projects = $this->projectList($request);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
@@ -155,16 +171,17 @@ class TaskController extends Controller
             'status' => 'required',
             'company_id' => 'required',
         ]);
+        $cid = $this->projectCompanyId($request);
 
         $task = Task::create([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
             'end_date' => $request['end_date'],
             'project_id' => $request['project_id'],
-            'company_id' => $request['company_id'],
+            'company_id' => $cid,
             'status' => $request['status'],
             'description' => $request['description'],
-            'priority' => $request['priority'],
+            'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
         ]);
@@ -207,9 +224,9 @@ class TaskController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Task::class);
 
-        $task = Task::where('deleted_at', '=', null)->findOrFail($id);
+        $task = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)->findOrFail($id);
         $assigned_employees = EmployeeTask::where('task_id', $id)->pluck('employee_id')->toArray();
-        $projects = Project::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'title']);
+        $projects = $this->projectList($request);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $employees = Employee::where('company_id', $task->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
@@ -241,16 +258,18 @@ class TaskController extends Controller
             'status' => 'required',
             'company_id' => 'required',
         ]);
+        $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)->findOrFail($id);
+        $cid = $this->projectCompanyId($request);
 
         Task::whereId($id)->update([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
             'end_date' => $request['end_date'],
             'project_id' => $request['project_id'],
-            'company_id' => $request['company_id'],
+            'company_id' => $cid,
             'status' => $request['status'],
             'description' => $request['description'],
-            'priority' => $request['priority'],
+            'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
         ]);
@@ -272,7 +291,7 @@ class TaskController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Task::class);
 
-        Task::whereId($id)->update([
+        $this->onlyScopedProjects(Task::whereId($id), $request)->update([
             'deleted_at' => Carbon::now(),
         ]);
 
@@ -292,7 +311,7 @@ class TaskController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'view', Task::class);
 
-        $tasks = Task::with('project')->where('deleted_at', '=', null)
+        $tasks = $this->onlyScopedProjects(Task::with('project')->where('deleted_at', '=', null), $request)
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('priority'), fn ($q) => $q->where('priority', $request->priority))
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'LIKE', "%{$request->search}%"))
@@ -343,7 +362,7 @@ class TaskController extends Controller
             'status' => 'required|in:not_started,progress,completed,cancelled',
         ]);
 
-        $task = Task::where('deleted_at', '=', null)->findOrFail($request->id);
+        $task = $this->onlyScopedProjects(Task::where('deleted_at', '=', null), $request)->findOrFail($request->id);
         $task->status = $request->status;
         // Completing from the board should not leave the bar at 40%.
         if ($request->status === 'completed') {

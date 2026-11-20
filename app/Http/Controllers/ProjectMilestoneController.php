@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
  */
 class ProjectMilestoneController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesProjects; // multicompany: only the list company's projects (2026-11-19)
+
     private const SORTABLE = ['id', 'title', 'due_date', 'status', 'progress', 'position', 'created_at'];
 
     public function index(Request $request)
@@ -25,7 +27,7 @@ class ProjectMilestoneController extends Controller
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'due_date';
         $dir = strtolower((string) $request->SortType) === 'desc' ? 'desc' : 'asc';
 
-        $query = ProjectMilestone::with('project')->whereNull('deleted_at')
+        $query = $this->onlyScopedProjects(ProjectMilestone::query(), $request)->with('project')->whereNull('deleted_at')
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->boolean('overdue'), fn ($q) => $q->where('status', '!=', 'completed')
@@ -52,6 +54,7 @@ class ProjectMilestoneController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', ProjectMilestone::class);
 
         $request->validate($this->rules());
+        $this->abortUnlessProjectInScope($request, $request->project_id);
 
         ProjectMilestone::create($this->payload($request) + [
             'created_by' => optional($request->user('api'))->id,
@@ -65,7 +68,8 @@ class ProjectMilestoneController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', ProjectMilestone::class);
 
         $request->validate($this->rules());
-        ProjectMilestone::whereNull('deleted_at')->findOrFail($id)->update($this->payload($request));
+        $this->abortUnlessProjectInScope($request, $request->project_id);
+        $this->onlyScopedProjects(ProjectMilestone::whereNull('deleted_at'), $request)->findOrFail($id)->update($this->payload($request));
 
         return response()->json(['success' => true]);
     }
@@ -77,7 +81,7 @@ class ProjectMilestoneController extends Controller
 
         $request->validate(['status' => 'required|in:pending,in_progress,completed,delayed']);
 
-        $milestone = ProjectMilestone::whereNull('deleted_at')->findOrFail($id);
+        $milestone = $this->onlyScopedProjects(ProjectMilestone::whereNull('deleted_at'), $request)->findOrFail($id);
         $milestone->update($this->applyCompletion([
             'status' => $request->status,
             'progress' => $milestone->progress,
@@ -91,7 +95,7 @@ class ProjectMilestoneController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', ProjectMilestone::class);
 
-        ProjectMilestone::whereNull('deleted_at')->findOrFail($id)->delete();
+        $this->onlyScopedProjects(ProjectMilestone::whereNull('deleted_at'), $request)->findOrFail($id)->delete();
 
         return response()->json(['success' => true]);
     }
@@ -101,7 +105,7 @@ class ProjectMilestoneController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', ProjectMilestone::class);
 
         $ids = (array) $request->selectedIds;
-        ProjectMilestone::whereIn('id', $ids)->delete();
+        $this->onlyScopedProjects(ProjectMilestone::whereIn('id', $ids), $request)->delete();
 
         return response()->json(['success' => true, 'count' => count($ids)]);
     }

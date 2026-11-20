@@ -1,25 +1,30 @@
 <template>
-  <div class="page">
-    <PageHeader title="Timesheets" subtitle="Hours booked against projects and tasks." :breadcrumb="['Projects Management', 'Timesheets']">
+  <div :class="{ page: !projectId }">
+    <PageHeader
+      v-if="!projectId"
+      :title="tr('Timesheets', 'Registro de horas')"
+      :subtitle="tr('Hours booked against projects and tasks.', 'Horas registradas en proyectos y tareas.')"
+      :breadcrumb="[tr('Projects Management', 'Gestión de proyectos'), tr('Timesheets', 'Registro de horas')]"
+    >
       <template #actions>
         <a-button type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
-          Log time
+          {{ tr('Log time', 'Registrar horas') }}
         </a-button>
       </template>
     </PageHeader>
 
     <div class="summary">
       <div class="sum">
-        <span class="sum-label">Hours</span>
+        <span class="sum-label">{{ tr('Hours', 'Horas') }}</span>
         <span class="sum-value">{{ number(totals.hours || 0, 2) }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Billable value</span>
+        <span class="sum-label">{{ tr('Billable value', 'Valor facturable') }}</span>
         <span class="sum-value ok">{{ money(totals.amount || 0) }}</span>
       </div>
       <div class="sum">
-        <span class="sum-label">Entries</span>
+        <span class="sum-label">{{ tr('Entries', 'Registros') }}</span>
         <span class="sum-value">{{ crud.total.value }}</span>
       </div>
     </div>
@@ -27,22 +32,27 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="crud.search.value" placeholder="Search description…"
+          v-model:value="crud.search.value" :placeholder="tr('Search description…', 'Buscar descripción…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
+        <a-button v-if="projectId" type="primary" @click="openForm(null)">
+          <template #icon><PlusOutlined /></template>
+          {{ tr('Log time', 'Registrar horas') }}
+        </a-button>
         <a-select
+          v-if="!projectId"
           v-model:value="filters.project_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All projects"
+          option-filter-prop="label" :placeholder="tr('All projects', 'Todos los proyectos')"
           :options="projectOptions" @change="onProjectChange"
         />
         <a-select
           v-model:value="filters.employee_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="Anyone"
+          option-filter-prop="label" :placeholder="tr('Anyone', 'Cualquiera')"
           :options="employeeOptions" @change="crud.reload"
         />
         <a-select
-          v-model:value="filters.billable" class="tb-item-sm" allow-clear placeholder="All"
-          :options="[{ value: '1', label: 'Billable' }, { value: '0', label: 'Non-billable' }]"
+          v-model:value="filters.billable" class="tb-item-sm" allow-clear :placeholder="tr('All', 'Todos')"
+          :options="[{ value: '1', label: tr('Billable', 'Facturable') }, { value: '0', label: tr('Non-billable', 'No facturable') }]"
           @change="crud.reload"
         />
         <PresetRangeFilter v-model:value="filters.range" class="tb-range" value-format="YYYY-MM-DD" @change="crud.reload" />
@@ -53,15 +63,16 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'log_date'">{{ date(record.log_date) }}</template>
         <template v-else-if="column.key === 'project'">
-          <a class="link" @click="$router.push(`/projects/${record.project_id}`)">{{ record.project_title }}</a>
-          <div v-if="record.task_title" class="cell-sub">{{ record.task_title }}</div>
+          <a v-if="!projectId" class="link" @click="$router.push(`/projects/${record.project_id}`)">{{ record.project_title }}</a>
+          <div v-if="record.task_title" :class="{ 'cell-sub': !projectId }">{{ record.task_title }}</div>
+          <span v-else-if="projectId" class="muted">{{ tr('The project', 'El proyecto') }}</span>
         </template>
         <template v-else-if="column.key === 'hours'">
           <b>{{ number(record.hours, 2) }}</b>
         </template>
         <template v-else-if="column.key === 'billable'">
           <a-tag :color="record.billable ? 'success' : 'default'">
-            {{ record.billable ? 'Billable' : 'Internal' }}
+            {{ record.billable ? tr('Billable', 'Facturable') : tr('Internal', 'Interno') }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'hourly_rate'">
@@ -91,14 +102,14 @@
     </DataTable>
 
     <a-modal
-      :open="formOpen" :title="editing ? 'Edit time entry' : 'Log time'" :width="600"
+      :open="formOpen" :title="editing ? tr('Edit time entry', 'Editar registro de horas') : tr('Log time', 'Registrar horas')" :width="600"
       :confirm-loading="saving" :ok-text="$t('submit')" :cancel-text="$t('Cancel')"
       @ok="submit" @cancel="formOpen = false"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
-          <a-col :xs="24" :md="12">
-            <a-form-item label="Project *" name="project_id">
+          <a-col v-if="!projectId" :xs="24" :md="12">
+            <a-form-item :label="tr('Project *', 'Proyecto *')" name="project_id">
               <a-select
                 v-model:value="form.project_id" show-search option-filter-prop="label"
                 :options="projectOptions" @change="form.task_id = undefined"
@@ -106,38 +117,38 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Task" extra="Leave empty to book against the project">
+            <a-form-item :label="tr('Task', 'Tarea')" :extra="tr('Leave empty to book against the project', 'Déjalo vacío para registrar en el proyecto')">
               <a-select
                 v-model:value="form.task_id" allow-clear show-search option-filter-prop="label"
-                :options="formTaskOptions" :disabled="!form.project_id" placeholder="No specific task"
+                :options="formTaskOptions" :disabled="!form.project_id" :placeholder="tr('No specific task', 'Sin tarea específica')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="Who">
+            <a-form-item :label="tr('Who', 'Quién')">
               <a-select
                 v-model:value="form.employee_id" allow-clear show-search option-filter-prop="label"
-                :options="employeeOptions" placeholder="Unassigned"
+                :options="employeeOptions" :placeholder="tr('Unassigned', 'Sin asignar')"
               />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Date *" name="log_date">
+            <a-form-item :label="tr('Date *', 'Fecha *')" name="log_date">
               <a-date-picker v-model:value="form.log_date" style="width: 100%" value-format="YYYY-MM-DD" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="6">
-            <a-form-item label="Hours *" name="hours">
+            <a-form-item :label="tr('Hours *', 'Horas *')" name="hours">
               <a-input-number v-model:value="form.hours" :min="0.25" :max="24" :step="0.25" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Billable">
-              <a-switch v-model:checked="form.billable" checked-children="Yes" un-checked-children="No" />
+            <a-form-item :label="tr('Billable', 'Facturable')">
+              <a-switch v-model:checked="form.billable" :checked-children="tr('Yes', 'Sí')" :un-checked-children="tr('No', 'No')" />
             </a-form-item>
           </a-col>
           <a-col :xs="12" :md="8">
-            <a-form-item label="Hourly rate">
+            <a-form-item :label="tr('Hourly rate', 'Tarifa por hora')">
               <a-input-number
                 v-model:value="form.hourly_rate" :min="0" :disabled="!form.billable"
                 style="width: 100%"
@@ -145,13 +156,13 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item label="Value" extra="Calculated on save">
+            <a-form-item :label="tr('Value', 'Valor')" :extra="tr('Calculated on save', 'Se calcula al guardar')">
               <a-input :value="money(previewAmount)" disabled />
             </a-form-item>
           </a-col>
           <a-col :span="24">
             <a-form-item :label="$t('Description')" style="margin-bottom: 0">
-              <a-textarea v-model:value="form.description" :rows="2" placeholder="What was done" />
+              <a-textarea v-model:value="form.description" :rows="2" :placeholder="tr('What was done', 'Qué se hizo')" />
             </a-form-item>
           </a-col>
         </a-row>
@@ -178,11 +189,17 @@ import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useTr } from '../../lib/useTr';
 
+// Inside a project (ProjectDetail's "Horas" tab): that project only, no project filter / picker.
+const props = defineProps({ projectId: { type: [Number, String], default: null } });
+const emit = defineEmits(['changed']);
+
+const tr = useTr();
 const { money, number, date } = useFormat();
 
 const filters = reactive({
-  project_id: undefined, employee_id: undefined, billable: undefined, range: null,
+  project_id: props.projectId ? Number(props.projectId) : undefined, employee_id: undefined, billable: undefined, range: null,
 });
 
 const crud = useCrudTable('project_time_logs', {
@@ -204,14 +221,14 @@ function onProjectChange() {
 }
 
 const columns = computed(() => [
-  { title: 'Date', key: 'log_date', dataIndex: 'log_date', sorter: true, width: 130 },
-  { title: 'Project / task', key: 'project', dataIndex: 'project_title' },
-  { title: 'Who', key: 'employee', dataIndex: 'employee_name', width: 160 },
-  { title: 'Hours', key: 'hours', dataIndex: 'hours', sorter: true, width: 100 },
-  { title: 'Type', key: 'billable', dataIndex: 'billable', width: 120 },
-  { title: 'Rate', key: 'hourly_rate', dataIndex: 'hourly_rate', width: 110 },
-  { title: 'Value', key: 'amount', dataIndex: 'amount', sorter: true, width: 120 },
-  { title: 'Description', dataIndex: 'description', key: 'description' },
+  { title: tr('Date', 'Fecha'), key: 'log_date', dataIndex: 'log_date', sorter: true, width: 130 },
+  { title: props.projectId ? tr('Task', 'Tarea') : tr('Project / task', 'Proyecto / tarea'), key: 'project', dataIndex: 'project_title' },
+  { title: tr('Who', 'Quién'), key: 'employee', dataIndex: 'employee_name', width: 160 },
+  { title: tr('Hours', 'Horas'), key: 'hours', dataIndex: 'hours', sorter: true, width: 100 },
+  { title: tr('Type', 'Tipo'), key: 'billable', dataIndex: 'billable', width: 120 },
+  { title: tr('Rate', 'Tarifa'), key: 'hourly_rate', dataIndex: 'hourly_rate', width: 110 },
+  { title: tr('Value', 'Valor'), key: 'amount', dataIndex: 'amount', sorter: true, width: 120 },
+  { title: tr('Description', 'Descripción'), dataIndex: 'description', key: 'description' },
   { title: '', key: 'actions', width: 90 },
 ]);
 
@@ -281,6 +298,7 @@ async function submit() {
     formOpen.value = false;
     editing.value = null;
     crud.fetchRows();
+    emit('changed');
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData', 'Could not save this entry'));
   } finally {

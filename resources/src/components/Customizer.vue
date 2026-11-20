@@ -13,7 +13,7 @@
     >
       <!-- Sidebar layout — legacy's "Sidebar 1 / Sidebar 2" picker. -->
       <div class="cz-section">
-        <div class="cz-label">Sidebar Layout</div>
+        <div class="cz-label">{{ tr('Sidebar layout', 'Diseño del menú lateral') }}</div>
         <div class="cz-layouts">
           <button
             v-for="opt in SIDEBAR_LAYOUTS" :key="opt.value"
@@ -35,7 +35,7 @@
                 <span class="cz-body"></span>
               </template>
             </div>
-            <span>{{ opt.label }}</span>
+            <span>{{ tr(opt.label, opt.es) }}</span>
           </button>
         </div>
       </div>
@@ -46,9 +46,9 @@
            (Default/Dark Menu; SidebarLarge/SidebarFlat use their own custom
            markup and aren't wired to this yet). -->
       <div class="cz-section">
-        <div class="cz-label">Menu Font</div>
+        <div class="cz-label">{{ tr('Menu font', 'Letra del menú') }}</div>
         <div class="cz-row" style="margin-bottom: 10px">
-          <span>Size</span>
+          <span>{{ tr('Size', 'Tamaño') }}</span>
           <a-input-number
             :value="ui.sidebarFontSize"
             :min="MIN_FONT_SIZE" :max="MAX_FONT_SIZE"
@@ -57,7 +57,7 @@
           />
         </div>
         <div class="cz-row">
-          <span>Bold</span>
+          <span>{{ tr('Bold', 'Negrita') }}</span>
           <a-switch :checked="ui.sidebarBold" @change="v => ui.setSidebarBold(v)" />
         </div>
       </div>
@@ -66,8 +66,8 @@
 
       <!-- Primary colour -->
       <div class="cz-section">
-        <div class="cz-label">Primary Color</div>
-        <div class="cz-swatches">
+        <div class="cz-label">{{ tr('Primary color', 'Color principal') }}</div>
+        <div class="cz-swatches cz-grid">
           <button
             v-for="c in PRESETS" :key="c"
             class="cz-swatch" :class="{ active: sameColor(c) }"
@@ -77,13 +77,29 @@
             <CheckOutlined v-if="sameColor(c)" />
           </button>
         </div>
-        <div class="cz-custom">
-          <span>Custom:</span>
-          <input type="color" :value="ui.primaryColor" @input="e => ui.setPrimaryColor(e.target.value, auth.user?.id)" />
-          <code>{{ ui.primaryColor }}</code>
-          <a-button type="link" size="small" @click="ui.resetPrimaryColor()">
-            {{ ui.companyPrimaryColor ? 'Use company color' : 'Reset' }}
-          </a-button>
+        <!-- The company logo's own colours, read from the image file (2026-11-19: the eyedropper picks a smoothed
+             screen pixel and gives a different colour). One click = that exact colour. -->
+        <div v-if="logoSwatches.length" class="cz-sub">
+          <div class="cz-sublabel">{{ tr('Colors of your logo', 'Colores de su logo') }}</div>
+          <div class="cz-swatches">
+            <button
+              v-for="c in logoSwatches" :key="'l' + c"
+              class="cz-swatch cz-swatch-lg" :class="{ active: sameColor(c) }"
+              :style="{ background: c }" :title="c"
+              @click="ui.setPrimaryColor(c, auth.user?.id)"
+            >
+              <CheckOutlined v-if="sameColor(c)" />
+            </button>
+          </div>
+        </div>
+        <div class="cz-sub">
+          <div class="cz-sublabel">{{ tr('Custom color', 'Color personalizado') }}</div>
+          <div class="cz-custom">
+            <input type="color" :value="ui.primaryColor" :title="tr('Pick a color', 'Elegir un color')"
+              @input="e => ui.setPrimaryColor(e.target.value, auth.user?.id)" />
+            <a-input :value="ui.primaryColor" class="cz-hex" maxlength="7"
+              @change="e => /^#[0-9a-f]{6}$/i.test(e.target.value) && ui.setPrimaryColor(e.target.value.toLowerCase(), auth.user?.id)" />
+          </div>
         </div>
       </div>
 
@@ -94,11 +110,11 @@
       <template v-if="isDarkMenu">
         <a-divider style="margin: 16px 0" />
         <div class="cz-section">
-          <div class="cz-label">Menu Text Color</div>
+          <div class="cz-label">{{ tr('Menu text color', 'Color del texto del menú') }}</div>
           <a-radio-group :value="ui.sidebarTextMode" @change="e => ui.setSidebarTextMode(e.target.value)">
-            <a-radio-button value="auto">Auto</a-radio-button>
-            <a-radio-button value="white">White</a-radio-button>
-            <a-radio-button value="black">Black</a-radio-button>
+            <a-radio-button value="auto">{{ tr('Auto', 'Automático') }}</a-radio-button>
+            <a-radio-button value="white">{{ tr('White', 'Blanco') }}</a-radio-button>
+            <a-radio-button value="black">{{ tr('Black', 'Negro') }}</a-radio-button>
           </a-radio-group>
         </div>
       </template>
@@ -107,7 +123,7 @@
 
       <!-- Dark mode -->
       <div class="cz-section cz-row">
-        <span class="cz-label" style="margin: 0">Dark Mode</span>
+        <span class="cz-label" style="margin: 0">{{ tr('Dark mode', 'Modo oscuro') }}</span>
         <a-switch :checked="ui.dark" @change="ui.toggleDark()" />
       </div>
 
@@ -115,7 +131,7 @@
 
       <!-- RTL -->
       <div class="cz-section cz-row">
-        <span class="cz-label" style="margin: 0">Enable RTL</span>
+        <span class="cz-label" style="margin: 0">{{ tr('Right to left (RTL)', 'De derecha a izquierda (RTL)') }}</span>
         <a-switch :checked="ui.direction === 'rtl'" @change="v => ui.setRtl(v)" />
       </div>
 
@@ -157,9 +173,16 @@ import { useUiStore, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../stores/ui';
 import { useAuthStore } from '../stores/auth';
 import { SUPPORTED_LOCALES } from '../i18n';
 import http from '../lib/http';
+import { logoColors } from '../lib/logoTone';
+import { watch } from 'vue';
 
 const ui = useUiStore();
 const auth = useAuthStore();
+const tr = (en, es) => (ui.locale === 'es' ? es : en);
+
+// The company logo's colours (see logoColors), refreshed when the logo changes (another company picked).
+const logoSwatches = ref([]);
+watch(() => auth.logoUrl, async (url) => { logoSwatches.value = url ? await logoColors(url) : []; }, { immediate: true });
 
 // The drawer's own open state lives in the ui store, so the topbar button can
 // drive it without a parent/child prop chain.
@@ -205,14 +228,18 @@ const PRESETS = [
   '#ca5010', '#a4262c', '#881798', '#8764b8', '#69797e', '#7a7574',
   // Dark themes
   '#3a96dd', '#9c89e9', '#00b294', '#ffc83d', '#ef6950', '#b1adab',
+  // Twice as many (user, 2026-11-19): more of Fluent's shared colours -- reds, oranges, greens, teals, purples, pinks, charcoal
+  '#d13438', '#750b1c', '#c50f1f', '#ff8c00', '#eaa300', '#8e562e',
+  '#c19c00', '#8cbd18', '#107c10', '#0b6a0b', '#00ad56', '#038387',
+  '#0099bc', '#005b70', '#5c2e91', '#c239b3', '#e3008c', '#393939',
 ];
 
 // The sidebar layouts, like legacy's Sidebar picker.
 const SIDEBAR_LAYOUTS = [
-  { value: 'default', label: 'Default' },
-  { value: 'large', label: 'Large' },
-  { value: 'flat', label: 'Flat' },
-  { value: 'dark', label: 'Dark Menu' },
+  { value: 'default', label: 'Default', es: 'Normal' },
+  { value: 'large', label: 'Large', es: 'Grande' },
+  { value: 'flat', label: 'Flat', es: 'Plano' },
+  { value: 'dark', label: 'Dark Menu', es: 'Menú oscuro' },
 ];
 
 const visible = computed(() => auth.customizeButtonVisible);
@@ -329,6 +356,17 @@ const isDarkMenu = computed(() => ui.sidebarLayout === 'dark');
   flex-wrap: wrap;
   gap: 8px;
 }
+/* The 36 primary colours: 4 rows of 9 (2026-11-19). */
+.cz-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 6px;
+}
+.cz-grid .cz-swatch {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
 .cz-swatch {
   width: 30px;
   height: 30px;
@@ -343,20 +381,39 @@ const isDarkMenu = computed(() => ui.sidebarLayout === 'dark');
 .cz-swatch.active {
   border-color: rgba(0, 0, 0, 0.35);
 }
+.cz-sub {
+  margin-top: 14px;
+}
+.cz-sublabel {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+.cz-swatch-lg {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
 .cz-custom {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  font-size: 13px;
+  gap: 10px;
 }
+/* Big enough to see and to click (2026-11-19: the 32x24 box was too small). */
 .cz-custom input[type='color'] {
-  width: 32px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid rgba(5, 5, 5, 0.15);
-  border-radius: 4px;
+  width: 64px;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid rgba(5, 5, 5, 0.2);
+  border-radius: 8px;
   background: none;
   cursor: pointer;
+}
+.cz-hex {
+  width: 110px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 15px;
 }
 </style>

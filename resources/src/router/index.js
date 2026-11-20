@@ -349,6 +349,7 @@ const TaskBoard = lazy('TaskBoard', () => import('../pages/projects/TaskBoard.vu
 const ProjectMilestones = lazy('ProjectMilestones', () => import('../pages/projects/Milestones.vue'));
 const ProjectTimesheets = lazy('ProjectTimesheets', () => import('../pages/projects/Timesheets.vue'));
 const ProjectReports = lazy('ProjectReports', () => import('../pages/projects/ProjectReports.vue'));
+const ProjectDetail = lazy('ProjectDetail', () => import('../pages/projects/ProjectDetail.vue'));
 const Promotions = lazy('Promotions', () => import('../pages/promotions/Promotions.vue'));
 const PromotionForm = lazy('PromotionForm', () => import('../pages/promotions/PromotionForm.vue'));
 const PromotionUsages = lazy('PromotionUsages', () => import('../pages/promotions/PromotionUsages.vue'));
@@ -750,6 +751,8 @@ const routes = [
             { path: 'tasks/board', name: 'task-board', component: TaskBoard, meta: { title: 'Task Board', permission: 'tasks' } },
             { path: 'projects', name: 'projects', component: Projects, meta: { title: 'Projects', permission: 'projects' } },
             { path: 'projects/create', name: 'project-create', component: ProjectForm, meta: { title: 'Add Project', permission: 'projects' } },
+            // One project = its own workspace with tabs (2026-11-19, like Asana).
+            { path: 'projects/:id(\\d+)', name: 'project-detail', component: ProjectDetail, meta: { title: 'Project', permission: 'projects' } },
             { path: 'projects/:id/edit', name: 'project-edit', component: ProjectForm, meta: { title: 'Edit Project', permission: 'projects' } },
             { path: 'tasks', name: 'tasks', component: Tasks, meta: { title: 'Tasks', permission: 'tasks' } },
             { path: 'tasks/create', name: 'task-create', component: TaskForm, meta: { title: 'Add Task', permission: 'tasks' } },

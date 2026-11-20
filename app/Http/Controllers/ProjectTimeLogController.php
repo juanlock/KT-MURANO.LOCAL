@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
  */
 class ProjectTimeLogController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesProjects; // multicompany: only the list company's projects (2026-11-19)
+
     private const SORTABLE = ['id', 'log_date', 'hours', 'amount', 'created_at'];
 
     public function index(Request $request)
@@ -25,7 +27,7 @@ class ProjectTimeLogController extends Controller
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'log_date';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = ProjectTimeLog::with('project', 'task', 'employee')->whereNull('deleted_at')
+        $query = $this->onlyScopedProjects(ProjectTimeLog::query(), $request)->with('project', 'task', 'employee')->whereNull('deleted_at')
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('task_id'), fn ($q) => $q->where('task_id', $request->task_id))
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->employee_id))
@@ -75,6 +77,7 @@ class ProjectTimeLogController extends Controller
         $this->authorizeForUser($request->user('api'), 'create', ProjectTimeLog::class);
 
         $request->validate($this->rules());
+        $this->abortUnlessProjectInScope($request, $request->project_id);
 
         ProjectTimeLog::create($this->payload($request) + [
             'created_by' => optional($request->user('api'))->id,
@@ -88,7 +91,8 @@ class ProjectTimeLogController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', ProjectTimeLog::class);
 
         $request->validate($this->rules());
-        ProjectTimeLog::whereNull('deleted_at')->findOrFail($id)->update($this->payload($request));
+        $this->abortUnlessProjectInScope($request, $request->project_id);
+        $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)->findOrFail($id)->update($this->payload($request));
 
         return response()->json(['success' => true]);
     }
@@ -97,7 +101,7 @@ class ProjectTimeLogController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'delete', ProjectTimeLog::class);
 
-        ProjectTimeLog::whereNull('deleted_at')->findOrFail($id)->delete();
+        $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)->findOrFail($id)->delete();
 
         return response()->json(['success' => true]);
     }
@@ -107,7 +111,7 @@ class ProjectTimeLogController extends Controller
         $this->authorizeForUser($request->user('api'), 'delete', ProjectTimeLog::class);
 
         $ids = (array) $request->selectedIds;
-        ProjectTimeLog::whereIn('id', $ids)->delete();
+        $this->onlyScopedProjects(ProjectTimeLog::whereIn('id', $ids), $request)->delete();
 
         return response()->json(['success' => true, 'count' => count($ids)]);
     }

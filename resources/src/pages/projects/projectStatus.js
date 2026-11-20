@@ -1,17 +1,26 @@
+import { tr } from '../../lib/useTr';
+
 /**
  * Project status vocabulary — values and English labels are hardcoded in the
  * legacy pages too (no i18n keys). NOTE the short values: `progress`, `hold`.
+ * Labels are translated when read (tr at render time, not at import time).
  */
-export const PROJECT_STATUSES = [
-    { value: 'not_started', label: 'Not Started' },
-    { value: 'progress', label: 'In Progress' },
-    { value: 'hold', label: 'On Hold' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Cancelled' },
+const STATUSES = [
+    { value: 'not_started', en: 'Not Started', es: 'Sin iniciar' },
+    { value: 'progress', en: 'In Progress', es: 'En progreso' },
+    { value: 'hold', en: 'On Hold', es: 'En pausa' },
+    { value: 'completed', en: 'Completed', es: 'Completado' },
+    { value: 'cancelled', en: 'Cancelled', es: 'Cancelado' },
 ];
 
+/** [{ value, label }] in the user's language — call it where it is used (computed / template). */
+export function PROJECT_STATUSES() {
+    return STATUSES.map(s => ({ value: s.value, label: tr(s.en, s.es) }));
+}
+
 export function projectStatusLabel(v) {
-    return PROJECT_STATUSES.find(s => s.value === v)?.label || v;
+    const s = STATUSES.find(x => x.value === v);
+    return s ? tr(s.en, s.es) : v;
 }
 
 export function projectStatusColor(v) {

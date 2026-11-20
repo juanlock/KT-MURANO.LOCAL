@@ -25,6 +25,14 @@ use Illuminate\Support\Facades\DB;
  */
 class ProjectWorkspaceController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesProjects;
+
+    /** Projects of the list company (multicompany, 2026-11-19). */
+    private function projects(Request $request)
+    {
+        return $this->scopeListToCompany(Project::whereNull('deleted_at'), $request);
+    }
+
     /** Statuses the existing modules use, kept in one place. */
     private const OPEN_PROJECT_STATUSES = ['not_started', 'progress', 'on_hold'];
 
@@ -37,11 +45,11 @@ class ProjectWorkspaceController extends Controller
         $today = Carbon::today();
         $monthStart = $today->copy()->startOfMonth();
 
-        $projectsByStatus = Project::whereNull('deleted_at')
+        $projectsByStatus = $this->projects($request)
             ->select('status', DB::raw('count(*) as aggregate'))
             ->groupBy('status')->pluck('aggregate', 'status')->toArray();
 
-        $tasksByStatus = Task::whereNull('deleted_at')
+        $tasksByStatus = $this->onlyScopedProjects(Task::whereNull('deleted_at'), $request)
             ->select('status', DB::raw('count(*) as aggregate'))
             ->groupBy('status')->pluck('aggregate', 'status')->toArray();
 
@@ -52,13 +60,13 @@ class ProjectWorkspaceController extends Controller
         }
 
         return response()->json([
-            'projects_total' => Project::whereNull('deleted_at')->count(),
+            'projects_total' => $this->projects($request)->count(),
             'projects_by_status' => collect($projectsByStatus)
                 ->map(fn ($count, $status) => ['status' => $status, 'count' => $count])->values(),
-            'projects_open' => Project::whereNull('deleted_at')
+            'projects_open' => $this->projects($request)
                 ->whereIn('status', self::OPEN_PROJECT_STATUSES)->count(),
             // Past its end date and still not completed — the list that matters.
-            'projects_overdue' => Project::whereNull('deleted_at')
+            'projects_overdue' => $this->projects($request)
                 ->whereNotNull('end_date')
                 ->whereDate('end_date', '<', $today->toDateString())
                 ->where('status', '!=', 'completed')->count(),
@@ -68,37 +76,37 @@ class ProjectWorkspaceController extends Controller
                 ->map(fn ($count, $status) => ['status' => $status, 'count' => $count])->values(),
             'tasks_done' => $doneTasks,
             'tasks_completion' => $totalTasks > 0 ? round(($doneTasks / $totalTasks) * 100, 1) : null,
-            'tasks_overdue' => Task::whereNull('deleted_at')
+            'tasks_overdue' => $this->onlyScopedProjects(Task::whereNull('deleted_at'), $request)
                 ->whereNotNull('end_date')
                 ->whereDate('end_date', '<', $today->toDateString())
                 ->whereNotIn('status', self::DONE_TASK_STATUSES)->count(),
 
-            'milestones_open' => ProjectMilestone::whereNull('deleted_at')
+            'milestones_open' => $this->onlyScopedProjects(ProjectMilestone::whereNull('deleted_at'), $request)
                 ->where('status', '!=', 'completed')->count(),
-            'milestones_overdue' => ProjectMilestone::whereNull('deleted_at')
+            'milestones_overdue' => $this->onlyScopedProjects(ProjectMilestone::whereNull('deleted_at'), $request)
                 ->where('status', '!=', 'completed')
                 ->whereNotNull('due_date')
                 ->whereDate('due_date', '<', $today->toDateString())->count(),
 
-            'hours_month' => round((float) ProjectTimeLog::whereNull('deleted_at')
+            'hours_month' => round((float) $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
                 ->whereDate('log_date', '>=', $monthStart->toDateString())->sum('hours'), 2),
-            'billable_month' => round((float) ProjectTimeLog::whereNull('deleted_at')
+            'billable_month' => round((float) $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
                 ->where('billable', 1)
                 ->whereDate('log_date', '>=', $monthStart->toDateString())->sum('amount'), 2),
 
-            'hours_trend' => $this->hoursTrend(),
-            'upcoming_milestones' => $this->upcomingMilestones($today),
-            'active_projects' => $this->activeProjects(),
-            'workload' => $this->workload(),
+            'hours_trend' => $this->hoursTrend($request),
+            'upcoming_milestones' => $this->upcomingMilestones($request, $today),
+            'active_projects' => $this->activeProjects($request),
+            'workload' => $this->workload($request),
         ]);
     }
 
     /** Hours logged per day for the last 14 days, oldest first. */
-    private function hoursTrend()
+    private function hoursTrend(Request $request)
     {
         $from = Carbon::today()->subDays(13);
 
-        $rows = ProjectTimeLog::whereNull('deleted_at')
+        $rows = $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
             ->whereDate('log_date', '>=', $from->toDateString())
             ->select('log_date', DB::raw('SUM(hours) as hours'), DB::raw('SUM(amount) as amount'))
             ->groupBy('log_date')->get()
@@ -118,9 +126,9 @@ class ProjectWorkspaceController extends Controller
         return $days;
     }
 
-    private function upcomingMilestones(Carbon $today)
+    private function upcomingMilestones(Request $request, Carbon $today)
     {
-        return ProjectMilestone::with('project')->whereNull('deleted_at')
+        return $this->onlyScopedProjects(ProjectMilestone::with('project')->whereNull('deleted_at'), $request)
             ->where('status', '!=', 'completed')
             ->whereNotNull('due_date')
             ->orderBy('due_date')
@@ -138,9 +146,9 @@ class ProjectWorkspaceController extends Controller
     }
 
     /** Open projects with their task progress, busiest first. */
-    private function activeProjects()
+    private function activeProjects(Request $request)
     {
-        $projects = Project::with('client')->whereNull('deleted_at')
+        $projects = $this->projects($request)->with('client')
             ->whereIn('status', self::OPEN_PROJECT_STATUSES)
             ->orderBy('end_date')->limit(8)->get();
 
@@ -174,11 +182,11 @@ class ProjectWorkspaceController extends Controller
     }
 
     /** Hours per person this month — who is carrying the work. */
-    private function workload()
+    private function workload(Request $request)
     {
         $monthStart = Carbon::today()->startOfMonth();
 
-        $rows = ProjectTimeLog::whereNull('deleted_at')
+        $rows = $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
             ->whereNotNull('employee_id')
             ->whereDate('log_date', '>=', $monthStart->toDateString())
             ->select('employee_id', DB::raw('SUM(hours) as hours'))
@@ -203,14 +211,14 @@ class ProjectWorkspaceController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Project::class);
 
         return response()->json([
-            'projects' => Project::whereNull('deleted_at')->orderBy('title')
+            'projects' => $this->projects($request)->orderBy('title')
                 ->get(['id', 'title', 'status', 'client_id']),
-            'tasks' => Task::whereNull('deleted_at')->orderBy('title')
+            'tasks' => $this->onlyScopedProjects(Task::whereNull('deleted_at'), $request)->orderBy('title')
                 ->get(['id', 'title', 'project_id', 'status']),
-            'employees' => Employee::orderBy('firstname')->get(['id', 'firstname', 'lastname'])
+            'employees' => $this->scopeListToCompany(Employee::whereNull('deleted_at'), $request)->orderBy('firstname')->get(['id', 'firstname', 'lastname'])
                 ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname . ' ' . $e->lastname)])
                 ->values(),
-            'clients' => Client::whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+            'clients' => $this->scopeListToCompany(Client::whereNull('deleted_at'), $request)->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -226,7 +234,7 @@ class ProjectWorkspaceController extends Controller
         [$from, $to] = $this->range($request);
         $today = Carbon::today();
 
-        $projects = Project::with('client')->whereNull('deleted_at')
+        $projects = $this->projects($request)->with('client')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->client_id))
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'LIKE', "%{$request->search}%"))
@@ -289,7 +297,7 @@ class ProjectWorkspaceController extends Controller
 
         [$from, $to] = $this->range($request);
 
-        $logs = ProjectTimeLog::whereNull('deleted_at')
+        $logs = $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
             ->whereNotNull('employee_id')
             ->when($from, fn ($q) => $q->whereDate('log_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('log_date', '<=', $to))
@@ -344,7 +352,7 @@ class ProjectWorkspaceController extends Controller
 
         $today = Carbon::today();
 
-        $rows = ProjectMilestone::with('project')->whereNull('deleted_at')
+        $rows = $this->onlyScopedProjects(ProjectMilestone::with('project')->whereNull('deleted_at'), $request)
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'LIKE', "%{$request->search}%"))

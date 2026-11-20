@@ -1,14 +1,18 @@
 <template>
-  <div class="page">
-    <PageHeader title="Task Board" subtitle="Every task, by stage." :breadcrumb="['Projects Management', 'Task Board']">
+  <div :class="{ page: !projectId }">
+    <PageHeader
+      v-if="!projectId"
+      :title="tr('Task Board', 'Tablero de tareas')" :subtitle="tr('Every task, by stage.', 'Todas las tareas, por etapa.')"
+      :breadcrumb="[tr('Projects Management', 'Gestión de proyectos'), tr('Task Board', 'Tablero de tareas')]"
+    >
       <template #actions>
         <a-button @click="$router.push('/tasks')">
           <template #icon><UnorderedListOutlined /></template>
-          List view
+          {{ tr('List view', 'Vista de lista') }}
         </a-button>
         <a-button type="primary" @click="$router.push('/tasks/create')">
           <template #icon><PlusOutlined /></template>
-          New task
+          {{ tr('New task', 'Nueva tarea') }}
         </a-button>
       </template>
     </PageHeader>
@@ -16,26 +20,31 @@
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
-          v-model:value="filters.search" placeholder="Search task…"
+          v-model:value="filters.search" :placeholder="tr('Search task…', 'Buscar tarea…')"
           allow-clear class="tb-search" @search="load"
         />
+        <a-button v-if="projectId" type="primary" @click="$router.push(`/tasks/create?project_id=${projectId}`)">
+          <template #icon><PlusOutlined /></template>
+          {{ tr('New task', 'Nueva tarea') }}
+        </a-button>
         <a-select
+          v-if="!projectId"
           v-model:value="filters.project_id" class="tb-item" allow-clear show-search
-          option-filter-prop="label" placeholder="All projects"
+          option-filter-prop="label" :placeholder="tr('All projects', 'Todos los proyectos')"
           :options="projectOptions" @change="load"
         />
         <a-select
           v-model:value="filters.priority" class="tb-item-sm" allow-clear
-          placeholder="Priority" :options="TASK_PRIORITIES" @change="load"
+          :placeholder="tr('Priority', 'Prioridad')" :options="TASK_PRIORITIES()" @change="load"
         />
-        <a-tag v-if="overdue" color="error" class="tb-flag">{{ overdue }} overdue</a-tag>
-        <a-tag>{{ total }} tasks</a-tag>
+        <a-tag v-if="overdue" color="error" class="tb-flag">{{ overdue }} {{ tr('overdue', 'atrasadas') }}</a-tag>
+        <a-tag>{{ total }} {{ tr('tasks', 'tareas') }}</a-tag>
       </div>
     </a-card>
 
     <a-spin :spinning="loading">
       <div class="board">
-        <section v-for="col in BOARD_COLUMNS" :key="col.key" class="col">
+        <section v-for="col in BOARD_COLUMNS()" :key="col.key" class="col">
           <header class="col-head" :style="{ borderTopColor: col.color }">
             <span class="col-name">{{ col.label }}</span>
             <span class="col-count">{{ (columns[col.key] || []).length }}</span>
@@ -45,7 +54,7 @@
             <article
               v-for="task in columns[col.key] || []" :key="task.id"
               class="card" :class="{ overdue: task.is_overdue }"
-              @click="$router.push(`/tasks/${task.id}/edit`)"
+              @click="$router.push(projectId ? `/tasks/${task.id}/edit?project_id=${projectId}` : `/tasks/${task.id}/edit`)"
             >
               <div class="card-top">
                 <span class="card-title">{{ task.title }}</span>
@@ -57,7 +66,7 @@
                 </a-tag>
               </div>
 
-              <div v-if="task.project_title" class="card-project">{{ task.project_title }}</div>
+              <div v-if="task.project_title && !projectId" class="card-project">{{ task.project_title }}</div>
 
               <a-progress
                 v-if="task.progress" :percent="task.progress" size="small"
@@ -68,7 +77,7 @@
                 <span v-if="task.end_date" class="card-due" :class="{ late: task.is_overdue }">
                   <CalendarOutlined /> {{ date(task.end_date) }}
                 </span>
-                <span v-else class="card-due muted">No due date</span>
+                <span v-else class="card-due muted">{{ tr('No due date', 'Sin fecha de vencimiento') }}</span>
 
                 <a-dropdown :trigger="['click']">
                   <a-button type="text" size="small" class="card-move">
@@ -77,10 +86,10 @@
                   <template #overlay>
                     <a-menu @click="({ key }) => move(task, key)">
                       <a-menu-item
-                        v-for="target in BOARD_COLUMNS.filter(c => c.key !== col.key)"
+                        v-for="target in BOARD_COLUMNS().filter(c => c.key !== col.key)"
                         :key="target.key"
                       >
-                        Move to {{ target.label }}
+                        {{ tr('Move to', 'Mover a') }} {{ target.label }}
                       </a-menu-item>
                     </a-menu>
                   </template>
@@ -88,7 +97,7 @@
               </footer>
             </article>
 
-            <div v-if="!(columns[col.key] || []).length" class="col-empty">Nothing here</div>
+            <div v-if="!(columns[col.key] || []).length" class="col-empty">{{ tr('Nothing here', 'Nada aquí') }}</div>
           </div>
         </section>
       </div>
@@ -119,7 +128,12 @@ import { useFormat } from '../../composables/useFormat';
 import { BOARD_COLUMNS, TASK_PRIORITIES, labelOf, optionOf, progressColor } from './workspaceOptions';
 import http from '../../lib/http';
 import { t } from '../../i18n';
+import { useTr } from '../../lib/useTr';
 
+// Inside a project (ProjectDetail's "Tareas" tab): that project only, no project filter / column.
+const props = defineProps({ projectId: { type: [Number, String], default: null } });
+
+const tr = useTr();
 const { date } = useFormat();
 
 const columns = ref({});
@@ -127,7 +141,7 @@ const total = ref(0);
 const overdue = ref(0);
 const loading = ref(false);
 
-const filters = reactive({ search: '', project_id: undefined, priority: undefined });
+const filters = reactive({ search: '', project_id: props.projectId || undefined, priority: undefined });
 
 const projects = ref([]);
 const projectOptions = computed(() => projects.value.map(p => ({ value: p.id, label: p.title })));
@@ -153,7 +167,7 @@ async function load() {
 async function move(task, status) {
   try {
     await http.post('task_change_status', { id: task.id, status });
-    message.success('Task moved.');
+    message.success(tr('Task moved.', 'Tarea movida.'));
     load();
   } catch (e) {
     message.error(e?.data?.message || t('InvalidData', 'Could not move this task'));
@@ -162,6 +176,7 @@ async function move(task, status) {
 
 onMounted(async () => {
   load();
+  if (props.projectId) return;
   try {
     const meta = await http.get('projects/meta');
     projects.value = meta?.projects || [];

@@ -14,6 +14,53 @@ use Illuminate\Support\Facades\Auth;
 
 class ProjectController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ScopesToCompany;
+
+    /**
+     * Multicompany (2026-11-19: the module came from the single-business base unscoped -- the list showed every company's
+     * projects and the form offered other companies' customers). A project / customer is reachable only inside the
+     * list company (null = every company for superadmin/AdminSystem).
+     */
+    private function inScope(Request $request, ?int $companyId): bool
+    {
+        $cid = $this->listCompanyId($request);
+
+        return $cid === null || (int) $companyId === $cid;
+    }
+
+    /** The company a write goes to: an Admin's own; a SuperAdmin's pick in the form, else the acting company. */
+    private function writeCompanyId(Request $request): int
+    {
+        $user = $request->user('api');
+        $picked = (int) $request->input('company_id');
+
+        return $user && $user->type === 'SuperAdmin' && $picked ? $picked : (int) $this->resolveActingCompanyId($request);
+    }
+
+    /** The customer and employees sent, refused (422) unless they belong to the project's company. */
+    private function checkedRefs(Request $request, int $cid): array
+    {
+        $client = (int) $request['client'];
+        abort_unless(Client::where('id', $client)->where('company_id', $cid)->whereNull('deleted_at')->exists(), 422,
+            __('The customer does not belong to this company.'));
+        $staff = array_values(array_unique(array_map('intval', (array) ($request['assigned_to'] ?? []))));
+        if ($staff) {
+            abort_unless(Employee::whereIn('id', $staff)->where('company_id', $cid)->whereNull('deleted_at')->count() === count($staff), 422,
+                __('An employee does not belong to this company.'));
+        }
+
+        return [$client, $staff];
+    }
+
+    /** Customers offered by the form: the list company's (each with its company_id, so a SuperAdmin's pick can filter them). */
+    private function clientList(Request $request)
+    {
+        $q = Client::where('deleted_at', '=', null)->orderBy('id', 'desc');
+        $this->scopeListToCompany($q, $request);
+
+        return $q->get(['id', 'name', 'company_id']);
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -52,6 +99,7 @@ class ProjectController extends Controller
         // Check If User Has Permission View  All Records
         $projects = Project::with('company', 'client')
             ->where('deleted_at', '=', null);
+        $this->scopeListToCompany($projects, $request);
 
         // Multiple Filter
         $Filtred = $helpers->filter($projects, $columns, $param, $request)
@@ -95,21 +143,21 @@ class ProjectController extends Controller
         }
 
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
-        $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $clients = $this->clientList($request);
 
-        $count_not_started = Project::where('deleted_at', '=', null)
+        $count_not_started = $this->scopeListToCompany(Project::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'not_started')
             ->count();
 
-        $count_in_progress = Project::where('deleted_at', '=', null)
+        $count_in_progress = $this->scopeListToCompany(Project::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'progress')
             ->count();
 
-        $count_cancelled = Project::where('deleted_at', '=', null)
+        $count_cancelled = $this->scopeListToCompany(Project::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'cancelled')
             ->count();
 
-        $count_completed = Project::where('deleted_at', '=', null)
+        $count_completed = $this->scopeListToCompany(Project::where('deleted_at', '=', null), $request)
             ->where('status', '=', 'completed')
             ->count();
 
@@ -134,7 +182,7 @@ class ProjectController extends Controller
     {
         $this->authorizeForUser($request->user('api'), 'create', Project::class);
 
-        $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $clients = $this->clientList($request);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
 
         return response()->json([
@@ -157,25 +205,30 @@ class ProjectController extends Controller
             'title' => 'required|string|max:255',
             'client' => 'required',
             'company_id' => 'required',
-            'assigned_to' => 'required',
-            'start_date' => 'required',
-            'end_date' => 'required',
+            // 2026-11-19: the employee is optional (the form never asked for it); dates as before, the end not before the start.
+            'assigned_to' => 'nullable|array',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required',
         ]);
+
+        $cid = $this->writeCompanyId($request);
+        [$client, $staff] = $this->checkedRefs($request, $cid);
 
         $project = Project::create([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
             'end_date' => $request['end_date'],
-            'company_id' => $request['company_id'],
-            'client_id' => $request['client'],
+            'company_id' => $cid,
+            'client_id' => $client,
             'status' => $request['status'],
             'description' => $request['description'],
         ]);
 
-        $project->assignedEmployees()->sync($request['assigned_to']);
+        $project->assignedEmployees()->sync($staff);
 
-        return response()->json(['success' => true]);
+        // The form opens the new project's workspace (2026-11-19).
+        return response()->json(['success' => true, 'id' => $project->id]);
 
     }
 
@@ -185,9 +238,59 @@ class ProjectController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        //
+        // One project as its own workspace (user, 2026-11-19, "like Asana"): its header, overview figures and the dated
+        // items the Calendar tab draws. Tasks / milestones / hours tabs read their own endpoints with project_id.
+        $this->authorizeForUser($request->user('api'), 'view', Project::class);
+
+        $project = Project::with('client:id,name', 'company:id,name')->where('deleted_at', '=', null)->findOrFail($id);
+        abort_unless($this->inScope($request, $project->company_id), 404);
+
+        $today = Carbon::today()->toDateString();
+        $tasks = \App\Models\Task::whereNull('deleted_at')->where('project_id', $id)
+            ->get(['id', 'title', 'status', 'priority', 'start_date', 'end_date', 'task_progress', 'estimated_hour']);
+        $milestones = \App\Models\ProjectMilestone::whereNull('deleted_at')->where('project_id', $id)->orderBy('due_date')
+            ->get(['id', 'title', 'status', 'due_date', 'progress']);
+        $logs = \App\Models\ProjectTimeLog::whereNull('deleted_at')->where('project_id', $id);
+        $team = Employee::whereIn('id', EmployeeProject::where('project_id', $id)->pluck('employee_id'))
+            ->get(['id', 'firstname', 'lastname', 'username'])
+            ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname.' '.$e->lastname) ?: $e->username])->values();
+
+        $open = fn ($t) => ! in_array($t->status, ['completed', 'cancelled'], true);
+        $done = $tasks->where('status', 'completed')->count();
+        $counted = $tasks->where('status', '!=', 'cancelled')->count();
+
+        return response()->json([
+            'project' => [
+                'id' => $project->id, 'title' => $project->title, 'description' => $project->description,
+                'status' => $project->status, 'start_date' => $project->start_date, 'end_date' => $project->end_date,
+                'client_name' => optional($project->client)->name, 'company_name' => optional($project->company)->name,
+                'company_id' => $project->company_id,
+                'is_late' => $project->end_date && $project->status !== 'completed' && $project->end_date < $today,
+            ],
+            'team' => $team,
+            'stats' => [
+                'tasks' => $tasks->count(),
+                'tasks_done' => $done,
+                'tasks_overdue' => $tasks->filter(fn ($t) => $open($t) && $t->end_date && $t->end_date < $today)->count(),
+                'progress' => $counted ? (int) round($done * 100 / $counted) : 0,
+                'milestones' => $milestones->count(),
+                'milestones_done' => $milestones->where('status', 'completed')->count(),
+                'estimated_hours' => round((float) $tasks->sum('estimated_hour'), 2),
+                'logged_hours' => round((float) (clone $logs)->sum('hours'), 2),
+                'billable_amount' => round((float) (clone $logs)->where('billable', 1)->sum('amount'), 2),
+            ],
+            'tasks' => $tasks->map(fn ($t) => [
+                'id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'priority' => $t->priority,
+                'start_date' => $t->start_date, 'end_date' => $t->end_date, 'progress' => (int) $t->task_progress,
+                'is_overdue' => $open($t) && $t->end_date && $t->end_date < $today,
+            ])->values(),
+            'milestones' => $milestones->map(fn ($m) => [
+                'id' => $m->id, 'title' => $m->title, 'status' => $m->status, 'progress' => (int) $m->progress,
+                'due_date' => optional($m->due_date)->toDateString(),
+            ])->values(),
+        ]);
     }
 
     /**
@@ -201,8 +304,9 @@ class ProjectController extends Controller
         $this->authorizeForUser($request->user('api'), 'update', Project::class);
 
         $project = Project::where('deleted_at', '=', null)->findOrFail($id);
+        abort_unless($this->inScope($request, $project->company_id), 404);
         $assigned_employees = EmployeeProject::where('project_id', $id)->pluck('employee_id')->toArray();
-        $clients = Client::where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'name']);
+        $clients = $this->clientList($request);
         $companies = \App\Support\CompanyNames::visibleTo($request->user('api'));
         $employees = Employee::where('company_id', $project->company_id)->where('deleted_at', '=', null)->orderBy('id', 'desc')->get(['id', 'username']);
 
@@ -229,24 +333,29 @@ class ProjectController extends Controller
             'title' => 'required|string|max:255',
             'client' => 'required',
             'company_id' => 'required',
-            'assigned_to' => 'required',
-            'start_date' => 'required',
-            'end_date' => 'required',
+            // 2026-11-19: the employee is optional (the form never asked for it); dates as before, the end not before the start.
+            'assigned_to' => 'nullable|array',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required',
         ]);
+
+        $project = Project::where('deleted_at', '=', null)->findOrFail($id);
+        abort_unless($this->inScope($request, $project->company_id), 404);
+        $cid = $this->writeCompanyId($request);
+        [$client, $staff] = $this->checkedRefs($request, $cid);
 
         Project::whereId($id)->update([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
             'end_date' => $request['end_date'],
-            'company_id' => $request['company_id'],
-            'client_id' => $request['client'],
+            'company_id' => $cid,
+            'client_id' => $client,
             'status' => $request['status'],
             'description' => $request['description'],
         ]);
 
-        $project = Project::where('deleted_at', '=', null)->findOrFail($id);
-        $project->assignedEmployees()->sync($request['assigned_to']);
+        $project->assignedEmployees()->sync($staff);
 
         return response()->json(['success' => true]);
     }
@@ -260,6 +369,7 @@ class ProjectController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->authorizeForUser($request->user('api'), 'delete', Project::class);
+        abort_unless($this->inScope($request, Project::whereId($id)->value('company_id')), 404);
 
         Project::whereId($id)->update([
             'deleted_at' => Carbon::now(),

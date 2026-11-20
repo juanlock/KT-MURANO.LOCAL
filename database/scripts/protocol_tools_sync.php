@@ -51,7 +51,14 @@ if (! $clouds) {
 $RECEIPT = '_sync.json';
 $stateFile = storage_path('app/kt_tools_sync.json');
 $state = is_file($stateFile) ? (json_decode((string) file_get_contents($stateFile), true) ?: []) : [];
-$skip = fn (string $rel) => $rel === $RECEIPT || str_ends_with(strtolower($rel), 'desktop.ini');
+// Never synced: the receipt, desktop.ini and temporary / lock files (2026-11-19: Excel's "~$PARA EL BOSS.xlsx", made while the
+// workbook was open, went into Thundera's receipt; the clouds never carry it, so every pull waited for it and stopped).
+$skip = function (string $rel) use ($RECEIPT) {
+    $base = strtolower(basename($rel));
+
+    return $rel === $RECEIPT || $base === 'desktop.ini' || $base === 'thumbs.db' || str_starts_with($base, '~$')
+        || str_starts_with($base, '.~lock') || str_ends_with($base, '.tmp');
+};
 $abs = fn (string $root, string $rel) => $root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $rel);
 $same = fn ($a, $b) => $a && $b && $a[0] === $b[0] && abs($a[1] - $b[1]) <= 2; // clouds keep dates with less precision
 
@@ -167,6 +174,8 @@ $candidates = [];
 foreach ($clouds as $name => $cloud) {
     $r = $receipt($cloud);
     if ($r && ! empty($r['files'])) {
+        // A receipt written before temporary files were skipped may still list one: never wait for it.
+        $r['files'] = array_filter($r['files'], fn ($rel) => ! $skip((string) $rel), ARRAY_FILTER_USE_KEY);
         $candidates[] = ['name' => $name, 'dir' => $cloud, 'r' => $r];
     } else {
         echo "  $name: no push receipt yet".(is_dir($cloud) ? '' : ' (folder not found)')."\n";

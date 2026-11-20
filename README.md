@@ -203,6 +203,29 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-19 (Optimum)
+
+- **Projects work like Asana:** each project opens as its own workspace with
+  tabs -- Overview (progress, open / late tasks, milestones, hours vs
+  estimate, billable value, coming up, team), List, Board, **Calendar** (new:
+  task due dates, milestones, project start / end), Milestones, Hours and
+  Report. New tasks from a project stay in it. The menu keeps only Dashboard
+  and Projects; each tab follows the role's permission.
+- **Projects multicompany:** the dashboard, tasks, milestones, hours and
+  reports showed every company's projects; now each company sees its own
+  (AdminSystem all). Creating a project or a task no longer fails (optional
+  employee, priority "Medium" by default, priority / hours / progress saved).
+- **Projects in the selected language:** every screen of the module in
+  Spanish / English.
+- **Settings -> Customize:** the logo's real colours, a bigger custom colour
+  with its hex code, 36 preset colours. **KcolTech's logo** without its dark
+  background.
+- **Turismo:** agencies always in the order of the line (Lima, Trujillo,
+  Chepén, Chiclayo) in every list, filter and chart.
+- **KT-TOOLS** mirrored to Google Drive and OneDrive at the end of Pa Llevar /
+  A Dormir; Wake-up only reads (Excel lock files skipped).
+
+Setup: `php artisan migrate`, `npm run build`.
 ### 2026-11-18 (Thundera)
 
 - **Turismo, "Cómo funciona" (presentation):** Manual → Su empresa → "Cómo
@@ -299,24 +322,6 @@ Setup: `php artisan migrate`, `npm run build`.
   copies it from the manual's header.
 
 Already in production (deployed today with the user's yes).
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-15 / 16 (Optimum)
-
-- **Every sale keeps its invoice PDF** (all companies), made when it is
-  created; a deleted sale's PDF is renamed "- Delete", never removed; a
-  modified invoice keeps its earlier PDF as `-ver01-modified-<date>-<user>`.
-  Every missing PDF was generated; Ruba's all start with `Invoice_INV_`.
-- **Ruba:** test invoices removed; four deleted invoices are back as
-  cancelled, ready to be activated (they have no lines).
-- **KT-Log:** the closing message with its tables, titles in the request's
-  language, a wider panel in 3 columns, attached files, filters in one line.
-- **Change history** on the standard table (sort, column chooser, standard
-  date filter), with code file and commit columns; global / SuperAdmin menu
-  items on a light-yellow row.
-- **KT-TOOLS** reaches every PC whole through Google Drive (backups, Temp,
-  reports included) -- *not in production yet* (protocol scripts only).
 
 Setup: `php artisan migrate`, `npm run build`.
 

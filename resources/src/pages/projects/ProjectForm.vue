@@ -48,7 +48,7 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Status')" name="status">
-              <a-select v-model:value="form.status" :options="PROJECT_STATUSES" />
+              <a-select v-model:value="form.status" :options="PROJECT_STATUSES()" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
@@ -60,7 +60,7 @@
 
         <a-space style="margin-top: 8px">
           <a-button type="primary" :loading="submitting" @click="submit">{{ $t('submit') }}</a-button>
-          <a-button @click="$router.push('/projects')">{{ $t('Cancel') }}</a-button>
+          <a-button @click="$router.push(isEdit && $route.query.back === 'detail' ? `/projects/${id}` : '/projects')">{{ $t('Cancel') }}</a-button>
         </a-space>
       </a-form>
     </a-card>
@@ -83,6 +83,9 @@ import { useI18n } from 'vue-i18n';
 import PageHeader from '../../components/PageHeader.vue';
 import { PROJECT_STATUSES } from './projectStatus';
 import http from '../../lib/http';
+import { useUiStore } from '../../stores/ui';
+
+const ui = useUiStore();
 
 const { t } = useI18n();
 const route = useRoute();
@@ -105,7 +108,10 @@ const form = ref({
   start_date: null, end_date: null, status: 'not_started', description: '',
 });
 
-const clientOptions = computed(() => clients.value.map(c => ({ value: c.id, label: c.name })));
+// Only the chosen company's customers (2026-11-19: other companies' customers were offered).
+const clientOptions = computed(() => clients.value
+  .filter(c => !form.value.company_id || !c.company_id || Number(c.company_id) === Number(form.value.company_id))
+  .map(c => ({ value: c.id, label: c.name })));
 const companyOptions = computed(() => companies.value.map(c => ({ value: c.id, label: c.name })));
 const employeeOptions = computed(() => employees.value.map(e => ({ value: e.id, label: e.username || e.name })));
 
@@ -114,6 +120,13 @@ const rules = computed(() => ({
   client_id: [{ required: true, message: t('Field_is_required') }],
   company_id: [{ required: true, message: t('Field_is_required') }],
   status: [{ required: true, message: t('Field_is_required') }],
+  // The server needs both dates (2026-11-19: they weren't asked here and saving failed with a vague message).
+  start_date: [{ required: true, message: t('Field_is_required') }],
+  end_date: [
+    { required: true, message: t('Field_is_required') },
+    { validator: (_r, v) => (!v || !form.value.start_date || v >= form.value.start_date ? Promise.resolve()
+      : Promise.reject(ui.locale === 'es' ? 'La fecha de fin no puede ser anterior a la de inicio' : 'The end date cannot be before the start date')) },
+  ],
 }));
 
 async function loadEmployees(companyId) {
@@ -156,16 +169,20 @@ async function submit() {
     status: form.value.status,
   };
   try {
+    // Save opens the project's own workspace (2026-11-19, like Asana); Cancel goes back where it came from.
     if (isEdit.value) {
       await http.put(`projects/${id.value}`, body);
       message.success(t('Successfully_Updated'));
+      router.push(`/projects/${id.value}`);
     } else {
-      await http.post('projects', body);
+      const res = await http.post('projects', body);
       message.success(t('Successfully_Created'));
+      router.push(res?.id ? `/projects/${res.id}` : '/projects');
     }
-    router.push('/projects');
   } catch (e) {
-    message.error(t('InvalidData'));
+    // Say what failed (the server's validation / permission message), not a vague "something went wrong".
+    const errs = e?.data?.errors ? Object.values(e.data.errors).flat() : [];
+    message.error(errs[0] || e?.data?.message || t('InvalidData'), 6);
   } finally {
     submitting.value = false;
   }

@@ -1,18 +1,18 @@
 <template>
   <div class="page">
     <PageHeader
-      title="Projects Dashboard"
-      subtitle="Delivery, milestones and effort across every project."
-      :breadcrumb="['Projects Management', 'Dashboard']"
+      :title="tr('Projects Dashboard', 'Panel de proyectos')"
+      :subtitle="tr('Delivery, milestones and effort across every project.', 'Entregas, hitos y esfuerzo de todos los proyectos.')"
+      :breadcrumb="[tr('Projects Management', 'Gestión de proyectos'), tr('Dashboard', 'Panel')]"
     >
       <template #actions>
-        <a-button @click="$router.push('/tasks/board')">
+        <a-button @click="$router.push('/projects')">
           <template #icon><AppstoreOutlined /></template>
-          Task board
+          {{ tr('Projects', 'Proyectos') }}
         </a-button>
         <a-button type="primary" @click="$router.push('/projects/create')">
           <template #icon><PlusOutlined /></template>
-          New project
+          {{ tr('New project', 'Nuevo proyecto') }}
         </a-button>
       </template>
     </PageHeader>
@@ -23,55 +23,55 @@
           <span class="kpi-ic kpi-ic--brand"><ProjectOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.projects_open) }}</span>
-            <span class="kpi-label">Open projects</span>
+            <span class="kpi-label">{{ tr('Open projects', 'Proyectos abiertos') }}</span>
           </span>
-          <span class="kpi-note">{{ n(data.projects_total) }} total</span>
+          <span class="kpi-note">{{ n(data.projects_total) }} {{ tr('total', 'en total') }}</span>
         </button>
 
         <button type="button" class="kpi" @click="$router.push('/projects')">
           <span class="kpi-ic kpi-ic--warn"><ClockCircleOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.projects_overdue) }}</span>
-            <span class="kpi-label">Projects past due</span>
+            <span class="kpi-label">{{ tr('Projects past due', 'Proyectos atrasados') }}</span>
           </span>
         </button>
 
-        <button type="button" class="kpi" @click="$router.push('/tasks/board')">
+        <button type="button" class="kpi" @click="$router.push('/projects')">
           <span class="kpi-ic kpi-ic--info"><CheckSquareOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">
               {{ data.tasks_completion !== null && data.tasks_completion !== undefined
                 ? data.tasks_completion + '%' : '—' }}
             </span>
-            <span class="kpi-label">Tasks complete</span>
+            <span class="kpi-label">{{ tr('Tasks complete', 'Tareas completadas') }}</span>
           </span>
           <span class="kpi-note">{{ n(data.tasks_done) }} / {{ n(data.tasks_total) }}</span>
         </button>
 
-        <button type="button" class="kpi" @click="$router.push('/tasks')">
+        <button type="button" class="kpi" @click="$router.push('/projects')">
           <span class="kpi-ic kpi-ic--danger"><ExclamationCircleOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.tasks_overdue) }}</span>
-            <span class="kpi-label">Tasks past due</span>
+            <span class="kpi-label">{{ tr('Tasks past due', 'Tareas atrasadas') }}</span>
           </span>
         </button>
 
-        <button type="button" class="kpi" @click="$router.push('/projects/milestones')">
+        <button type="button" class="kpi" @click="$router.push('/projects')">
           <span class="kpi-ic kpi-ic--flag"><FlagOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ n(data.milestones_open) }}</span>
-            <span class="kpi-label">Open milestones</span>
+            <span class="kpi-label">{{ tr('Open milestones', 'Hitos abiertos') }}</span>
           </span>
           <span v-if="data.milestones_overdue" class="kpi-note kpi-note--danger">
-            {{ data.milestones_overdue }} late
+            {{ data.milestones_overdue }} {{ tr('late', 'atrasados') }}
           </span>
         </button>
 
-        <button type="button" class="kpi" @click="$router.push('/projects/timesheets')">
+        <button type="button" class="kpi" @click="$router.push('/projects')">
           <span class="kpi-ic kpi-ic--time"><FieldTimeOutlined /></span>
           <span class="kpi-text">
             <span class="kpi-value">{{ number(data.hours_month || 0, 1) }}h</span>
-            <span class="kpi-label">Logged this month</span>
+            <span class="kpi-label">{{ tr('Logged this month', 'Registrado este mes') }}</span>
           </span>
           <span v-if="data.billable_month" class="kpi-note">{{ money(data.billable_month) }}</span>
         </button>
@@ -81,15 +81,15 @@
         <a-col :xs="24" :xl="16">
           <ReportChart
             :data="data.hours_trend || []"
-            :fields="[{ key: 'hours', label: 'Hours logged' }]"
-            title="Effort — last 14 days"
+            :fields="[{ key: 'hours', label: tr('Hours logged', 'Horas registradas') }]"
+            :title="tr('Effort — last 14 days', 'Esfuerzo — últimos 14 días')"
             type="bar"
             :height="260"
           />
 
-          <a-card size="small" title="Active projects" style="margin-bottom: 16px">
+          <a-card size="small" :title="tr('Active projects', 'Proyectos activos')" style="margin-bottom: 16px">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/projects')">All</a-button>
+              <a-button type="link" size="small" @click="$router.push('/projects')">{{ tr('All', 'Todos') }}</a-button>
             </template>
             <div v-if="(data.active_projects || []).length" class="plist">
               <button
@@ -103,7 +103,7 @@
                   </a-tag>
                 </span>
                 <span class="prow-meta">
-                  {{ p.client_name || 'No client' }} · {{ p.tasks_done }}/{{ p.tasks }} tasks
+                  {{ p.client_name || tr('No client', 'Sin cliente') }} · {{ p.tasks_done }}/{{ p.tasks }} {{ tr('tasks', 'tareas') }}
                   · {{ number(p.hours, 1) }}h
                 </span>
                 <a-progress
@@ -112,19 +112,19 @@
                 />
               </button>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No open projects" />
+            <a-empty v-else :image="simpleEmptyImage" :description="tr('No open projects', 'No hay proyectos abiertos')" />
           </a-card>
         </a-col>
 
         <a-col :xs="24" :xl="8">
-          <a-card size="small" title="Upcoming milestones" style="margin-bottom: 16px">
+          <a-card size="small" :title="tr('Upcoming milestones', 'Próximos hitos')" style="margin-bottom: 16px">
             <template #extra>
-              <a-button type="link" size="small" @click="$router.push('/projects/milestones')">All</a-button>
+              <a-button type="link" size="small" @click="$router.push('/projects')">{{ tr('All', 'Todos') }}</a-button>
             </template>
             <div v-if="(data.upcoming_milestones || []).length" class="mlist">
               <button
                 v-for="m in data.upcoming_milestones" :key="m.id" type="button" class="mrow"
-                @click="$router.push('/projects/milestones')"
+                @click="$router.push(`/projects/${m.project_id}?tab=milestones`)"
               >
                 <span class="mrow-body">
                   <span class="mrow-title">{{ m.title }}</span>
@@ -135,10 +135,10 @@
                 </a-tag>
               </button>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="Nothing scheduled" style="padding: 16px 0" />
+            <a-empty v-else :image="simpleEmptyImage" :description="tr('Nothing scheduled', 'Nada programado')" style="padding: 16px 0" />
           </a-card>
 
-          <a-card size="small" title="Workload this month" style="margin-bottom: 16px">
+          <a-card size="small" :title="tr('Workload this month', 'Carga de trabajo del mes')" style="margin-bottom: 16px">
             <div v-if="(data.workload || []).length" class="wlist">
               <div v-for="w in data.workload" :key="w.id" class="wrow">
                 <span class="wrow-name">{{ w.name }}</span>
@@ -149,10 +149,10 @@
                 <span class="wrow-hours">{{ number(w.hours, 1) }}h</span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No time logged yet" />
+            <a-empty v-else :image="simpleEmptyImage" :description="tr('No time logged yet', 'Aún no hay horas registradas')" />
           </a-card>
 
-          <a-card size="small" title="Task breakdown">
+          <a-card size="small" :title="tr('Task breakdown', 'Tareas por estado')">
             <div v-if="(data.tasks_by_status || []).length" class="breakdown">
               <div v-for="row in data.tasks_by_status" :key="row.status" class="brow">
                 <a-tag :color="optionOf(TASK_STATUSES, row.status).color">
@@ -161,7 +161,7 @@
                 <span class="bcount">{{ row.count }}</span>
               </div>
             </div>
-            <a-empty v-else :image="simpleEmptyImage" description="No tasks yet" />
+            <a-empty v-else :image="simpleEmptyImage" :description="tr('No tasks yet', 'Aún no hay tareas')" />
           </a-card>
         </a-col>
       </a-row>
@@ -191,8 +191,9 @@ import {
   PROJECT_STATUSES, TASK_STATUSES, labelOf, optionOf, progressColor, dueLabel,
 } from './workspaceOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useTr } from '../../lib/useTr';
 
+const tr = useTr();
 const { money, number, date } = useFormat();
 
 const simpleEmptyImage = Empty.PRESENTED_IMAGE_SIMPLE;
@@ -213,7 +214,7 @@ async function load() {
   try {
     data.value = await http.get('projects/dashboard');
   } catch (e) {
-    message.error(t('InvalidData', 'Could not load the projects dashboard'));
+    message.error(tr('Could not load the projects dashboard', 'No se pudo cargar el panel de proyectos'));
   } finally {
     loading.value = false;
   }

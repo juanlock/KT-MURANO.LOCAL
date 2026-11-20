@@ -307,5 +307,7 @@
     "This parcel was already unloaded.": "Esta encomienda ya fue descargada.",
     "That is not the next control point: refresh the page.": "Ese no es el siguiente punto de control: actualice la página.",
     "A VIP ticket needs a VIP seat.": "Un pasaje VIP necesita un asiento VIP.",
-    "There are regular seats free: this seat is VIP.": "Hay asientos normales libres: este asiento es VIP."
+    "There are regular seats free: this seat is VIP.": "Hay asientos normales libres: este asiento es VIP.",
+    "The customer does not belong to this company.": "El cliente no pertenece a esta compañía.",
+    "An employee does not belong to this company.": "Un empleado no pertenece a esta compañía."
 }

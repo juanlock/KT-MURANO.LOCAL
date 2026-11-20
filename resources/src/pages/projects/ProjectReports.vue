@@ -1,6 +1,6 @@
 <template>
-  <div class="page">
-    <PageHeader :title="$t('Project Reports')" :breadcrumb="[$t('Projects Management'), $t('Reports')]">
+  <div :class="{ page: !fixedProject }">
+    <PageHeader v-if="!fixedProject" :title="$t('Project Reports')" :breadcrumb="[$t('Projects Management'), $t('Reports')]">
       <template #actions>
         <a-button :loading="exporting === 'excel'" @click="doExport('excel')">
           <template #icon><FileExcelOutlined /></template>
@@ -15,7 +15,7 @@
 
     <a-card size="small" style="margin-bottom: 16px">
       <a-tabs v-model:activeKey="report" @change="onReportChange">
-        <a-tab-pane v-for="r in REPORTS" :key="r.key" :tab="r.title" />
+        <a-tab-pane v-for="r in REPORT_LIST" :key="r.key" :tab="r.title" />
       </a-tabs>
 
       <div class="toolbar">
@@ -23,8 +23,18 @@
           v-model:value="crud.search.value" :placeholder="current.searchHint"
           allow-clear class="tb-search" @search="crud.reload"
         />
+        <template v-if="fixedProject">
+          <a-button :loading="exporting === 'excel'" @click="doExport('excel')">
+            <template #icon><FileExcelOutlined /></template>
+            Excel
+          </a-button>
+          <a-button :loading="exporting === 'pdf'" @click="doExport('pdf')">
+            <template #icon><FilePdfOutlined /></template>
+            PDF
+          </a-button>
+        </template>
         <a-select
-          v-if="report !== 'delivery'"
+          v-if="report !== 'delivery' && !fixedProject"
           v-model:value="projectId" class="tb-item" allow-clear show-search
           option-filter-prop="label" :placeholder="$t('All_Projects')"
           :options="projectOptions" @change="crud.reload"
@@ -32,7 +42,7 @@
         <a-select
           v-if="report === 'delivery'"
           v-model:value="status" class="tb-item-sm" allow-clear
-          :placeholder="$t('Status')" :options="PROJECT_STATUSES" @change="crud.reload"
+          :placeholder="$t('Status')" :options="PROJECT_STATUSES()" @change="crud.reload"
         />
         <PresetRangeFilter
           v-if="current.dateRange"
@@ -115,26 +125,32 @@ import { useFormat } from '../../composables/useFormat';
 import { exportExcel, exportPdf } from '../../lib/exporters';
 import { PROJECT_STATUSES, MILESTONE_STATUSES, labelOf, optionOf, progressColor } from './workspaceOptions';
 import http from '../../lib/http';
-import { t } from '../../i18n';
+import { useTr } from '../../lib/useTr';
 
+// Inside a project (ProjectDetail's "Informe" tab): that project's workload and milestones only.
+const props = defineProps({ projectId: { type: [Number, String], default: null } });
+const fixedProject = computed(() => (props.projectId ? Number(props.projectId) : null));
+
+const tr = useTr();
 const { money, number, date } = useFormat();
 
-const REPORTS = [
-  { key: 'delivery', title: t('delivery', 'Delivery'), endpoint: 'projects/reports/delivery', sort: 'logged_hours', searchHint: t('Search_Project', 'Search project…'), dateRange: true },
-  { key: 'workload', title: t('Workload', 'Workload'), endpoint: 'projects/reports/workload', sort: 'hours', searchHint: t('Search_Person', 'Search person…'), dateRange: true },
-  { key: 'milestones', title: t('Milestones', 'Milestones'), endpoint: 'projects/reports/milestones', sort: 'due_date', searchHint: t('Search_Milestone', 'Search milestone…'), dateRange: false },
-];
+// Titles and hints are computed so they follow the language picked.
+const REPORT_LIST = computed(() => [
+  ...(fixedProject.value ? [] : [{ key: 'delivery', title: tr('Delivery', 'Entregas'), endpoint: 'projects/reports/delivery', sort: 'logged_hours', searchHint: tr('Search project…', 'Buscar proyecto…'), dateRange: true }]),
+  { key: 'workload', title: tr('Workload', 'Carga de trabajo'), endpoint: 'projects/reports/workload', sort: 'hours', searchHint: tr('Search person…', 'Buscar persona…'), dateRange: true },
+  { key: 'milestones', title: tr('Milestones', 'Hitos'), endpoint: 'projects/reports/milestones', sort: 'due_date', searchHint: tr('Search milestone…', 'Buscar hito…'), dateRange: false },
+]);
 
-const report = ref('delivery');
-const current = computed(() => REPORTS.find(r => r.key === report.value) || REPORTS[0]);
+const report = ref(props.projectId ? 'workload' : 'delivery');
+const current = computed(() => REPORT_LIST.value.find(r => r.key === report.value) || REPORT_LIST.value[0]);
 
-const projectId = ref(undefined);
+const projectId = ref(props.projectId ? Number(props.projectId) : undefined);
 const status = ref(undefined);
 const range = ref(null);
-const endpoint = ref(REPORTS[0].endpoint);
+const endpoint = ref(REPORT_LIST.value[0].endpoint);
 
 const crud = useCrudTable(() => endpoint.value, {
-  sortField: 'logged_hours',
+  sortField: REPORT_LIST.value[0].sort,
   select: p => ({ rows: p?.rows || [], total: p?.totalRows || 0 }),
   params: () => ({
     project_id: projectId.value || '',
@@ -152,53 +168,53 @@ function onReportChange() {
   crud.reload();
 }
 
-const COLUMNS = {
+const COLUMNS = computed(() => ({
   delivery: [
-    { title: t('Project', 'Project'), key: 'title', dataIndex: 'title', sorter: true },
-    { title: t('Status', 'Status'), key: 'status', dataIndex: 'status', width: 140 },
-    { title: t('Due', 'Due'), key: 'end_date', dataIndex: 'end_date', sorter: true, width: 190 },
-    { title: t('Tasks', 'Tasks'), dataIndex: 'tasks', key: 'tasks', sorter: true, width: 90 },
-    { title: t('Done', 'Done'), dataIndex: 'tasks_done', key: 'tasks_done', sorter: true, width: 90 },
-    { title: t('Progress', 'Progress'), dataIndex: 'progress', key: 'progress', sorter: true, percent: true, width: 150 },
-    { title: t('Milestones', 'Milestones'), dataIndex: 'milestones_done', key: 'milestones_done', width: 110 },
-    { title: t('Est_Hours', 'Est. hours'), dataIndex: 'estimated_hours', key: 'estimated_hours', sorter: true, hours: true, width: 120 },
-    { title: t('Logged', 'Logged'), dataIndex: 'logged_hours', key: 'logged_hours', sorter: true, hours: true, width: 110 },
-    { title: t('Billable', 'Billable'), dataIndex: 'billable_amount', key: 'billable_amount', sorter: true, money: true, width: 130 },
+    { title: tr('Project', 'Proyecto'), key: 'title', dataIndex: 'title', sorter: true },
+    { title: tr('Status', 'Estado'), key: 'status', dataIndex: 'status', width: 140 },
+    { title: tr('Due', 'Vence'), key: 'end_date', dataIndex: 'end_date', sorter: true, width: 190 },
+    { title: tr('Tasks', 'Tareas'), dataIndex: 'tasks', key: 'tasks', sorter: true, width: 90 },
+    { title: tr('Done', 'Hechas'), dataIndex: 'tasks_done', key: 'tasks_done', sorter: true, width: 90 },
+    { title: tr('Progress', 'Avance'), dataIndex: 'progress', key: 'progress', sorter: true, percent: true, width: 150 },
+    { title: tr('Milestones', 'Hitos'), dataIndex: 'milestones_done', key: 'milestones_done', width: 110 },
+    { title: tr('Est. hours', 'Horas estimadas'), dataIndex: 'estimated_hours', key: 'estimated_hours', sorter: true, hours: true, width: 120 },
+    { title: tr('Logged', 'Registradas'), dataIndex: 'logged_hours', key: 'logged_hours', sorter: true, hours: true, width: 110 },
+    { title: tr('Billable', 'Facturable'), dataIndex: 'billable_amount', key: 'billable_amount', sorter: true, money: true, width: 130 },
   ],
   workload: [
-    { title: t('Person', 'Person'), dataIndex: 'name', key: 'name', sorter: true },
-    { title: t('Entries', 'Entries'), dataIndex: 'entries', key: 'entries', sorter: true, width: 110 },
-    { title: t('Projects', 'Projects'), dataIndex: 'projects', key: 'projects', sorter: true, width: 110 },
-    { title: t('Hours', 'Hours'), dataIndex: 'hours', key: 'hours', sorter: true, hours: true, width: 110 },
-    { title: t('Billable_Hours', 'Billable hours'), dataIndex: 'billable_hours', key: 'billable_hours', sorter: true, hours: true, width: 140 },
-    { title: t('Billable_Percent', 'Billable %'), dataIndex: 'billable_rate', key: 'billable_rate', sorter: true, percent: true, width: 150 },
-    { title: t('Value', 'Value'), dataIndex: 'billable_amount', key: 'billable_amount', sorter: true, money: true, width: 130 },
+    { title: tr('Person', 'Persona'), dataIndex: 'name', key: 'name', sorter: true },
+    { title: tr('Entries', 'Registros'), dataIndex: 'entries', key: 'entries', sorter: true, width: 110 },
+    { title: tr('Projects', 'Proyectos'), dataIndex: 'projects', key: 'projects', sorter: true, width: 110 },
+    { title: tr('Hours', 'Horas'), dataIndex: 'hours', key: 'hours', sorter: true, hours: true, width: 110 },
+    { title: tr('Billable hours', 'Horas facturables'), dataIndex: 'billable_hours', key: 'billable_hours', sorter: true, hours: true, width: 140 },
+    { title: tr('Billable %', '% facturable'), dataIndex: 'billable_rate', key: 'billable_rate', sorter: true, percent: true, width: 150 },
+    { title: tr('Value', 'Valor'), dataIndex: 'billable_amount', key: 'billable_amount', sorter: true, money: true, width: 130 },
   ],
   milestones: [
-    { title: t('Milestone', 'Milestone'), dataIndex: 'title', key: 'title_plain', sorter: true },
-    { title: t('Project', 'Project'), dataIndex: 'project_title', key: 'project_title', width: 180 },
-    { title: t('Due', 'Due'), key: 'due_date', dataIndex: 'due_date', sorter: true, width: 130 },
-    { title: t('Status', 'Status'), key: 'milestone_status', dataIndex: 'status', width: 140 },
-    { title: t('Progress', 'Progress'), dataIndex: 'progress', key: 'progress', sorter: true, percent: true, width: 150 },
-    { title: t('Slippage', 'Slippage'), key: 'slippage', dataIndex: 'slippage', sorter: true, width: 140 },
-    { title: t('Budget', 'Budget'), dataIndex: 'budget', key: 'budget', money: true, width: 120 },
+    { title: tr('Milestone', 'Hito'), dataIndex: 'title', key: 'title_plain', sorter: true },
+    ...(fixedProject.value ? [] : [{ title: tr('Project', 'Proyecto'), dataIndex: 'project_title', key: 'project_title', width: 180 }]),
+    { title: tr('Due', 'Vence'), key: 'due_date', dataIndex: 'due_date', sorter: true, width: 130 },
+    { title: tr('Status', 'Estado'), key: 'milestone_status', dataIndex: 'status', width: 140 },
+    { title: tr('Progress', 'Avance'), dataIndex: 'progress', key: 'progress', sorter: true, percent: true, width: 150 },
+    { title: tr('Slippage', 'Desfase'), key: 'slippage', dataIndex: 'slippage', sorter: true, width: 140 },
+    { title: tr('Budget', 'Presupuesto'), dataIndex: 'budget', key: 'budget', money: true, width: 120 },
   ],
-};
+}));
 
-const columns = computed(() => COLUMNS[report.value] || COLUMNS.delivery);
+const columns = computed(() => COLUMNS.value[report.value] || COLUMNS.value.delivery);
 
-const TOTAL_LABELS = {
-  tasks: t('Tasks', 'Tasks'), tasks_done: t('Tasks_Done', 'Tasks done'),
-  logged_hours: t('Hours_Logged', 'Hours logged'), billable_amount: t('Billable_Value', 'Billable value'),
-  hours: t('Hours', 'Hours'), milestones: t('Milestones', 'Milestones'), overdue: t('Overdue', 'Overdue'),
-};
+const TOTAL_LABELS = computed(() => ({
+  tasks: tr('Tasks', 'Tareas'), tasks_done: tr('Tasks done', 'Tareas completadas'),
+  logged_hours: tr('Hours logged', 'Horas registradas'), billable_amount: tr('Billable value', 'Valor facturable'),
+  hours: tr('Hours', 'Horas'), milestones: tr('Milestones', 'Hitos'), overdue: tr('Overdue', 'Atrasado'),
+}));
 const MONEY_TOTALS = ['billable_amount'];
 const HOUR_TOTALS = ['logged_hours', 'hours'];
 
 const totalTiles = computed(() => {
   const totals = crud.payload.value?.totals || {};
   return Object.entries(totals).map(([key, value]) => ({
-    label: TOTAL_LABELS[key] || key,
+    label: TOTAL_LABELS.value[key] || key,
     value: MONEY_TOTALS.includes(key)
       ? money(value || 0)
       : HOUR_TOTALS.includes(key)
@@ -230,14 +246,14 @@ async function doExport(kind) {
     });
     const rows = data?.rows || [];
     if (!rows.length) {
-      message.warning(t('NodataAvailable', 'Nothing to export'));
+      message.warning(tr('Nothing to export', 'No hay nada para exportar'));
       return;
     }
-    const title = `${t('Projects', 'Projects')} — ${current.value.title}`;
+    const title = `${tr('Projects', 'Proyectos')} — ${current.value.title}`;
     if (kind === 'excel') await exportExcel(title, columns.value, rows);
     else await exportPdf(title, columns.value, rows);
   } catch (e) {
-    message.error(t('InvalidData', 'Could not export this report'));
+    message.error(tr('Could not export this report', 'No se pudo exportar este reporte'));
   } finally {
     exporting.value = '';
   }
@@ -245,6 +261,7 @@ async function doExport(kind) {
 
 onMounted(async () => {
   crud.fetchRows();
+  if (fixedProject.value) return;
   try {
     const meta = await http.get('projects/meta');
     projects.value = meta?.projects || [];

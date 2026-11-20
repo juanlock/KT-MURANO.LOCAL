@@ -22,13 +22,21 @@
 
     <DataTable :crud="crud" :columns="columns">
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
+        <template v-if="column.key === 'title'">
+          <a class="plink" @click="$router.push(`/projects/${record.id}`)">{{ record.title }}</a>
+        </template>
+        <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
         <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : '—' }}</template>
         <template v-else-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space>
+            <a-tooltip :title="tr('Open', 'Abrir')">
+              <a-button type="text" size="small" @click="$router.push(`/projects/${record.id}`)">
+                <template #icon><FolderOpenOutlined style="color: #1677ff" /></template>
+              </a-button>
+            </a-tooltip>
             <a-tooltip :title="$t('Edit')">
               <a-button type="text" size="small" @click="$router.push(`/projects/${record.id}/edit`)">
                 <template #icon><EditOutlined style="color: #52c41a" /></template>
@@ -50,15 +58,19 @@
 /** Projects list: GET projects → {projects, totalRows, companies, clients}. */
 import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '@ant-design/icons-vue';
+import { useTr } from '../../lib/useTr';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
+import { useSystemContext } from '../../lib/systemContext';
 import { PROJECT_STATUSES, projectStatusLabel, projectStatusColor } from './projectStatus';
 
 const { t } = useI18n();
+const tr = useTr();
 const { date } = useFormat();
+const { isSystem } = useSystemContext();
 const crud = useCrudTable('projects', { rowsKey: 'projects' });
 
 const statusLabel = projectStatusLabel;
@@ -78,12 +90,19 @@ const tiles = computed(() => [
 const columns = computed(() => [
   { title: t('Title'), dataIndex: 'title', key: 'title', sorter: true },
   { title: t('Customer'), dataIndex: 'client_name', key: 'client_name' },
-  { title: t('Company'), dataIndex: 'company_name', key: 'company_name' },
+  ...(isSystem.value ? [{ title: t('Company'), dataIndex: 'company_name', key: 'company_name' }] : []),
   { title: t('start_date'), key: 'start_date', dataIndex: 'start_date', sorter: true, exportValue: r => (r.start_date ? date(r.start_date) : '') },
   { title: t('Finish_Date'), key: 'end_date', dataIndex: 'end_date', sorter: true, exportValue: r => (r.end_date ? date(r.end_date) : '') },
   { title: t('Status'), key: 'status', dataIndex: 'status', exportValue: r => statusLabel(r.status) },
-  { title: t('Action'), key: 'actions', width: 110, align: 'center' },
+  { title: t('Action'), key: 'actions', width: 130, align: 'center' },
 ]);
 
 onMounted(crud.fetchRows);
 </script>
+
+<style scoped>
+.plink {
+  font-weight: 500;
+  cursor: pointer;
+}
+</style>
