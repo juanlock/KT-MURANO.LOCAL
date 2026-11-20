@@ -10,8 +10,8 @@ export const DATATABLE_DEFAULTS = {
     // 'default' inherits Ant's font; the rest map to stacks below.
     fontFamily: 'default',
     fontSize: 14,
-    // Row density — a-table `size`.
-    density: 'middle',
+    // Row density — a-table `size`. 'small' is the standard since 2026-11-20 (user: compact rows on every table).
+    density: 'small',
     bordered: false,
     striped: false,
     // Sortable columns: when on, every column gets a sorter — columns the

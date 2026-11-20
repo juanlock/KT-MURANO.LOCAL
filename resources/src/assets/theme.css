@@ -122,7 +122,19 @@ html.gdt-bordered .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td
 }
 html.gdt-density-small .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
 html.gdt-density-small .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
-  padding: 8px 8px;
+  padding: 5px 8px;
+}
+/* The row under the mouse is clearly shaded (user's rule, 2026-11-20: "casi ni se nota"), every table. */
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row:hover > td,
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row:hover > td.ant-table-cell-row-hover {
+  background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.16) !important;
+}
+/* Compact rows are the standard (user's rule, 2026-11-20): every small table -- DataTable's own and any <a-table
+   size="small"> -- uses 5px instead of Ant's 8px top / bottom. */
+.ant-table-wrapper .ant-table.ant-table-small .ant-table-thead > tr > th,
+.ant-table-wrapper .ant-table.ant-table-small .ant-table-tbody > tr > td {
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 html.gdt-density-middle .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
 html.gdt-density-middle .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
@@ -131,6 +143,60 @@ html.gdt-density-middle .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > t
 html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-thead > tr > th,
 html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr > td {
   padding: 16px 16px;
+}
+
+/* Tabs that must be seen (user, 2026-11-20: "no se notan"): <a-tabs class="tabs-strong"> -- a tinted strip, each tab
+   a pill with its icon, the active one in the company's primary colour. Reusable on any page with section tabs. */
+.tabs-strong > .ant-tabs-nav {
+  margin-bottom: 14px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.07);
+}
+.tabs-strong > .ant-tabs-nav::before {
+  display: none;
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-ink-bar {
+  display: none;
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab {
+  margin: 0 !important;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab + .ant-tabs-tab {
+  margin-inline-start: 4px !important;
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab .anticon {
+  margin-inline-end: 6px;
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab:hover {
+  background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.12);
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-active {
+  background: rgb(var(--app-primary-rgb, 0, 120, 212));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #fff !important;
+  text-shadow: none;
+}
+
+/* A separator between groups of tabs: <a-tab-pane key="__sep" disabled><template #tab><span class="tab-sep" /></template>. */
+.tabs-strong > .ant-tabs-nav .ant-tabs-tab:has(.tab-sep) {
+  padding: 0 4px;
+  background: none !important;
+  cursor: default;
+}
+.tab-sep {
+  display: inline-block;
+  width: 2px;
+  height: 22px;
+  border-radius: 1px;
+  vertical-align: middle;
+  background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.35);
 }
 
 /* List filter rows (grid layout) + the shared Reset button

@@ -27,6 +27,8 @@ export function isMenuEntryAllowed(entry, { can, actingCompanyId, isSuperAdmin, 
     // and gets `menu_hide:<item>` instead, which hides just this one.
     const target = entry.to || entry.href;
     if (hiddenByRole && target && hiddenByRole(target)) return false;
+    // A whole group hidden for a role (2026-11-20, Hordex's Manager): `menu_hide:<group key>`.
+    if (hiddenByRole && !target && entry.key && hiddenByRole(entry.key)) return false;
     if (!entry.permissions || !entry.permissions.length) return true;
     return entry.permissions.some(p => can(p));
 }

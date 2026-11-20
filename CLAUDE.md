@@ -56,8 +56,18 @@ Turismo Cautivo and Arce were created in production with a one-off script).
   production backup (`php artisan murano:prod-backup` ->
   `<archive>/HOSTINGER/hostinger-<date>_<time>-<PC>-a-dormir.zip`,
   git-ignored: customer data), Kelsy, README (block marked "not in production
-  yet"), commit, push. No deploy, no migrations or data to production (the
-  day's dev data is lost with the next Wake-up unless Pa Llevar sends it).
+  yet"), commit, push. No deploy, no migrations or data to production.
+**Dev work is never lost between dev PCs (user's rule, 2026-11-20: "lo que yo haga en Optimum, Hogwarts, Thundera (dev)
+siempre debe sincronizarse con la última versión... no tocar producción a menos que te lo pida"):** A Dormir and Pa Llevar
+save the PC's dev version (`protocol_dev_sync.php` `save`: `<archive>/dev_sync/<PC>.json` -> that day's local backup + the
+PC's morning sync record; Pa Llevar marks it "already in production except the live companies"); every Wake-up, after
+`murano:from-prod`, applies on top the latest version of each PC that no other version already contains (`apply`: the
+backup into a scratch database `dbmurano_devsync`, then `protocol_prod_push.php` dev -> dev, live companies included,
+same id when free else a new one, conflicts reported and production's value kept; files from the Drive mirror). So a
+live company's dev data (KcolTech's project, a test) and an A Dormir day reach every PC; production still gets only what
+Pa Llevar sends (never a live company) or what the user asks for. Each PC's morning record is its own file
+(`BackupPaths::lastSync()`: `<archive>/production/last_sync_<PC>.json`; the old shared `last_sync.json` let one PC's
+Wake-up move another PC's push time). Never carried: Email Office tables, audit / login history, sessions.
 - **Copia BD** -- a database copy on demand, tagged `copiabd`.
 - **Restaura BD Dev** (`/restaura-bd-dev`, 2026-10-25) -- shows the latest
   backup (`php artisan murano:restore-dev --list`) and asks whether to restore
@@ -632,6 +642,12 @@ the start of each session).
   default on): a browser the login never used -> email. Everything goes to
   `login_events`. Way back in: `php artisan murano:login-reset {email}
   [--no-2fa-types]`. The 2FA secret / recovery codes are in `User::$hidden`.
+  **Authorization per place (2026-11-20, Hordex's Miguel Barrera):** `users.two_factor_ip` = the emailed code is asked
+  from every IP where that login never confirmed one (`LoginSecurity::rememberedDevice` reads `login_events` code_ok by
+  IP, whatever the browser); its known IPs sign in with the password only. No screen yet (set by script).
+  **The same email can be a staff login and another company's customer portal login** (Hordex's hordex@qnet.com.pe =
+  Miguel Barrera, Manager of Hordex, and Miguel Barreda, KcolTech's customer, user 248): staff `/login` ignores customer
+  logins -- a script that looks a user up by email must filter by company and type.
 - **Hostinger allows 20 new MySQL connections per second (its support, 2026-11-04):** over it = `[2002] Operation
   not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
   connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and
@@ -888,6 +904,22 @@ the start of each session).
   updated or skipped. Agents = employee logins whose role has `callcenter_work` (an admin login is never an agent).
   Demo: `php artisan callcenter:demo --company=1016` (supervisor + 3 agents `Alomundo-supervisor|agente1..3@kcoltech.com`,
   4,000 leads, campaign "Seguros de salud", 6 working days of calls; everything in `demo_records`).
+- **Distribución B2B module + HORDEX EIRL (user's request, 2026-11-20; DEV ONLY until the user says "súbelo"):** Business module
+  `b2b` (off by default, on for the factory type): selling to retail chains (Cencosud, TMH / Promart, Sodimac...).
+  `/b2b/dashboard` (to collect / overdue, sales of the month and the last two years by chain = the base of each chain's
+  rebate, the year's detracciones and deductions), `/b2b/guides` (remission guides: carrier, plate, SUNAT catalogue 20
+  reason, delivery point, PO; a guide takes its goods out of the warehouse, cancelling puts them back; tick guides of one
+  client -> ONE sale with IGV 18 %, series E001), `/b2b/collections` (an invoice settled in lines: bank deposit, SUNAT
+  detracción, the chain's deductions -- `b2b_concepts` with their %), `/b2b/kardex` (the earlier system's stock card,
+  read only), `/b2b/setup` (series + counters, carriers, delivery points, payment terms, concepts, reasons). Permissions
+  b2b_view / guides / invoice / collections / setup. `App\Support\B2b`, `B2bController`, migration 2026_11_20_150000.
+  Numbering: `settings.b2b_settings.next[series]` (Hordex had a mistyped E001-572000, so never max()+1).
+  **HORDEX EIRL** (RUC 20536725661, Cal. Pedro Dulanto 172, Barranco; company 1027 on Thundera's dev; logo pending from the
+  user; logins hordex-*@kcoltech.com): its earlier Laravel 8 app (`D:\WEBSITES-LOCAL\HORDEX.LOCAL`, database
+  `c2111853_hordex`) is imported by `php artisan b2b:import-hordex --company=ID [--fresh] [--dry]` (repeatable,
+  `b2b_legacy_map`; sales per year match to the cent; guides older than 2025 without an invoice = "closed"). Its screens
+  follow Hordex's compact way (user, 2026-11-20): the list on the left and the form on the right, one-line dense rows,
+  hover highlight, zebra, amounts right-aligned with tabular digits, status as a coloured dot.
 - **Employee details: View / Edit per tab** (`employee_tab_{tab}_{view|edit}`,
   Roles -> HRM -> Employees; edit needs view), enforced server-side by
   `App\Support\EmployeeTabs` (also the company + own-record boundary for the
@@ -1007,6 +1039,13 @@ the start of each session).
   `AdminLayout` `topNav`). **The whole bar then takes the company's primary colour** (2026-11-10: it shows that the bar is now the
   menu): white text, the icon buttons on white chips. Rules that reach inside the bar go in an UNSCOPED `<style>` block (a scoped
   `:global(.a) .b` drops everything after `:global`).
+- **Pin = icon rail (user's rule, 2026-11-20, from Hordex):** besides "collapse" (the hamburger: menu to the top bar), the
+  side menu has a **pin** button (`ui.sidebarRail`, per browser): icons only, each group's submenu opens on hover. A
+  company can start pinned (`settings.sidebar_collapsed_default`, once per browser session; Hordex). A whole group can be
+  hidden for a role with `menu_hide:<group key>` (`lib/menuVisibility.js`), a screen with `menu_hide:<route>`.
+- **A migrated client's screens look like its earlier system (user's rule, 2026-11-20: "muy parecido a su sistema
+  anterior para que no se queje o pida capacitación"):** same menu options, names and order, same first screen, same
+  board layout; Murano's extra screens hidden for its daily role.
 - **No language button in the top bar, anywhere (user's rule, 2026-11-10).** It repeated the language of Settings / Profile:
   `show_language` is 0 in every company and the switch and the header-icon key are gone. Don't bring it back.
 - **The alerts bell is each company's choice, off by default (user's rule, 2026-11-10).** System Settings -> General -> "Mostrar

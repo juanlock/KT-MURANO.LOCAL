@@ -84,10 +84,10 @@ class MenuPositionController extends Controller
             $guard = 0;
             while ($parent !== null) {
                 $depth++;
-                // Keep in sync with MAX_DEPTH in the Vue sidebar's menu-merge logic.
-                if ($depth > 4) {
+                // Keep in sync with MAX_MENU_DEPTH in SidebarMenuManager.vue (5 since 2026-11-20; the sidebar renders any depth).
+                if ($depth > 5) {
                     throw ValidationException::withMessages([
-                        'positions' => 'Menu items can only be nested up to 4 levels deep.',
+                        'positions' => 'Menu items can only be nested up to 5 levels deep.',
                     ]);
                 }
                 if (!isset($keySet[$parent])) {

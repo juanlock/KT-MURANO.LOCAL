@@ -840,6 +840,33 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     });
     // Call center (2026-11-17): leads (+ import), campaigns, the agent's screen, call log, quality, shifts, indicators,
     // billing to the clients and the telephone exchange.
+    // Distribución B2B (2026-11-20, Hordex): guides, invoicing guides, collections, board, kardex history, setup.
+    Route::prefix('b2b')->controller(\App\Http\Controllers\B2bController::class)->group(function () {
+        Route::get('/options', 'options');
+        Route::put('/settings', 'saveSettings');
+        Route::get('/dashboard', 'dashboard');
+        Route::get('/kardex', 'kardex');
+        Route::get('/reports/{type}', 'report')->where('type', '[a-z]+');
+        Route::get('/purchases', 'purchases');
+        Route::get('/purchases/{id}', 'purchase')->whereNumber('id');
+        Route::post('/purchases', 'storePurchase');
+        Route::get('/masters/{type}', 'masters')->where('type', '[a-z]+');
+        Route::post('/masters/{type}', 'saveMaster')->where('type', '[a-z]+');
+        Route::put('/masters/{type}/{id}', 'saveMaster')->where('type', '[a-z]+')->whereNumber('id');
+        Route::get('/guides', 'guides');
+        Route::post('/guides', 'storeGuide');
+        Route::get('/guides/{id}', 'guide')->whereNumber('id');
+        Route::post('/guides/{id}/cancel', 'cancelGuide')->whereNumber('id');
+        Route::post('/invoice', 'invoice');
+        Route::get('/invoices', 'invoices');
+        Route::get('/invoices/{id}', 'invoiceDetail')->whereNumber('id');
+        Route::post('/invoices/{id}/payments', 'addPayments')->whereNumber('id');
+        Route::delete('/payments/{id}', 'deletePayment')->whereNumber('id');
+        Route::get('/setup', 'setup');
+        Route::post('/setup/{type}', 'saveSetup')->where('type', '[a-z]+');
+        Route::put('/setup/{type}/{id}', 'saveSetup')->where('type', '[a-z]+')->whereNumber('id');
+        Route::delete('/setup/{type}/{id}', 'deleteSetup')->where('type', '[a-z]+')->whereNumber('id');
+    });
     Route::prefix('callcenter')->group(function () {
         Route::controller(\App\Http\Controllers\CallCenter\CallCenterLeadsController::class)->group(function () {
             Route::get('/leads', 'index');
@@ -2010,6 +2037,8 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     // ------------------------------------------------------------------\\
 
     Route::get('get_user_auth', 'UserController@GetUserAuth');
+    // "Install the app on this computer": trust this browser (2026-11-20).
+    Route::post('device/trust', 'DeviceTrustController@trust');
     Route::put('user_preferences', 'UserController@updateUiPreference');
     // Start page after login (own account): choice + "Last used" visit counter.
     Route::put('user_start_page', 'UserController@updateStartPage');

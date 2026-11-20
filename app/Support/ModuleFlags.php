@@ -20,7 +20,9 @@ class ModuleFlags
         // Transport (2026-11-01): trips, routes and crew of a passenger transport / tour company.
         'transport',
         // Call center (2026-11-17): campaigns, leads and agents; on for the call center type.
-        'callcenter'];
+        'callcenter',
+        // Distribución B2B (2026-11-20, Hordex): remission guides, invoicing guides, collections with deductions.
+        'b2b'];
 
     private static array $memo = [];
 

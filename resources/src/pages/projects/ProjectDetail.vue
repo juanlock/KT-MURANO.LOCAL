@@ -28,9 +28,9 @@
         </span>
       </div>
 
-      <a-tabs v-model:activeKey="tab" class="tabs" @change="onTab">
+      <a-tabs v-model:activeKey="tab" class="tabs tabs-strong" @change="onTab">
         <!-- Overview -->
-        <a-tab-pane key="overview" :tab="tr('Overview', 'Resumen')">
+        <a-tab-pane key="overview"><template #tab><AppstoreOutlined />{{ tr('Overview', 'Resumen') }}</template>
           <a-row :gutter="[16, 16]">
             <a-col v-for="k in kpis" :key="k.label" :xs="12" :md="8" :xl="4">
               <a-card size="small" class="kpi">
@@ -69,45 +69,21 @@
           </a-row>
         </a-tab-pane>
 
-        <!-- List -->
-        <a-tab-pane v-if="can('tasks')" key="list" :tab="tr('List', 'Lista')">
-          <DataTable v-if="tab === 'list'" :crud="taskCrud" :columns="taskColumns">
-            <template #filters>
-              <a-button type="primary" @click="newTask">
-                <template #icon><PlusOutlined /></template>
-                {{ tr('New task', 'Nueva tarea') }}
-              </a-button>
-            </template>
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'title'">
-                <a class="link" @click="editTask(record.id)">{{ record.title }}</a>
-              </template>
-              <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
-              <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : '—' }}</template>
-              <template v-else-if="column.key === 'status'">
-                <a-tag :color="projectStatusColor(record.status)">{{ projectStatusLabel(record.status) }}</a-tag>
-              </template>
-              <template v-else-if="column.key === 'actions'">
-                <a-space :size="0">
-                  <a-tooltip :title="$t('Edit')">
-                    <a-button type="text" size="small" @click="editTask(record.id)"><template #icon><EditOutlined /></template></a-button>
-                  </a-tooltip>
-                  <a-tooltip :title="$t('Delete')">
-                    <a-button type="text" size="small" danger @click="removeTask(record)"><template #icon><DeleteOutlined /></template></a-button>
-                  </a-tooltip>
-                </a-space>
-              </template>
-            </template>
-          </DataTable>
-        </a-tab-pane>
-
         <!-- Board -->
-        <a-tab-pane v-if="can('tasks')" key="board" :tab="tr('Board', 'Tablero')">
+        <a-tab-pane v-if="can('tasks')" key="board"><template #tab><ProjectOutlined />{{ tr('Board', 'Tablero') }}</template>
           <TaskBoard v-if="tab === 'board'" :project-id="id" />
         </a-tab-pane>
 
+        <!-- Timeline (Smartsheet's project timeline templates, 2026-11-20) -->
+        <a-tab-pane key="timeline"><template #tab><FieldTimeOutlined />{{ tr('Timeline', 'Línea de tiempo') }}</template>
+          <ProjectTimeline
+            v-if="tab === 'timeline'" :project="p" :tasks="data.tasks || []" :milestones="data.milestones || []"
+            @open-task="editTask"
+          />
+        </a-tab-pane>
+
         <!-- Calendar -->
-        <a-tab-pane key="calendar" :tab="tr('Calendar', 'Calendario')">
+        <a-tab-pane key="calendar"><template #tab><CalendarOutlined />{{ tr('Calendar', 'Calendario') }}</template>
           <a-row v-if="tab === 'calendar'" :gutter="16">
             <a-col :xs="24" :xl="17">
               <a-card size="small">
@@ -144,19 +120,54 @@
           </a-row>
         </a-tab-pane>
 
+        <!-- Report -->
+        <a-tab-pane v-if="can('project_reports')" key="report"><template #tab><BarChartOutlined />{{ tr('Report', 'Informe') }}</template>
+          <ProjectReports v-if="tab === 'report'" :project-id="id" />
+        </a-tab-pane>
+
+        <!-- Separator: the overview tabs above, the working lists after (user, 2026-11-20) -->
+        <a-tab-pane key="__sep" disabled><template #tab><span class="tab-sep" /></template></a-tab-pane>
+
+        <!-- List -->
+        <a-tab-pane v-if="can('tasks')" key="list"><template #tab><UnorderedListOutlined />{{ tr('List', 'Lista') }}</template>
+          <DataTable v-if="tab === 'list'" :crud="taskCrud" :columns="taskColumns">
+            <template #filters>
+              <a-button type="primary" @click="newTask">
+                <template #icon><PlusOutlined /></template>
+                {{ tr('New task', 'Nueva tarea') }}
+              </a-button>
+            </template>
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'title'">
+                <a class="link" @click="editTask(record.id)">{{ record.title }}</a>
+              </template>
+              <template v-else-if="column.key === 'start_date'">{{ record.start_date ? date(record.start_date) : '—' }}</template>
+              <template v-else-if="column.key === 'end_date'">{{ record.end_date ? date(record.end_date) : '—' }}</template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="projectStatusColor(record.status)">{{ projectStatusLabel(record.status) }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <a-space :size="0">
+                  <a-tooltip :title="$t('Edit')">
+                    <a-button type="text" size="small" @click="editTask(record.id)"><template #icon><EditOutlined /></template></a-button>
+                  </a-tooltip>
+                  <a-tooltip :title="$t('Delete')">
+                    <a-button type="text" size="small" danger @click="removeTask(record)"><template #icon><DeleteOutlined /></template></a-button>
+                  </a-tooltip>
+                </a-space>
+              </template>
+            </template>
+          </DataTable>
+        </a-tab-pane>
+
         <!-- Milestones -->
-        <a-tab-pane v-if="can('project_milestones')" key="milestones" :tab="tr('Milestones', 'Hitos')">
+        <a-tab-pane v-if="can('project_milestones')" key="milestones"><template #tab><FlagOutlined />{{ tr('Milestones', 'Hitos') }}</template>
           <Milestones v-if="tab === 'milestones'" :project-id="id" @changed="load" />
         </a-tab-pane>
 
         <!-- Time -->
-        <a-tab-pane v-if="can('project_timesheets')" key="time" :tab="tr('Timesheets', 'Horas')">
+        <a-tab-pane v-if="can('project_timesheets')" key="time"><template #tab><ClockCircleOutlined />{{ tr('Timesheets', 'Horas') }}</template>
           <Timesheets v-if="tab === 'time'" :project-id="id" @changed="load" />
-        </a-tab-pane>
-
-        <!-- Report -->
-        <a-tab-pane v-if="can('project_reports')" key="report" :tab="tr('Report', 'Informe')">
-          <ProjectReports v-if="tab === 'report'" :project-id="id" />
         </a-tab-pane>
       </a-tabs>
     </a-spin>
@@ -175,7 +186,8 @@ import { Modal, message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import {
   ArrowLeftOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UserOutlined, CalendarOutlined, BankOutlined,
-  FlagOutlined, CheckSquareOutlined,
+  FlagOutlined, CheckSquareOutlined, AppstoreOutlined, UnorderedListOutlined, ProjectOutlined, FieldTimeOutlined,
+  ClockCircleOutlined, BarChartOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
@@ -183,6 +195,7 @@ import TaskBoard from './TaskBoard.vue';
 import Milestones from './Milestones.vue';
 import Timesheets from './Timesheets.vue';
 import ProjectReports from './ProjectReports.vue';
+import ProjectTimeline from './ProjectTimeline.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useSystemContext } from '../../lib/systemContext';
@@ -192,7 +205,7 @@ import http from '../../lib/http';
 import { useTr } from '../../lib/useTr';
 import { useAuthStore } from '../../stores/auth';
 
-const TABS = ['overview', 'list', 'board', 'calendar', 'milestones', 'time', 'report'];
+const TABS = ['overview', 'list', 'board', 'calendar', 'timeline', 'milestones', 'time', 'report'];
 
 const tr = useTr();
 const auth = useAuthStore();
@@ -213,7 +226,7 @@ const team = computed(() => data.value.team || []);
 
 function onTab(key) {
   router.replace({ query: { ...route.query, tab: key } });
-  if (key === 'overview' || key === 'calendar') load();
+  if (key === 'overview' || key === 'calendar' || key === 'timeline') load();
 }
 
 async function load() {

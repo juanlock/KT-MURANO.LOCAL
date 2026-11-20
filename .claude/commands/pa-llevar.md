@@ -38,6 +38,8 @@ Run Protocol Pa Llevar ("to go") -- the end-of-day counterpart of Wake-up (`.cla
 
 9. **Deploy** -- step 1, then the dev data, step 1b (now that everything is committed and pushed).
 
+9a. **This PC's dev version for the other PCs** (user's rule, 2026-11-20: dev work is never lost between PCs) -- `php artisan tinker --execute="$devSyncMode = 'save'; $pushedToProd = true; require '<repo>\database\scripts\protocol_dev_sync.php';"` (`$pushedToProd = false` when step 1b failed or was blocked): `<archive>/dev_sync/<PC>.json` points to step 5's backup; the other PCs' Wake-up applies the live companies' dev rows from it (the rest is already in production).
+
 9b. **KT-TOOLS to the clouds -- the LAST step** (user's rule, 2026-11-18): `php artisan tinker --execute="$toolsMode = 'push'; require '<repo>\database\scripts\protocol_tools_sync.php';"` (absolute path): Google Drive (`G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\KT-TOOLS`) and OneDrive (`D:\NetLock\OneDrive\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS`) become exactly `D:\WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS` (new / changed up, deleted here = deleted there) and get a `_sync.json` receipt the next Wake-up reads. The only moment the clouds change. Report the counts per cloud.
 
 10. **Report** to the user: production sync, manual entries changed, build, kt_logs rows added, backup file + size, commit hash + subject, push result, and anything left out and why. Write the same summary into this protocol's `kt_logs` row (Kelsy), so it can be read tomorrow even if the chat closes.

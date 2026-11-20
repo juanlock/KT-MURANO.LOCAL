@@ -75,6 +75,7 @@ class EnforceModuleFlags
         'zatca' => 'zatca', // Saudi e-invoicing, off by default (ModuleFlags::DEFAULT_OFF)
         'paypal' => 'paypal', // PayPal invoice payments, off by default (on for KcolTech)
         'callcenter' => 'callcenter', // Call center (2026-11-17), off by default
+        'b2b' => 'b2b', // Distribución B2B (2026-11-20), off by default
     ];
 
     /** store/<second segment> that belongs elsewhere: E-Wallet, or never blocked (null). */

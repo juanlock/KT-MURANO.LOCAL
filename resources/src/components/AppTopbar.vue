@@ -294,6 +294,12 @@
               </button>
             </div>
 
+            <!-- Install the company's desktop app on this computer and trust it (2026-11-20). -->
+            <button type="button" class="acct-item" @click="installApp">
+              <DesktopOutlined class="acct-ic" />
+              <span>{{ isEs ? 'Instalar aplicativo en este equipo' : 'Install the app on this computer' }}</span>
+            </button>
+
             <div class="acct-sep" role="separator"></div>
 
             <button type="button" class="acct-item acct-danger" @click="signOut">
@@ -353,7 +359,7 @@ import { useUiStore } from '../stores/ui';
 import { useCompanyStore } from '../stores/company';
 import { SUPPORTED_LOCALES } from '../i18n';
 import http from '../lib/http';
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 
 defineProps({
   collapsed: { type: Boolean, default: false },
@@ -524,12 +530,42 @@ const typeLabel = computed(() => {
   return pair ? pair[isEs.value ? 1 : 0] : t;
 });
 
+// Desktop app (2026-11-20): the manifest names it "Murano - <company>" with the company's logo (PwaManifestController);
+// installing it also trusts this computer, so it is not asked the password / code again (DeviceTrustController).
+watch(() => auth.user?.company_id, (cid) => {
+  if (!cid) return;
+  const link = document.querySelector('link[rel="manifest"]');
+  if (link) link.setAttribute('href', `/manifest.webmanifest?company=${cid}`);
+}, { immediate: true });
+async function installApp() {
+  userMenuOpen.value = false;
+  const prompt = pwaCanInstall.value;
+  try {
+    if (prompt) {
+      await promptInstall();
+    } else {
+      Modal.info({
+        title: isEs.value ? 'Instalar el aplicativo' : 'Install the app',
+        content: isEs.value
+          ? 'En Chrome o Edge: menú ⋮ (arriba a la derecha) → «Transmitir, guardar y compartir» → «Instalar página como aplicación». Este equipo ya quedó registrado y no volverá a pedir la clave.'
+          : 'In Chrome or Edge: menu ⋮ (top right) → "Cast, save and share" → "Install page as app". This computer is now trusted and won\'t ask the password again.',
+      });
+    }
+    await http.post('device/trust', {});
+    if (prompt) message.success(isEs.value ? 'Aplicativo instalado. Este equipo ya no pedirá la clave.' : 'App installed. This computer won\'t ask the password again.');
+  } catch (e) {
+    message.error(e?.data?.message || 'Error');
+  }
+}
+
 function go(path) {
   userMenuOpen.value = false;
   router.push(path);
 }
 function signOut() {
   userMenuOpen.value = false;
+  // The company's "menu starts collapsed" applies again at the next sign-in (AdminLayout).
+  try { sessionStorage.removeItem('company_menu_collapsed_applied'); } catch (e) { /* storage blocked */ }
   emit('logout');
 }
 

@@ -51,6 +51,9 @@ Route::get('password/find/{token}', 'PasswordResetController@find');
 // (the static public/manifest-*.webmanifest files would shadow them otherwise).
 Route::get('manifest.webmanifest', [\App\Http\Controllers\PwaManifestController::class, 'manifest'])
     ->name('pwa.manifest');
+// A company's desktop app icon: its logo on a square (2026-11-20).
+Route::get('pwa-icon/{company}/{size}.png', [\App\Http\Controllers\PwaManifestController::class, 'pwaIcon'])
+    ->whereNumber('company')->whereNumber('size');
 Route::get('pwa/{type}.webmanifest', [\App\Http\Controllers\PwaManifestController::class, 'manifest'])
     ->where('type', 'app|store|customer-display|portal')
     ->name('pwa.manifest.surface');

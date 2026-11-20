@@ -1,0 +1,688 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Concerns\ScopesToCompany;
+use App\Services\Helpdesk\HelpdeskAccess;
+use App\Support\B2b;
+use App\Support\ModuleFlags;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+/**
+ * Distribución B2B (2026-11-20, Hordex). Every endpoint works on the acting company (never AdminSystem 999) with the
+ * module on, and checks its permission (b2b_view / b2b_guides / b2b_invoice / b2b_collections / b2b_setup).
+ *
+ *  GET  b2b/options                      GET  b2b/dashboard              GET b2b/kardex
+ *  GET  b2b/guides  POST b2b/guides      GET  b2b/guides/{id}            POST b2b/guides/{id}/cancel
+ *  POST b2b/invoice                      GET  b2b/invoices               GET b2b/invoices/{id}
+ *  POST b2b/invoices/{id}/payments       DELETE b2b/payments/{id}
+ *  GET  b2b/setup   POST b2b/setup/{type}   PUT b2b/setup/{type}/{id}   DELETE b2b/setup/{type}/{id}   PUT b2b/settings
+ */
+class B2bController extends Controller
+{
+    use ScopesToCompany;
+
+    private function allow(Request $request, string ...$perms): void
+    {
+        foreach ($perms as $p) {
+            if (HelpdeskAccess::can($request->user('api'), $p)) {
+                return;
+            }
+        }
+        abort(403, __('You do not have permission for this.'));
+    }
+
+    private function company(Request $request): int
+    {
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999, 422, __('Pick a company in the header first.'));
+        ModuleFlags::abortUnlessEnabled($cid, 'b2b');
+
+        return $cid;
+    }
+
+    private function page($q, Request $request, array $sortable, string $default): array
+    {
+        $total = (clone $q)->count();
+        $per = max(10, min(500, (int) $request->input('limit', 50)));
+        $sort = $sortable[$request->SortField] ?? $default;
+        $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
+
+        return [$q->orderBy($sort, $dir)->orderBy(explode('.', $default)[0].'.id', $dir)->forPage(max(1, (int) $request->input('page', 1)), $per)->get(), $total];
+    }
+
+    // ------------------------------------------------------------------ options / settings
+
+    public function options(Request $request)
+    {
+        $this->allow($request, 'b2b_view', 'b2b_guides', 'b2b_invoice', 'b2b_collections', 'b2b_setup');
+        $cid = $this->company($request);
+        $s = B2b::settings($cid);
+
+        return response()->json([
+            'settings' => $s,
+            'next_guide' => B2b::nextGuideNumber($cid, $s['guide_series']),
+            'next_invoice' => B2b::nextInvoiceNumber($cid, $s['invoice_series']),
+            'clients' => DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')->where('name', '!=', 'Walk-in Customer')
+                ->orderBy('name')->get(['id', 'name', 'tax_number']),
+            'products' => DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')
+                ->get(['id', 'code', 'name', 'price', 'type']),
+            'carriers' => DB::table('b2b_carriers')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->orderBy('name')->get(),
+            'reasons' => DB::table('b2b_transfer_reasons')->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $cid))
+                ->where('active', 1)->orderBy('sunat_code')->get(['id', 'sunat_code', 'name', 'direction']),
+            'terms' => DB::table('b2b_payment_terms')->where('company_id', $cid)->where('active', 1)->orderBy('days')->get(['id', 'name', 'days']),
+            'concepts' => DB::table('b2b_concepts')->where('company_id', $cid)->where('active', 1)->orderBy('name')->get(['id', 'client_id', 'name', 'kind', 'percent']),
+            'addresses' => DB::table('b2b_client_addresses')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('alias')
+                ->get(['id', 'client_id', 'alias', 'address', 'district']),
+            'warehouses' => DB::table('warehouses')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+            'providers' => DB::table('providers')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function saveSettings(Request $request)
+    {
+        $this->allow($request, 'b2b_setup');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'invoice_series' => 'required|string|max:8|regex:/^[A-Za-z0-9]+$/', 'guide_series' => 'required|string|max:8|regex:/^[A-Za-z0-9]+$/',
+            'igv' => 'required|numeric|min:0|max:50', 'warehouse_id' => 'nullable|integer',
+        ]);
+        $d['invoice_series'] = strtoupper($d['invoice_series']);
+        $d['guide_series'] = strtoupper($d['guide_series']);
+        $d['next'] = B2b::settings($cid)['next'] ?? [];
+        $d['annual'] = B2b::settings($cid)['annual'] ?? [];
+        DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->update(['b2b_settings' => json_encode($d), 'updated_at' => now()]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ------------------------------------------------------------------ guides
+
+    public function guides(Request $request)
+    {
+        $this->allow($request, 'b2b_guides', 'b2b_invoice');
+        $cid = $this->company($request);
+        $q = DB::table('b2b_guides as g')->leftJoin('clients as c', 'c.id', '=', 'g.client_id')
+            ->leftJoin('sales as s', 's.id', '=', 'g.sale_id')
+            ->where('g.company_id', $cid)->whereNull('g.deleted_at')
+            ->when($request->status, fn ($q, $v) => $q->where('g.status', $v))
+            ->when($request->client_id, fn ($q, $v) => $q->where('g.client_id', $v))
+            ->when($request->from, fn ($q, $v) => $q->where('g.issue_date', '>=', $v))
+            ->when($request->to, fn ($q, $v) => $q->where('g.issue_date', '<=', $v))
+            ->when($request->search, fn ($q, $v) => $q->where(fn ($w) => $w->where('c.name', 'like', "%$v%")->orWhere('g.purchase_order', 'like', "%$v%")
+                ->orWhereRaw("CONCAT(g.series, '-', LPAD(g.number, 6, '0')) like ?", ["%$v%"])->orWhere('g.number', $v)))
+            ->select('g.id', 'g.series', 'g.number', 'g.issue_date', 'g.client_id', 'c.name as client_name', 'g.purchase_order', 'g.status',
+                'g.sale_id', 's.Ref as sale_ref',
+                DB::raw('(SELECT SUM(quantity) FROM b2b_guide_items i WHERE i.guide_id = g.id) as units'));
+        [$rows, $total] = $this->page($q, $request, ['number' => 'g.number', 'issue_date' => 'g.issue_date', 'client_name' => 'c.name', 'status' => 'g.status'], 'g.issue_date');
+
+        return response()->json(['guides' => $rows, 'totalRows' => $total]);
+    }
+
+    public function guide(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_guides', 'b2b_invoice');
+        $cid = $this->company($request);
+        $g = DB::table('b2b_guides')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->first();
+        abort_unless($g, 404);
+        $g->items = DB::table('b2b_guide_items as i')->leftJoin('products as p', 'p.id', '=', 'i.product_id')->where('i.guide_id', $id)
+            ->get(['i.id', 'i.product_id', 'p.name as product_name', 'p.code', 'p.price', 'i.description', 'i.quantity', 'i.unit']);
+        $g->client_name = DB::table('clients')->where('id', $g->client_id)->value('name');
+        $g->reason_name = DB::table('b2b_transfer_reasons')->where('id', $g->reason_id)->value('name');
+        $g->carrier_name = DB::table('b2b_carriers')->where('id', $g->carrier_id)->value('name');
+        $g->sale_ref = $g->sale_id ? DB::table('sales')->where('id', $g->sale_id)->value('Ref') : null;
+
+        return response()->json($g);
+    }
+
+    public function storeGuide(Request $request)
+    {
+        $this->allow($request, 'b2b_guides');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'series' => 'nullable|string|max:8', 'issue_date' => 'required|date', 'transfer_date' => 'nullable|date',
+            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->where('company_id', $cid)],
+            'address_id' => 'nullable|integer', 'delivery_address' => 'nullable|string|max:255', 'reason_id' => 'required|integer',
+            'carrier_id' => 'nullable|integer', 'plate' => 'nullable|string|max:15', 'driver_license' => 'nullable|string|max:30',
+            'purchase_order' => 'nullable|string|max:60', 'warehouse_id' => 'nullable|integer', 'notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1', 'items.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('company_id', $cid)],
+            'items.*.quantity' => 'required|numeric|gt:0', 'items.*.unit' => 'nullable|string|max:10',
+        ], ['items.required' => __('Add at least one product.')]);
+        $s = B2b::settings($cid);
+        $series = strtoupper(trim($d['series'] ?? '') ?: $s['guide_series']);
+
+        $id = DB::transaction(function () use ($cid, $d, $series, $request) {
+            $number = B2b::nextGuideNumber($cid, $series);
+            $carrier = ! empty($d['carrier_id']) ? DB::table('b2b_carriers')->where('company_id', $cid)->where('id', $d['carrier_id'])->first() : null;
+            $address = ! empty($d['address_id']) ? DB::table('b2b_client_addresses')->where('company_id', $cid)->where('id', $d['address_id'])->first() : null;
+            $id = DB::table('b2b_guides')->insertGetId([
+                'company_id' => $cid, 'series' => $series, 'number' => $number, 'issue_date' => $d['issue_date'],
+                'transfer_date' => $d['transfer_date'] ?? $d['issue_date'], 'client_id' => $d['client_id'], 'address_id' => $address->id ?? null,
+                'delivery_address' => $d['delivery_address'] ?? ($address->address ?? null), 'reason_id' => $d['reason_id'],
+                'carrier_id' => $carrier->id ?? null, 'plate' => $d['plate'] ?? ($carrier->plate ?? null),
+                'driver_license' => $d['driver_license'] ?? ($carrier->license ?? null), 'brand' => $carrier->brand ?? null, 'model' => $carrier->model ?? null,
+                'purchase_order' => $d['purchase_order'] ?? null, 'warehouse_id' => $d['warehouse_id'] ?? B2b::warehouse($cid),
+                'status' => 'dispatched', 'stock_moved' => 1, 'notes' => $d['notes'] ?? null, 'created_by' => $request->user('api')->id,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            foreach ($d['items'] as $it) {
+                DB::table('b2b_guide_items')->insert(['guide_id' => $id, 'product_id' => $it['product_id'], 'quantity' => $it['quantity'],
+                    'unit' => $it['unit'] ?? 'UND', 'created_at' => now(), 'updated_at' => now()]);
+            }
+            B2b::moveStock($id, -1);
+            B2b::used($cid, $series, $number);
+
+            return $id;
+        });
+
+        return response()->json(['ok' => true, 'id' => $id, 'ref' => B2b::ref($series, (int) DB::table('b2b_guides')->where('id', $id)->value('number'))]);
+    }
+
+    public function cancelGuide(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_guides');
+        $cid = $this->company($request);
+        DB::transaction(function () use ($cid, $id) {
+            $g = DB::table('b2b_guides')->where('company_id', $cid)->where('id', $id)->lockForUpdate()->first();
+            abort_unless($g, 404);
+            abort_if($g->status === 'invoiced', 422, __('This guide is already invoiced: cancel the invoice first.'));
+            abort_if($g->status === 'cancelled', 422, __('This guide is already cancelled.'));
+            if ($g->stock_moved) {
+                B2b::moveStock($id, 1);
+            }
+            DB::table('b2b_guides')->where('id', $id)->update(['status' => 'cancelled', 'stock_moved' => 0, 'updated_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function invoice(Request $request)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'guide_ids' => 'required|array|min:1', 'guide_ids.*' => 'integer', 'date' => 'required|date', 'series' => 'nullable|string|max:8',
+            'payment_term_id' => 'nullable|integer', 'purchase_order' => 'nullable|string|max:60', 'prices' => 'nullable|array', 'notes' => 'nullable|string|max:2000',
+        ]);
+        $saleId = B2b::invoiceGuides($cid, $d['guide_ids'], (int) $request->user('api')->id, $d);
+
+        return response()->json(['ok' => true, 'sale_id' => $saleId, 'ref' => DB::table('sales')->where('id', $saleId)->value('Ref')]);
+    }
+
+    // ------------------------------------------------------------------ collections
+
+    private function invoiceQuery(int $cid)
+    {
+        return DB::table('sales as s')->leftJoin('clients as c', 'c.id', '=', 's.client_id')->leftJoin('b2b_sale_info as b', 'b.sale_id', '=', 's.id')
+            ->where('s.company_id', $cid)->whereNull('s.deleted_at')->where(fn ($q) => $q->whereNull('s.is_draft')->orWhere('s.is_draft', 0));
+    }
+
+    public function invoices(Request $request)
+    {
+        $this->allow($request, 'b2b_collections');
+        $cid = $this->company($request);
+        $today = now()->toDateString();
+        $q = $this->invoiceQuery($cid)
+            ->when($request->status === 'pending', fn ($q) => $q->where('s.statut', '!=', 'canceled')->whereIn('s.payment_statut', ['unpaid', 'partial']))
+            ->when($request->status === 'overdue', fn ($q) => $q->where('s.statut', '!=', 'canceled')->whereIn('s.payment_statut', ['unpaid', 'partial'])->where('b.due_date', '<', $today))
+            ->when($request->status === 'paid', fn ($q) => $q->where('s.payment_statut', 'paid'))
+            ->when($request->client_id, fn ($q, $v) => $q->where('s.client_id', $v))
+            ->when($request->from, fn ($q, $v) => $q->where('s.date', '>=', $v))
+            ->when($request->to, fn ($q, $v) => $q->where('s.date', '<=', $v))
+            ->when($request->search, fn ($q, $v) => $q->where(fn ($w) => $w->where('s.Ref', 'like', "%$v%")->orWhere('c.name', 'like', "%$v%")->orWhere('b.purchase_order', 'like', "%$v%")))
+            ->select('s.id', 's.Ref', 's.date', 'c.name as client_name', 's.client_id', 's.GrandTotal', 's.paid_amount', 's.payment_statut', 's.statut',
+                'b.due_date', 'b.purchase_order', DB::raw('ROUND(s.GrandTotal - s.paid_amount, 2) as balance'));
+        [$rows, $total] = $this->page($q, $request, ['Ref' => 's.Ref', 'date' => 's.date', 'client_name' => 'c.name', 'GrandTotal' => 's.GrandTotal',
+            'balance' => DB::raw('s.GrandTotal - s.paid_amount'), 'due_date' => 'b.due_date'], 's.date');
+        foreach ($rows as $r) {
+            $r->overdue = $r->due_date && $r->due_date < $today && in_array($r->payment_statut, ['unpaid', 'partial'], true) && $r->statut !== 'canceled';
+        }
+
+        return response()->json(['invoices' => $rows, 'totalRows' => $total]);
+    }
+
+    public function invoiceDetail(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_collections', 'b2b_invoice');
+        $cid = $this->company($request);
+        $s = $this->invoiceQuery($cid)->where('s.id', $id)->first(['s.id', 's.Ref', 's.date', 'c.name as client_name', 's.client_id', 's.GrandTotal',
+            's.TaxNet', 's.paid_amount', 's.payment_statut', 's.statut', 'b.due_date', 'b.purchase_order']);
+        abort_unless($s, 404);
+        $s->payments = DB::table('payment_sales as p')->leftJoin('b2b_payment_info as i', 'i.payment_sale_id', '=', 'p.id')
+            ->leftJoin('b2b_concepts as k', 'k.id', '=', 'i.concept_id')->leftJoin('payment_methods as m', 'm.id', '=', 'p.payment_method_id')
+            ->where('p.sale_id', $id)->whereNull('p.deleted_at')->orderBy('p.date')->orderBy('p.id')
+            ->get(['p.id', 'p.date', 'p.montant as amount', 'p.notes', 'i.kind', 'i.document', 'i.document_date', 'i.percent', 'i.expected', 'k.name as concept', 'm.name as method']);
+        $s->guides = DB::table('b2b_guides')->where('sale_id', $id)->get(['id', 'series', 'number', 'issue_date']);
+        $s->concepts = DB::table('b2b_concepts')->where('company_id', $cid)->where('active', 1)
+            ->where(fn ($q) => $q->whereNull('client_id')->orWhere('client_id', $s->client_id))->orderBy('name')->get(['id', 'name', 'kind', 'percent']);
+
+        return response()->json($s);
+    }
+
+    public function addPayments(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_collections');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'lines' => 'required|array|min:1', 'lines.*.amount' => 'required|numeric|gt:0', 'lines.*.date' => 'required|date',
+            'lines.*.concept_id' => 'nullable|integer', 'lines.*.kind' => 'nullable|in:deposit,detraction,rebate,deduction',
+            'lines.*.document' => 'nullable|string|max:60', 'lines.*.document_date' => 'nullable|date', 'lines.*.percent' => 'nullable|numeric',
+            'lines.*.notes' => 'nullable|string|max:255', 'lines.*.expected' => 'nullable|numeric',
+        ]);
+        abort_unless(DB::table('sales')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->exists(), 404);
+        DB::transaction(function () use ($cid, $id, $d, $request) {
+            foreach ($d['lines'] as $line) {
+                B2b::addPayment($cid, $id, (int) $request->user('api')->id, $line);
+            }
+            B2b::refreshSale($id);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function deletePayment(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_collections');
+        $cid = $this->company($request);
+        $p = DB::table('payment_sales as p')->join('sales as s', 's.id', '=', 'p.sale_id')->where('s.company_id', $cid)->where('p.id', $id)->first(['p.id', 'p.sale_id']);
+        abort_unless($p, 404);
+        DB::transaction(function () use ($p) {
+            DB::table('payment_sales')->where('id', $p->id)->update(['deleted_at' => now()]);
+            DB::table('b2b_payment_info')->where('payment_sale_id', $p->id)->delete();
+            B2b::refreshSale((int) $p->sale_id);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ------------------------------------------------------------------ board / kardex
+
+    public function dashboard(Request $request)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $today = now()->toDateString();
+        $year = (int) ($request->year ?: now()->year);
+        $valid = fn ($q) => $q->where('s.company_id', $cid)->whereNull('s.deleted_at')->where('s.statut', '!=', 'canceled');
+        $byClient = fn ($from, $to) => DB::table('sales as s')->leftJoin('clients as c', 'c.id', '=', 's.client_id')->tap($valid)
+            ->whereBetween('s.date', [$from, $to])->groupBy('s.client_id', 'c.name', 'c.short_name')
+            ->selectRaw('s.client_id, COALESCE(NULLIF(c.short_name, \'\'), c.name) as client, ROUND(SUM(s.GrandTotal), 2) as total, ROUND(SUM(s.GrandTotal - s.TaxNet), 2) as net, COUNT(*) as invoices')
+            ->orderByDesc('total')->get();
+        $overdue = DB::table('sales as s')->join('b2b_sale_info as b', 'b.sale_id', '=', 's.id')->leftJoin('clients as c', 'c.id', '=', 's.client_id')
+            ->tap($valid)->whereIn('s.payment_statut', ['unpaid', 'partial'])
+            ->orderBy('b.due_date')->limit(120)
+            ->get(['s.id', 's.Ref', 's.date', 'b.due_date', DB::raw("COALESCE(NULLIF(c.short_name, ''), c.name) as client"), DB::raw('ROUND(s.GrandTotal - s.paid_amount, 2) as balance')]);
+        // Hordex's board groups what is still to collect: overdue, this week, the next 15 days, later.
+        $in7 = now()->addDays(7)->toDateString();
+        $in15 = now()->addDays(15)->toDateString();
+        foreach ($overdue as $o) {
+            $o->overdue = $o->due_date && $o->due_date < $today;
+            $o->days = $o->due_date ? (int) round((strtotime($today) - strtotime($o->due_date)) / 86400) : null;
+            $o->group = ! $o->due_date || $o->due_date < $today ? 'overdue' : ($o->due_date <= $in7 ? 'week' : ($o->due_date <= $in15 ? 'fortnight' : 'later'));
+        }
+        // The chains' annual rebates (b2b_settings.annual: {client_id, label, percent}) for the year before and the year.
+        $rules = B2b::settings($cid)['annual'] ?? [];
+        $annual = [];
+        foreach ([$year - 1, $year] as $y) {
+            $sales = DB::table('sales as s')->tap($valid)->whereBetween('s.date', ["$y-01-01", "$y-12-31"])
+                ->groupBy('s.client_id')->selectRaw('s.client_id, ROUND(SUM(s.GrandTotal), 2) as total')->pluck('total', 'client_id');
+            $annual[$y] = array_map(function ($r) use ($sales) {
+                $base = (float) ($sales[$r['client_id']] ?? 0);
+                $c = DB::table('clients')->where('id', $r['client_id'])->first(['name', 'short_name']);
+
+                return ['label' => $r['label'], 'client' => $c ? ($c->short_name ?: $c->name) : '', 'percent' => (float) $r['percent'],
+                    'base' => round($base, 2), 'amount' => floor($base * (float) $r['percent']) / 100];
+            }, $rules);
+        }
+        $deductions = DB::table('payment_sales as p')->join('sales as s', 's.id', '=', 'p.sale_id')->join('b2b_payment_info as i', 'i.payment_sale_id', '=', 'p.id')
+            ->leftJoin('b2b_concepts as k', 'k.id', '=', 'i.concept_id')->leftJoin('clients as c', 'c.id', '=', 's.client_id')
+            ->tap($valid)->whereNull('p.deleted_at')->whereYear('p.date', $year)->where('i.kind', '!=', 'deposit')
+            ->groupBy('c.name', 'i.kind', DB::raw('COALESCE(k.name, p.notes, i.kind)'))
+            ->selectRaw('c.name as client, i.kind, COALESCE(k.name, p.notes, i.kind) as concept, ROUND(SUM(p.montant), 2) as total')
+            ->orderByDesc('total')->get();
+        $years = [];
+        foreach ([$year - 1, $year] as $y) {
+            $years[$y] = $byClient("$y-01-01", "$y-12-31");
+        }
+
+        return response()->json([
+            'year' => $year,
+            'month' => $byClient(now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()),
+            'years' => $years,
+            'overdue' => $overdue,
+            'annual' => $annual,
+            'deductions' => $deductions,
+            'guides_pending' => DB::table('b2b_guides')->where('company_id', $cid)->where('status', 'dispatched')->whereNull('deleted_at')->count(),
+        ]);
+    }
+
+    public function kardex(Request $request)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $q = DB::table('b2b_kardex as k')->leftJoin('products as p', 'p.id', '=', 'k.product_id')->where('k.company_id', $cid)
+            ->when($request->product_id, fn ($q, $v) => $q->where('k.product_id', $v))
+            ->when($request->from, fn ($q, $v) => $q->where('k.moved_at', '>=', $v))
+            ->when($request->to, fn ($q, $v) => $q->where('k.moved_at', '<=', $v.' 23:59:59'))
+            ->when($request->search, fn ($q, $v) => $q->where(fn ($w) => $w->where('p.name', 'like', "%$v%")->orWhere('k.reference', 'like', "%$v%")))
+            ->select('k.id', 'k.moved_at', 'k.direction', 'k.quantity', 'k.price', 'k.balance', 'k.reference', 'p.name as product', 'p.code');
+        [$rows, $total] = $this->page($q, $request, ['moved_at' => 'k.moved_at', 'product' => 'p.name'], 'k.moved_at');
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total]);
+    }
+
+    // ------------------------------------------------------------------ supplier invoices (Hordex's "Compras", 2026-11-20)
+
+    public function purchases(Request $request)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $q = DB::table('purchases as p')->leftJoin('providers as v', 'v.id', '=', 'p.provider_id')->where('p.company_id', $cid)->whereNull('p.deleted_at')
+            ->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('p.Ref', 'like', "%$s%")->orWhere('v.name', 'like', "%$s%")))
+            ->select('p.id', 'p.Ref', 'p.date', 'v.name as provider', 'p.GrandTotal', 'p.payment_statut', 'p.notes');
+        [$rows, $total] = $this->page($q, $request, ['date' => 'p.date', 'Ref' => 'p.Ref', 'provider' => 'v.name', 'GrandTotal' => 'p.GrandTotal'], 'p.date');
+        foreach ($rows as $r) {
+            $r->currency = str_starts_with((string) $r->notes, 'Dólares') ? '$' : 'S/';
+            $r->estado = $r->payment_statut === 'paid' ? 'CANCELADA' : 'PENDIENTE';
+        }
+
+        return response()->json(['purchases' => $rows, 'totalRows' => $total]);
+    }
+
+    public function purchase(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $p = DB::table('purchases as p')->leftJoin('providers as v', 'v.id', '=', 'p.provider_id')->where('p.company_id', $cid)->where('p.id', $id)
+            ->first(['p.id', 'p.Ref', 'p.date', 'p.provider_id', 'v.name as provider', 'v.tax_number', 'p.GrandTotal', 'p.TaxNet', 'p.paid_amount', 'p.payment_statut', 'p.notes']);
+        abort_unless($p, 404);
+        $p->currency = str_starts_with((string) $p->notes, 'Dólares') ? '$' : 'S/';
+        $p->estado = $p->payment_statut === 'paid' ? 'CANCELADA' : 'PENDIENTE';
+        $p->lines = DB::table('purchase_details as d')->leftJoin('products as pr', 'pr.id', '=', 'd.product_id')->where('d.purchase_id', $id)
+            ->get(['pr.code', 'pr.name', 'd.quantity', 'd.cost', 'd.total']);
+
+        return response()->json($p);
+    }
+
+    public function storePurchase(Request $request)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'provider_id' => ['required', 'integer', Rule::exists('providers', 'id')->where('company_id', $cid)],
+            'tipo' => 'nullable|string|max:20', 'moneda' => 'required|in:PEN,USD', 'tc' => 'nullable|numeric|min:0',
+            'factura' => 'required|string|max:30', 'f_emision' => 'required|date', 'f_venc' => 'nullable|date', 'f_pago' => 'nullable|date',
+            'items' => 'required|array|min:1', 'items.*.product_id' => ['nullable', 'integer', Rule::exists('products', 'id')->where('company_id', $cid)],
+            'items.*.description' => 'nullable|string|max:190', 'items.*.quantity' => 'required|numeric|gt:0', 'items.*.price' => 'required|numeric|min:0',
+        ]);
+        $id = DB::transaction(function () use ($cid, $d, $request) {
+            $net = round(collect($d['items'])->sum(fn ($i) => $i['quantity'] * $i['price']), 2);
+            $igv = round($net * 0.18, 2);
+            $notes = trim(($d['moneda'] === 'USD' ? 'Dólares, TC '.($d['tc'] ?? '') : '').($d['tipo'] ? ' · '.$d['tipo'] : '')
+                .($d['f_venc'] ? ' · Vence '.$d['f_venc'] : ''), ' ·') ?: null;
+            $paid = ! empty($d['f_pago']);
+            $id = DB::table('purchases')->insertGetId([
+                'company_id' => $cid, 'user_id' => $request->user('api')->id, 'Ref' => $d['factura'], 'date' => $d['f_emision'], 'time' => now()->format('H:i:s'),
+                'provider_id' => $d['provider_id'], 'warehouse_id' => B2b::warehouse($cid), 'tax_rate' => 18, 'TaxNet' => $igv, 'discount' => 0, 'shipping' => 0,
+                'GrandTotal' => round($net + $igv, 2), 'paid_amount' => $paid ? round($net + $igv, 2) : 0, 'statut' => 'received',
+                'payment_statut' => $paid ? 'paid' : 'unpaid', 'notes' => $notes, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            foreach ($d['items'] as $i) {
+                DB::table('purchase_details')->insert(['purchase_id' => $id, 'product_id' => $i['product_id'] ?? null, 'cost' => $i['price'], 'quantity' => $i['quantity'],
+                    'total' => round($i['quantity'] * $i['price'], 2), 'TaxNet' => 0, 'tax_method' => '2', 'discount' => 0, 'discount_method' => '2',
+                    'created_at' => now(), 'updated_at' => now()]);
+            }
+
+            return $id;
+        });
+
+        return response()->json(['ok' => true, 'id' => $id]);
+    }
+
+    // ------------------------------------------------------------------ masters: Productos / Proveedores / Clientes (Hordex, 2026-11-20)
+
+    private const MASTERS = ['products', 'providers', 'clients'];
+
+    private function masterQuery(string $type, int $cid)
+    {
+        if ($type === 'products') {
+            return DB::table('products as p')->leftJoin('units as u', 'u.id', '=', 'p.unit_id')->where('p.company_id', $cid)->whereNull('p.deleted_at')
+                ->select('p.id', 'p.code', 'p.name', 'p.price', 'p.type', 'p.unit_id', 'p.note', 'u.ShortName as unit',
+                    DB::raw('(select coalesce(sum(pw.qte), 0) from product_warehouse pw where pw.product_id = p.id and pw.deleted_at is null) as stock'));
+        }
+
+        // The earlier system lists only businesses with a RUC (no Walk-in / demo customers).
+        return DB::table("$type as p")->where('p.company_id', $cid)->whereNull('p.deleted_at')->whereNotNull('p.tax_number')->where('p.tax_number', '!=', '')
+            ->select(array_merge(['p.id', 'p.tax_number', 'p.name', 'p.adresse', 'p.phone', 'p.email', 'p.contact_name'], $type === 'clients' ? ['p.short_name'] : []));
+    }
+
+    public function masters(Request $request, string $type)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        abort_unless(in_array($type, self::MASTERS, true), 404);
+        $q = $this->masterQuery($type, $cid)->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('p.name', 'like', "%$s%")
+            ->orWhere($type === 'products' ? 'p.code' : 'p.tax_number', 'like', "%$s%")));
+        $sortable = $type === 'products' ? ['code' => 'p.code', 'name' => 'p.name'] : ['tax_number' => 'p.tax_number', 'name' => 'p.name'];
+        $request->merge(['SortType' => $request->SortType ?: 'asc']);
+        [$rows, $total] = $this->page($q, $request, $sortable, 'p.name');
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total,
+            'units' => $type === 'products' ? DB::table('units')->where(fn ($w) => $w->where('company_id', $cid)->orWhereNull('company_id'))
+                ->whereNull('deleted_at')->orderBy('name')->get(['id', 'name', 'ShortName']) : []]);
+    }
+
+    public function saveMaster(Request $request, string $type, ?int $id = null)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        abort_unless(in_array($type, self::MASTERS, true), 404);
+        if ($id) {
+            abort_unless(DB::table($type)->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->exists(), 404);
+        }
+        if ($type === 'products') {
+            $d = $request->validate([
+                'code' => ['required', 'string', 'max:60', Rule::unique('products', 'code')->where('company_id', $cid)->whereNull('deleted_at')->ignore($id)],
+                'name' => 'required|string|max:190', 'unit_id' => 'nullable|integer|exists:units,id', 'price' => 'nullable|numeric|min:0',
+                'type' => 'nullable|in:is_single,is_service', 'note' => 'nullable|string|max:1000',
+            ]);
+            $row = ['code' => strtoupper(trim($d['code'])), 'name' => mb_strtoupper(trim($d['name'])), 'unit_id' => $d['unit_id'] ?? null,
+                'unit_sale_id' => $d['unit_id'] ?? null, 'unit_purchase_id' => $d['unit_id'] ?? null, 'price' => $d['price'] ?? 0,
+                'type' => $d['type'] ?? 'is_single', 'note' => $d['note'] ?? null, 'updated_at' => now()];
+            $id = DB::transaction(function () use ($id, $row, $cid) {
+                if ($id) {
+                    DB::table('products')->where('id', $id)->update($row);
+
+                    return $id;
+                }
+                $new = DB::table('products')->insertGetId($row + ['company_id' => $cid, 'Type_barcode' => 'CODE128', 'cost' => 0, 'TaxNet' => 0, 'tax_method' => '2',
+                    'stock_alert' => 0, 'is_active' => 1, 'not_selling' => 0, 'is_variant' => 0, 'is_imei' => 0, 'created_at' => now()]);
+                if ($row['type'] === 'is_single') {
+                    DB::table('product_warehouse')->insert(['product_id' => $new, 'warehouse_id' => B2b::warehouse($cid), 'qte' => 0, 'manage_stock' => 1,
+                        'created_at' => now(), 'updated_at' => now()]);
+                }
+
+                return $new;
+            });
+
+            return response()->json(['ok' => true, 'id' => $id]);
+        }
+
+        $d = $request->validate([
+            'tax_number' => ['required', 'string', 'max:20', Rule::unique($type, 'tax_number')->where('company_id', $cid)->whereNull('deleted_at')->ignore($id)],
+            'name' => 'required|string|max:190', 'short_name' => 'nullable|string|max:190', 'adresse' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:100', 'email' => 'nullable|email|max:190', 'contact_name' => 'nullable|string|max:190',
+        ]);
+        $row = ['tax_number' => trim($d['tax_number']), 'name' => trim($d['name']), 'adresse' => $d['adresse'] ?? null, 'phone' => $d['phone'] ?? null,
+            'email' => $d['email'] ?? null, 'contact_name' => $d['contact_name'] ?? null, 'updated_at' => now()]
+            + ($type === 'clients' ? ['short_name' => $d['short_name'] ?? null] : []);
+        $id = DB::transaction(function () use ($id, $row, $cid, $type) {
+            if ($id) {
+                DB::table($type)->where('id', $id)->update($row);
+
+                return $id;
+            }
+            $new = DB::table($type)->insertGetId($row + ['company_id' => $cid, 'country' => 'Peru', 'code' => (int) DB::table($type)->max('code') + 1, 'created_at' => now()]);
+            // Every customer / supplier has its login (user's rule, 2026-10-05).
+            $userId = \App\Services\LinkedUserService::provision($cid, $type === 'clients' ? 'customer' : 'supplier',
+                $type === 'clients' ? 'Customer' : 'Supplier', $row['name'], $row['email'], $row['phone']);
+            DB::table($type)->where('id', $new)->update(['user_id' => $userId]);
+
+            return $new;
+        });
+
+        return response()->json(['ok' => true, 'id' => $id]);
+    }
+
+    // ------------------------------------------------------------------ reports (Hordex's five Excel reports, 2026-11-20)
+
+    /**
+     * GET b2b/reports/{type}?desde=&hasta=&producto_id=&proveedor_id= -> .xlsx with the earlier system's columns:
+     * compras (purchase lines), ventas (invoices, or one product's lines), pagos (deductions / detracciones, sentido out),
+     * cobros (bank deposits, sentido in), existencias (stock of each product).
+     */
+    public function report(Request $request, string $type)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        abort_unless(in_array($type, ['compras', 'ventas', 'pagos', 'cobros', 'existencias'], true), 404);
+        $from = $request->desde ?: '2000-01-01';
+        $to = $request->hasta ?: now()->toDateString();
+        $d = fn ($v) => $v ? date('d/m/Y', strtotime((string) $v)) : '';
+        $guideOf = fn ($saleId) => DB::table('b2b_guides')->where('sale_id', $saleId)->orderBy('number')->get(['series', 'number'])
+            ->map(fn ($g) => B2b::ref($g->series, (int) $g->number))->implode(', ');
+        $estado = fn ($s) => $s->statut === 'canceled' ? 'ANULADA' : ($s->payment_statut === 'paid' ? 'CANCELADA' : 'PENDIENTE');
+        $rows = [];
+        switch ($type) {
+            case 'compras':
+                $head = ['Fecha', 'Código', 'Producto', 'Cant.', 'Unit.', 'Monto', 'Moneda', 'Proveedor', 'Factura', 'Guía'];
+                $q = DB::table('purchase_details as d')->join('purchases as p', 'p.id', '=', 'd.purchase_id')->leftJoin('products as pr', 'pr.id', '=', 'd.product_id')
+                    ->leftJoin('providers as v', 'v.id', '=', 'p.provider_id')->where('p.company_id', $cid)->whereNull('p.deleted_at')
+                    ->whereBetween('p.date', [$from, $to])->when($request->producto_id, fn ($q, $v) => $q->where('d.product_id', $v))
+                    ->when($request->proveedor_id, fn ($q, $v) => $q->where('p.provider_id', $v))->orderBy('p.date')->orderBy('p.id')
+                    ->get(['p.date', 'pr.code', 'pr.name', 'd.quantity', 'd.cost', 'p.notes', 'v.name as provider', 'p.Ref']);
+                foreach ($q as $r) {
+                    $rows[] = [$d($r->date), $r->code, $r->name, (float) $r->quantity, (float) $r->cost, round($r->quantity * $r->cost, 2),
+                        str_starts_with((string) $r->notes, 'Dólares') ? 'DOL' : 'PEN', $r->provider, $r->Ref, ''];
+                }
+                break;
+            case 'ventas':
+                if ($request->producto_id) {
+                    $head = ['Factura', 'Emisión', 'Cliente', 'Guía', 'Cantidad', 'P.Unit', 'Total'];
+                    $q = DB::table('sale_details as d')->join('sales as s', 's.id', '=', 'd.sale_id')->leftJoin('clients as c', 'c.id', '=', 's.client_id')
+                        ->where('s.company_id', $cid)->whereNull('s.deleted_at')->where('d.product_id', $request->producto_id)
+                        ->whereBetween('s.date', [$from, $to])->orderBy('s.date')->orderBy('s.id')->get(['s.id', 's.Ref', 's.date', 'c.name', 'd.quantity', 'd.price']);
+                    foreach ($q as $r) {
+                        $rows[] = [$r->Ref, $d($r->date), $r->name, $guideOf($r->id), (float) $r->quantity, round((float) $r->price, 2), round($r->quantity * $r->price, 2)];
+                    }
+                } else {
+                    $head = ['Factura', 'Emisión', 'Cliente', 'Items', 'Guía', 'Subtotal', 'IGV', 'Total', 'Estado'];
+                    $q = DB::table('sales as s')->leftJoin('clients as c', 'c.id', '=', 's.client_id')->where('s.company_id', $cid)->whereNull('s.deleted_at')
+                        ->whereBetween('s.date', [$from, $to])->orderBy('s.date')->orderBy('s.id')
+                        ->get(['s.id', 's.Ref', 's.date', 'c.name', 's.GrandTotal', 's.TaxNet', 's.statut', 's.payment_statut',
+                            DB::raw('(SELECT COUNT(*) FROM sale_details x WHERE x.sale_id = s.id) as items')]);
+                    foreach ($q as $r) {
+                        $rows[] = [$r->Ref, $d($r->date), $r->name, (int) $r->items, $guideOf($r->id), round($r->GrandTotal - $r->TaxNet, 2), round((float) $r->TaxNet, 2),
+                            round((float) $r->GrandTotal, 2), $estado($r)];
+                    }
+                }
+                break;
+            case 'pagos':
+            case 'cobros':
+                $head = ['Factura Hordex', 'Factura Cliente', 'Emitida', 'Concepto', 'Fecha abono', 'Monto abonado'];
+                $q = DB::table('payment_sales as p')->join('sales as s', 's.id', '=', 'p.sale_id')->leftJoin('b2b_payment_info as i', 'i.payment_sale_id', '=', 'p.id')
+                    ->leftJoin('b2b_concepts as k', 'k.id', '=', 'i.concept_id')->where('s.company_id', $cid)->whereNull('p.deleted_at')
+                    ->whereBetween('p.date', [$from, $to])
+                    ->where(fn ($w) => $type === 'cobros' ? $w->where('i.kind', 'deposit') : $w->where('i.kind', '!=', 'deposit'))
+                    ->orderBy('p.date')->orderBy('p.id')->get(['s.Ref', 'i.document', 'i.document_date', 'k.name', 'p.notes', 'p.date', 'p.montant']);
+                // "Factura Hordex": the company's first word, as the earlier system titled it.
+                $head[0] = 'Factura '.ucfirst(strtolower(strtok((string) DB::table('companies')->where('id', $cid)->value('name'), ' ')));
+                foreach ($q as $r) {
+                    $rows[] = [$r->Ref, $r->document, $d($r->document_date), $r->name ?: $r->notes, $d($r->date), round((float) $r->montant, 2)];
+                }
+                break;
+            case 'existencias':
+                $head = ['#', 'Código', 'Nombre', 'Saldo'];
+                $q = DB::table('products as p')->leftJoin('product_warehouse as w', fn ($j) => $j->on('w.product_id', '=', 'p.id')->whereNull('w.deleted_at'))
+                    ->where('p.company_id', $cid)->whereNull('p.deleted_at')->where('p.type', '!=', 'is_service')
+                    ->groupBy('p.id', 'p.code', 'p.name')->orderBy('p.name')->get(['p.code', 'p.name', DB::raw('COALESCE(SUM(w.qte), 0) as saldo')]);
+                foreach ($q->values() as $i => $r) {
+                    $rows[] = [$i + 1, $r->code, $r->name, round((float) $r->saldo, 2)];
+                }
+                break;
+        }
+        $export = new class($head, $rows) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\ShouldAutoSize
+        {
+            public function __construct(private array $head, private array $rows) {}
+
+            public function array(): array { return $this->rows; }
+
+            public function headings(): array { return $this->head; }
+        };
+
+        return \Maatwebsite\Excel\Facades\Excel::download($export, $type.'.xlsx');
+    }
+
+    // ------------------------------------------------------------------ setup
+
+    private const SETUP = [
+        'carriers' => ['b2b_carriers', ['ruc' => 'nullable|string|max:15', 'name' => 'required|string|max:190', 'driver_name' => 'nullable|string|max:150',
+            'license' => 'nullable|string|max:30', 'plate' => 'nullable|string|max:15', 'brand' => 'nullable|string|max:60', 'model' => 'nullable|string|max:60', 'active' => 'boolean'], true],
+        'terms' => ['b2b_payment_terms', ['code' => 'nullable|string|max:20', 'name' => 'required|string|max:120', 'days' => 'required|integer|min:0|max:720', 'active' => 'boolean'], false],
+        'concepts' => ['b2b_concepts', ['client_id' => 'nullable|integer', 'name' => 'required|string|max:150', 'kind' => 'required|in:deposit,detraction,rebate,deduction',
+            'percent' => 'required|numeric|min:0|max:100', 'active' => 'boolean'], false],
+        'addresses' => ['b2b_client_addresses', ['client_id' => 'required|integer', 'alias' => 'nullable|string|max:120', 'address' => 'required|string|max:255',
+            'ubigeo' => 'nullable|string|max:6', 'district' => 'nullable|string|max:100', 'province' => 'nullable|string|max:100', 'department' => 'nullable|string|max:100',
+            'sunat_annex' => 'nullable|string|max:10'], true],
+        'reasons' => ['b2b_transfer_reasons', ['sunat_code' => 'nullable|string|max:4', 'name' => 'required|string|max:150', 'direction' => 'required|in:out,in', 'active' => 'boolean'], false],
+    ];
+
+    public function setup(Request $request)
+    {
+        $this->allow($request, 'b2b_setup');
+        $cid = $this->company($request);
+        $out = [];
+        foreach (self::SETUP as $type => [$table, , $soft]) {
+            $q = DB::table($table)->when($soft, fn ($q) => $q->whereNull('deleted_at'));
+            $q = $type === 'reasons' ? $q->where(fn ($w) => $w->whereNull('company_id')->orWhere('company_id', $cid)) : $q->where('company_id', $cid);
+            $out[$type] = $q->orderBy('id')->get();
+        }
+        $out['settings'] = B2b::settings($cid);
+
+        return response()->json($out);
+    }
+
+    public function saveSetup(Request $request, string $type, ?int $id = null)
+    {
+        $this->allow($request, 'b2b_setup');
+        $cid = $this->company($request);
+        abort_unless(isset(self::SETUP[$type]), 404);
+        [$table, $rules] = self::SETUP[$type];
+        $d = $request->validate($rules);
+        if (isset($d['client_id']) && $d['client_id']) {
+            abort_unless(DB::table('clients')->where('company_id', $cid)->where('id', $d['client_id'])->exists(), 422, __('Customer not found.'));
+        }
+        if ($id) {
+            $n = DB::table($table)->where('id', $id)->where('company_id', $cid)->update($d + ['updated_at' => now()]);
+            abort_unless($n || DB::table($table)->where('id', $id)->where('company_id', $cid)->exists(), 404);
+        } else {
+            $id = DB::table($table)->insertGetId($d + ['company_id' => $cid, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        return response()->json(['ok' => true, 'id' => $id]);
+    }
+
+    public function deleteSetup(Request $request, string $type, int $id)
+    {
+        $this->allow($request, 'b2b_setup');
+        $cid = $this->company($request);
+        abort_unless(isset(self::SETUP[$type]), 404);
+        [$table, , $soft] = self::SETUP[$type];
+        $q = DB::table($table)->where('id', $id)->where('company_id', $cid);
+        $soft ? $q->update(['deleted_at' => now()]) : $q->update(['active' => 0, 'updated_at' => now()]);
+
+        return response()->json(['ok' => true]);
+    }
+}

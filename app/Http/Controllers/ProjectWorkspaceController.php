@@ -34,7 +34,8 @@ class ProjectWorkspaceController extends Controller
     }
 
     /** Statuses the existing modules use, kept in one place. */
-    private const OPEN_PROJECT_STATUSES = ['not_started', 'progress', 'on_hold'];
+    // "On hold" is stored as `hold` (ProjectForm / projectStatus.js); `on_hold` kept in case an old row has it.
+    private const OPEN_PROJECT_STATUSES = ['not_started', 'progress', 'hold', 'on_hold'];
 
     private const DONE_TASK_STATUSES = ['completed'];
 

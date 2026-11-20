@@ -11,6 +11,7 @@ use App\utils\helpers;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
@@ -257,6 +258,11 @@ class ProjectController extends Controller
             ->get(['id', 'firstname', 'lastname', 'username'])
             ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname.' '.$e->lastname) ?: $e->username])->values();
 
+        // Who does each task (the Timeline tab's "Responsable" column).
+        $assignees = DB::table('employee_task as et')->join('employees as e', 'e.id', '=', 'et.employee_id')
+            ->whereIn('et.task_id', $tasks->pluck('id'))->get(['et.task_id', 'e.firstname', 'e.lastname', 'e.username'])
+            ->groupBy('task_id')->map(fn ($rows) => $rows->map(fn ($e) => trim($e->firstname.' '.$e->lastname) ?: $e->username)->implode(', '));
+
         $open = fn ($t) => ! in_array($t->status, ['completed', 'cancelled'], true);
         $done = $tasks->where('status', 'completed')->count();
         $counted = $tasks->where('status', '!=', 'cancelled')->count();
@@ -284,6 +290,7 @@ class ProjectController extends Controller
             'tasks' => $tasks->map(fn ($t) => [
                 'id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'priority' => $t->priority,
                 'start_date' => $t->start_date, 'end_date' => $t->end_date, 'progress' => (int) $t->task_progress,
+                'assignees' => (string) ($assignees[$t->id] ?? ''),
                 'is_overdue' => $open($t) && $t->end_date && $t->end_date < $today,
             ])->values(),
             'milestones' => $milestones->map(fn ($m) => [

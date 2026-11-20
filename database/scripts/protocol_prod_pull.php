@@ -202,5 +202,5 @@ $devMax = [];
 foreach (collect($d->select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'"))->pluck('t') as $t) {
     $devMax[$t] = (int) $d->table($t)->max('id');
 }
-file_put_contents(\App\Support\BackupPaths::production('last_sync.json'), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s'), 'dev_max_ids' => $devMax]));
+file_put_contents(\App\Support\BackupPaths::lastSync(), json_encode(['pulled_at' => now()->format('Y-m-d H:i:s'), 'dev_max_ids' => $devMax]));
 echo 'Done.', PHP_EOL;

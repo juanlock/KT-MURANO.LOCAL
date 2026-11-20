@@ -805,6 +805,17 @@ const routes = [
             { path: 'fleet/parts', name: 'fleet-parts', component: () => import('../pages/fleet/Parts.vue'), meta: { title: 'Fleet_Parts', permission: 'fleet_parts' } },
             { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
             // Call center (2026-11-17).
+            // Distribución B2B (2026-11-20, Hordex)
+            { path: 'b2b/dashboard', name: 'b2b-dashboard', component: () => import('../pages/b2b/B2bDashboard.vue'), meta: { title: 'B2B_Board', permission: 'b2b_view' } },
+            { path: 'b2b/guides', name: 'b2b-guides', component: () => import('../pages/b2b/B2bGuides.vue'), meta: { title: 'B2B_Menu_Guides', permission: ['b2b_guides', 'b2b_invoice'] } },
+            { path: 'b2b/collections', name: 'b2b-collections', component: () => import('../pages/b2b/B2bCollections.vue'), meta: { title: 'B2B_Menu_Collections', permission: 'b2b_collections' } },
+            { path: 'b2b/kardex', name: 'b2b-kardex', component: () => import('../pages/b2b/B2bKardex.vue'), meta: { title: 'B2B_Kardex', permission: 'b2b_view' } },
+            { path: 'b2b/purchases', name: 'b2b-purchases', component: () => import('../pages/b2b/B2bPurchases.vue'), meta: { title: 'Compras', permission: 'b2b_view' } },
+            { path: 'b2b/products', name: 'b2b-products', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'products' }, meta: { title: 'Productos', permission: 'b2b_view' } },
+            { path: 'b2b/providers', name: 'b2b-providers', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'providers' }, meta: { title: 'Proveedores', permission: 'b2b_view' } },
+            { path: 'b2b/clients', name: 'b2b-clients', component: () => import('../pages/b2b/B2bMasters.vue'), props: { type: 'clients' }, meta: { title: 'Clientes', permission: 'b2b_view' } },
+            { path: 'b2b/reports', name: 'b2b-reports', component: () => import('../pages/b2b/B2bReports.vue'), meta: { title: 'B2B_Reports', permission: 'b2b_view' } },
+            { path: 'b2b/setup', name: 'b2b-setup', component: () => import('../pages/b2b/B2bSetup.vue'), meta: { title: 'B2B_Menu_Setup', permission: 'b2b_setup' } },
             { path: 'callcenter/dashboard', name: 'cc-dashboard', component: () => import('../pages/callcenter/CcDashboard.vue'), meta: { title: 'CC_Dashboard', permission: 'callcenter_dashboard' } },
             { path: 'callcenter/work', name: 'cc-work', component: () => import('../pages/callcenter/CcWork.vue'), meta: { title: 'CC_Work', permission: 'callcenter_work' } },
             { path: 'callcenter/campaigns', name: 'cc-campaigns', component: () => import('../pages/callcenter/CcCampaigns.vue'), meta: { title: 'CC_Campaigns', permission: 'callcenter_campaigns' } },

@@ -100,6 +100,7 @@
       :show-sorter-tooltip="false"
       :row-class-name="dt.striped ? stripedClass : undefined"
       :row-expandable="$slots.expandedRowRender ? rowExpandable : undefined"
+      :custom-row="rowClick ? (record) => ({ onClick: (e) => { if (!e.target.closest('a, button, input, .ant-checkbox-wrapper, .ant-select')) rowClick(record); }, style: { cursor: 'pointer' } }) : undefined"
       @change="crud.onChange"
     >
       <!-- Expandable rows only when the page supplies the content. -->
@@ -201,6 +202,8 @@ const props = defineProps({
   rowKey: { type: String, default: 'id' },
   // With an #expandedRowRender slot: which rows get the expand arrow (default all).
   rowExpandable: { type: Function, default: undefined },
+  // A click anywhere on a row opens its detail (2026-11-20, Hordex: "cuando le das click a cualquier parte de una fila").
+  rowClick: { type: Function, default: undefined },
   searchable: { type: Boolean, default: true },
   // Search, filters and buttons in ONE line, small controls (user, 2026-11-15: "más compacto"); pages keep their
   // secondary filters in a "Filtros" popover (KT-Log, Change history).

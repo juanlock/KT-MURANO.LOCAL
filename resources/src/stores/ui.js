@@ -7,6 +7,8 @@ const THEME_KEY = 'next_theme_mode';
 const COLOR_KEY = 'next_primary_color';
 const RTL_KEY = 'next_rtl';
 const SIDEBAR_KEY = 'next_sidebar_compact';
+// Pin (2026-11-20, Hordex): the side menu stays as an icon rail; hovering an icon opens its submenu.
+const RAIL_KEY = 'next_sidebar_rail';
 const LAYOUT_KEY = 'next_sidebar_layout';
 const TEXT_MODE_KEY = 'next_sidebar_text_mode';
 const TEXT_MODES = ['auto', 'white', 'black'];
@@ -87,6 +89,7 @@ export const useUiStore = defineStore('ui', {
         // Hamburger collapse — an icon rail for the default layout, and hides
         // the submenu panel for the large one.
         sidebarCollapsed: stored(SIDEBAR_KEY, '0') === '1',
+        sidebarRail: stored(RAIL_KEY, '0') === '1',
         // Sidebar "filter menus" search box -- typed text only, never
         // persisted (a fresh session starts with the full menu showing).
         menuSearchQuery: '',
@@ -179,6 +182,10 @@ export const useUiStore = defineStore('ui', {
         },
         toggleSidebar() {
             this.setSidebarCollapsed(!this.sidebarCollapsed);
+        },
+        setSidebarRail(on) {
+            this.sidebarRail = !!on;
+            save(RAIL_KEY, this.sidebarRail ? '1' : '0');
         },
         setSidebarLayout(layout) {
             this.sidebarLayout = SIDEBAR_LAYOUTS.includes(layout) ? layout : 'default';

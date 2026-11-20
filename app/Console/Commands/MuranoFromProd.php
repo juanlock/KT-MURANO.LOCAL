@@ -148,7 +148,7 @@ class MuranoFromProd extends Command
         foreach (DB::select("SELECT table_name t FROM information_schema.columns WHERE table_schema = DATABASE() AND column_name = 'id'") as $r) {
             $maxIds[$r->t] = (int) DB::table($r->t)->max('id');
         }
-        file_put_contents(\App\Support\BackupPaths::production('last_sync.json'), json_encode(['pulled_at' => $dumpedAt, 'dev_max_ids' => $maxIds, 'by' => 'murano:from-prod']));
+        file_put_contents(\App\Support\BackupPaths::lastSync(), json_encode(['pulled_at' => $dumpedAt, 'dev_max_ids' => $maxIds, 'by' => 'murano:from-prod', 'pc' => gethostname()]));
 
         $this->info('Done in '.round(microtime(true) - $started).' s -- this PC now has production\'s data.');
 

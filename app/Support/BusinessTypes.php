@@ -170,7 +170,8 @@ class BusinessTypes
         // Hospital Management's clinic flow (schedule, nursing station, specialist EMR, portal, NPS), records.
         'health_specialist' => ['documents', 'hospital'],
         // MRP (bills of materials, production orders, work centers, quality), delivery trucks, machine maintenance, projects.
-        'factory' => ['documents', 'fleet', 'manufacturing', 'projects', 'service'],
+        // + B2B distribution (2026-11-20): a factory that sells to retail chains (Hordex) dispatches with guides.
+        'factory' => ['b2b', 'documents', 'fleet', 'manufacturing', 'projects', 'service'],
         // School Management (students, teachers, academics, exams, timetable, fees), staff intranet, its portfolio, records (2026-10-20: nothing else, EXCLUDE).
         'school' => ['documents', 'intranet', 'portfolio', 'school'],
         // Tours and packages (2026-10-24, Turismo Cautivo): reservations (Bookings), agents' commissions,

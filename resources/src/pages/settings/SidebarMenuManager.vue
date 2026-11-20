@@ -278,7 +278,7 @@
  * - the ONLY real constraint is depth: SidebarMenu.vue's live render
  *   (buildChildNode) resolves arbitrarily deep nesting, but
  *   MenuPositionController::store() caps the whole tree at MAX_MENU_DEPTH
- *   (4) levels, so a node can't be dropped somewhere that would push its
+ *   (5) levels, so a node can't be dropped somewhere that would push its
  *   own deepest descendant past that -- see isValidParent()'s
  *   depthOf()/subtreeHeight() math. There is no longer a fixed
  *   "no group-inside-group" rule; a sub-group CAN sit inside another
@@ -502,7 +502,8 @@ const dataOf = n => (n && n.dataRef) || n;
 // Keep in sync with MenuPositionController::store()'s own depth check --
 // that's the real, final backend limit; this just gives immediate feedback
 // instead of a rejected save.
-const MAX_MENU_DEPTH = 4;
+// 5 since 2026-11-20 (user: Products & Services, 4 levels of its own, couldn't go into "Main modules").
+const MAX_MENU_DEPTH = 5;
 
 /** node's own depth from the root (1 = top-level). */
 function depthOf(node) {

@@ -37,6 +37,10 @@
 /database/snapshots/
 /storage/app.zip
 /storage/app/public/backup/
+# Each PC's own state (KT-TOOLS sync receipt, production backups waiting to be downloaded) -- never in git
+/storage/app/kt_tools_sync.json
+/storage/app/prod_backups_pending.json
+/storage/app/dev_sync_applied.json
 *.sql
 *.sql.gz
 # The companies' files are not in git (2026-10-27): production owns them; they travel with

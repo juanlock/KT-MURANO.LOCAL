@@ -76,8 +76,9 @@ class PwaManifestController extends Controller
         ],
     ];
 
-    public function manifest(Request $request, string $type = 'app')
+    public function manifest(Request $request, $type = 'app')
     {
+        $type = is_string($type) ? $type : 'app';
         $defaults = $this->surfaces[$type] ?? $this->surfaces['app'];
 
         // The storefront base path is configurable (Store Settings → Store URL);
@@ -105,6 +106,16 @@ class PwaManifestController extends Controller
             $shortName = $defaults['short_name'];
         }
 
+        // A company's own desktop app (2026-11-20, user: "Murano - (Nombre de la Compañía) con su logo de icono"):
+        // ?company=ID -> its name and its logo as the icon, opening the staff app.
+        $company = $isApp && $request->filled('company')
+            ? \Illuminate\Support\Facades\DB::table('companies')->where('id', (int) $request->company)->whereNull('deleted_at')->first(['id', 'name'])
+            : null;
+        if ($company) {
+            $name = 'Murano - '.$company->name;
+            $shortName = mb_substr($company->name, 0, 24);
+        }
+
         $manifest = [
             'name' => $name,
             'short_name' => $shortName,
@@ -129,8 +140,13 @@ class PwaManifestController extends Controller
                 : $defaults['theme_color'],
             'lang' => 'en',
             'dir' => 'ltr',
-            'icons' => $this->icons(),
+            'icons' => $company ? $this->companyIcons((int) $company->id) : $this->icons(),
         ];
+        if ($company) {
+            $manifest['id'] = '/next/?company='.$company->id;
+            $manifest['start_url'] = '/next/';
+            $manifest['scope'] = '/';
+        }
 
         return response()->json($manifest, 200, [
             'Content-Type' => 'application/manifest+json',
@@ -204,6 +220,64 @@ class PwaManifestController extends Controller
         }
 
         return $brand.' '.$suffix;
+    }
+
+    /** The company's logo as square PNG icons (pwaIcon below); the default icons when it has no logo. */
+    protected function companyIcons(int $companyId): array
+    {
+        if (! $this->companyLogo($companyId)) {
+            return $this->icons();
+        }
+        $out = [];
+        foreach ([192, 512] as $size) {
+            foreach (['any', 'maskable'] as $purpose) {
+                $out[] = ['src' => "/pwa-icon/$companyId/$size.png", 'sizes' => "{$size}x{$size}", 'type' => 'image/png', 'purpose' => $purpose];
+            }
+        }
+
+        return $out;
+    }
+
+    /** files/... path of the company's logo, when the file is there. */
+    protected function companyLogo(int $companyId): ?string
+    {
+        $logo = \Illuminate\Support\Facades\DB::table('companies')->where('id', $companyId)->value('logo')
+            ?: \Illuminate\Support\Facades\DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('logo');
+        if (! $logo) {
+            return null;
+        }
+        $path = public_path(ltrim(str_starts_with($logo, 'files/') || str_starts_with($logo, 'images/') ? $logo : 'images/'.$logo, '/'));
+
+        return is_file($path) ? $path : null;
+    }
+
+    /** GET /pwa-icon/{company}/{size}.png: the logo centred on a white square (cached next to the company's files). */
+    public function pwaIcon(int $company, int $size)
+    {
+        abort_unless(in_array($size, [192, 512], true), 404);
+        $logo = $this->companyLogo($company);
+        abort_unless($logo, 404);
+        $dir = public_path("files/company_$company/pwa");
+        $file = "$dir/icon-$size.png";
+        if (! is_file($file) || filemtime($file) < filemtime($logo)) {
+            @mkdir($dir, 0775, true);
+            $src = @imagecreatefromstring((string) file_get_contents($logo));
+            abort_unless($src, 404);
+            $img = imagecreatetruecolor($size, $size);
+            imagefill($img, 0, 0, imagecolorallocate($img, 255, 255, 255));
+            $w = imagesx($src);
+            $h = imagesy($src);
+            $box = (int) round($size * 0.78);                     // room for the maskable safe zone
+            $scale = min($box / $w, $box / $h);
+            $nw = (int) round($w * $scale);
+            $nh = (int) round($h * $scale);
+            imagecopyresampled($img, $src, (int) (($size - $nw) / 2), (int) (($size - $nh) / 2), 0, 0, $nw, $nh, $w, $h);
+            imagepng($img, $file);
+            imagedestroy($img);
+            imagedestroy($src);
+        }
+
+        return response()->file($file, ['Content-Type' => 'image/png', 'Cache-Control' => 'public, max-age=86400']);
     }
 
     protected function icons(): array

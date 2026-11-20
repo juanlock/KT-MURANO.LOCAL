@@ -37,13 +37,19 @@
 use Illuminate\Support\Facades\DB;
 
 $apply = $apply ?? false;
-$prodEnv = require __DIR__.'/protocol_prod_conn.php';
-if (! $prodEnv) return;
-$p = DB::connection('prod');
-$d = DB::connection();
+// Dev -> dev (2026-11-20, protocol_dev_sync.php): another PC's dev copy ($sourceConn, a scratch database) into THIS PC's
+// dev database ($targetConn = the default connection), live companies included, with that PC's sync record
+// ($sourceSync); no production connection, no files, no production backup, no sync file written.
+$devToDev = isset($targetConn) && $targetConn !== 'prod';
+if (! $devToDev) {
+    $prodEnv = require __DIR__.'/protocol_prod_conn.php';
+    if (! $prodEnv) return;
+}
+$p = DB::connection($devToDev ? $targetConn : 'prod');
+$d = DB::connection($sourceConn ?? null);
 
-$syncFile = \App\Support\BackupPaths::production('last_sync.json');
-$syncInfo = json_decode((string) @file_get_contents($syncFile), true) ?: [];
+$syncFile = \App\Support\BackupPaths::lastSync();
+$syncInfo = $sourceSync ?? (json_decode((string) @file_get_contents(\App\Support\BackupPaths::lastSync(null, true)), true) ?: []);
 $since = $since ?? ($syncInfo['pulled_at'] ?? null);
 // Each table's highest dev id at the last pull (2026-10-20): a higher id = created in dev after it, even
 // with an older created_at (back-dated demo data) or no timestamps at all (permission_role). Missing for a
@@ -51,8 +57,8 @@ $since = $since ?? ($syncInfo['pulled_at'] ?? null);
 $devMaxAtPull = $syncInfo['dev_max_ids'] ?? [];
 $isNewInDev = fn (string $t, $row) => isset($devMaxAtPull[$t]) && (int) ($row['id'] ?? 0) > $devMaxAtPull[$t];
 if (! $since) { echo "No production pull recorded on this PC -- run Wake-up (it brings production down first), or pass \$since.\n"; return; }
-if (! empty($syncInfo['remapped_pending'])) { echo "The last push gave new ids to {$syncInfo['remapped_pending']} row(s): dev no longer matches production -- run `php artisan murano:from-prod` before pushing again.\n"; return; }
-echo 'dev changes since ', $since, " (dev's clock) -> production ", $p->getDatabaseName(), ($apply ? '  (APPLY)' : '  (dry run)'), PHP_EOL;
+if (! $devToDev && ! empty($syncInfo['remapped_pending'])) { echo "The last push gave new ids to {$syncInfo['remapped_pending']} row(s): dev no longer matches production -- run `php artisan murano:from-prod` before pushing again.\n"; return; }
+echo 'dev changes since ', $since, " (dev's clock) -> ", $devToDev ? 'this PC, ' : 'production ', $p->getDatabaseName(), ($apply ? '  (APPLY)' : '  (dry run)'), PHP_EOL;
 // Both sides read TIMESTAMP columns in UTC (else the same row looks different);
 // $since was written on dev's clock (app timezone) -> UTC too.
 $p->statement("SET time_zone = '+00:00'");
@@ -69,9 +75,18 @@ $colsOf = fn ($c, $t) => collect($c->select('SELECT column_name c FROM informati
 
 // Companies in production (2026-10-26): production's list, never sent.
 if (! in_array('is_live', $colsOf($p, 'companies'), true)) { echo "Production has no companies.is_live yet -- deploy the code first (migration 2026_10_26_190000).\n"; return; }
-$live = $p->table('companies')->where('is_live', 1)->pluck('name', 'id')->all();
-echo '  companies in production (never sent): ', implode(', ', array_map(fn ($id, $n) => "$n ($id)", array_keys($live), $live)), PHP_EOL;
+// Dev -> dev carries every company, the live ones included (they are never sent to production, but every dev PC has them).
+$live = $devToDev ? [] : $p->table('companies')->where('is_live', 1)->pluck('name', 'id')->all();
+if (! $devToDev) echo '  companies in production (never sent): ', implode(', ', array_map(fn ($id, $n) => "$n ($id)", array_keys($live), $live)), PHP_EOL;
 $liveIds = array_map('intval', array_keys($live));
+// Dev -> dev after a Pa Llevar ($onlyCompanies = the live ids): everything else already went to production, so ONLY
+// those companies' rows travel (the same test as "a live company's row", kept instead of dropped).
+// To production (2026-11-20, "sube esta compañía"): $onlyCompanies = [id] sends ONLY that company's rows (never a live one).
+$keepOnly = ! empty($onlyCompanies);
+if ($keepOnly) $liveIds = array_values(array_diff(array_map('intval', $onlyCompanies), $devToDev ? [] : array_map('intval', array_keys($live))));
+if ($keepOnly && ! $liveIds) { echo "Nothing to send: the companies asked for are live in production.\n"; return; }
+// A company sent on its own takes its menu with it (it has no migration of its own).
+if ($keepOnly) $skip = array_values(array_diff($skip, ['menu_positions']));
 $devTables = $tablesOf($d);
 $hasCompanyCol = [];
 $companyCol = function (string $t) use (&$hasCompanyCol, $colsOf, $d) { return $hasCompanyCol[$t] ??= in_array('company_id', $colsOf($d, $t), true); };
@@ -90,8 +105,24 @@ $refTable = function (string $t, string $col) use ($devTables) {
 };
 $liveSkipped = [];
 // Drops the rows of a live company: own company_id, the company row itself, or a parent row (dev) of a live company.
-$dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $d, &$liveSkipped) {
+$dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $d, &$liveSkipped, $keepOnly) {
     $rows = collect($rows)->map(fn ($r) => (array) $r);
+    if ($keepOnly && $rows->isNotEmpty()) {
+        $cols = array_keys($rows->first());
+        if (! in_array('company_id', $cols, true) && $t !== 'companies') {
+            // No company_id: kept only when it hangs from a row of those companies.
+            $refs = [];
+            foreach ($cols as $col) {
+                $rt = $refTable($t, $col);
+                if (! $rt || $rt === $t || ! $companyCol($rt)) continue;
+                $ids = $rows->pluck($col)->filter()->unique()->values()->all();
+                if ($ids) $refs[$col] = array_flip($d->table($rt)->whereIn('id', $ids)->whereIn('company_id', $liveIds)->pluck('id')->all());
+            }
+            return $rows->filter(function ($r) use ($refs) { foreach ($refs as $col => $set) if (isset($set[$r[$col] ?? null])) return true; return false; })->values();
+        }
+        $key = $t === 'companies' ? 'id' : 'company_id';
+        return $rows->filter(fn ($r) => in_array((int) ($r[$key] ?? 0), $liveIds, true))->values();
+    }
     if (! $liveIds || $rows->isEmpty()) return $rows->values();
     $cols = array_keys($rows->first());
     $bad = fn ($r) => false;
@@ -154,7 +185,8 @@ foreach ($parentSets as $t => [$pt, $fk, $pair]) {
     $parents = $d->table($pt)->where(function ($q) use ($since, $devMaxAtPull, $pt) {
         $q->where('updated_at', '>', $since);
         if (isset($devMaxAtPull[$pt])) $q->orWhere('id', '>', $devMaxAtPull[$pt]);
-    })->when($liveIds && $companyCol($pt), fn ($q) => $q->where(fn ($w) => $w->whereNotIn('company_id', $liveIds)->orWhereNull('company_id')))
+    })->when($keepOnly && $companyCol($pt), fn ($q) => $q->whereIn('company_id', $liveIds))
+        ->when(! $keepOnly && $liveIds && $companyCol($pt), fn ($q) => $q->where(fn ($w) => $w->whereNotIn('company_id', $liveIds)->orWhereNull('company_id')))
         ->pluck('updated_at', 'id');
     foreach ($parents as $pid => $devU) {
         $prodU = $p->table($pt)->where('id', $pid)->value('updated_at');
@@ -265,12 +297,12 @@ foreach ($liveSkipped as $t => $n) echo "  $t: $n row(s) of a company in product
 // files: public/files written in dev after $since that production doesn't have (same size)
 $sinceTs = \Carbon\Carbon::parse($since, 'UTC')->getTimestamp();
 $devFiles = [];
-foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(public_path('files'), FilesystemIterator::SKIP_DOTS)) as $f) {
+if (! $devToDev) foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(public_path('files'), FilesystemIterator::SKIP_DOTS)) as $f) {
     if ($f->getMTime() > $sinceTs) $devFiles[str_replace('\\', '/', substr($f->getPathname(), strlen(public_path()) + 1))] = $f->getSize();
 }
 // never a company in production's files; a remapped company's go to its new folder (local path => production path)
 $livePrefixes = array_map(fn ($id) => "files/company_$id/", $liveIds);
-$devFiles = array_filter($devFiles, fn ($rel) => ! \Illuminate\Support\Str::startsWith($rel, $livePrefixes), ARRAY_FILTER_USE_KEY);
+$devFiles = array_filter($devFiles, fn ($rel) => $keepOnly ? \Illuminate\Support\Str::startsWith($rel, $livePrefixes) : ! \Illuminate\Support\Str::startsWith($rel, $livePrefixes), ARRAY_FILTER_USE_KEY);
 $remoteRel = fn (string $rel) => strtr($rel, $pathMap);
 $filesToSend = [];
 $sshCfg = is_file(base_path('.env.production-ssh')) ? Dotenv\Dotenv::parse(file_get_contents(base_path('.env.production-ssh'))) : null;
@@ -308,7 +340,7 @@ if (! $plan && ! $replaceSets) { echo "Sent.\n"; return; }
 
 // production backup first (compressed, phpMyAdmin-ready; shared helper)
 $backupLabel = 'before_push';
-if (! (require __DIR__.'/protocol_prod_backup.php')) { echo "Nothing sent to the production database.\n"; return; }
+if (! $devToDev && ! (require __DIR__.'/protocol_prod_backup.php')) { echo "Nothing sent to the production database.\n"; return; }
 
 $p->transaction(function () use ($plan, $p, $replaceSets, $parentSets) {
     $p->statement('SET FOREIGN_KEY_CHECKS = 0');
@@ -327,6 +359,13 @@ $p->transaction(function () use ($plan, $p, $replaceSets, $parentSets) {
     }
     $p->statement('SET FOREIGN_KEY_CHECKS = 1');
 });
+if ($devToDev) { echo "Applied.\n"; return; }
+// One company sent on its own: the morning's record stays (the rest of today's dev work still goes with Pa Llevar).
+if ($keepOnly) {
+    if ($remapped) file_put_contents($syncFile, json_encode(['remapped_pending' => $remapped] + $syncInfo));
+    echo "Sent.\n", $remapped ? "$remapped row(s) went up with a new id: run `php artisan murano:from-prod` before working on them in dev.\n" : '';
+    return;
+}
 // Sent: the next push starts from here (never the same rows twice). Rows that got a new id
 // differ between dev and production until the next murano:from-prod.
 $maxIds = [];

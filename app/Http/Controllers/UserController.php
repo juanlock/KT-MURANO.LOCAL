@@ -279,6 +279,9 @@ class UserController extends BaseController
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id)),
             // The acting company's business type (hospital: side menu hidden by default + button bar, 2026-10-25).
             'business_type' => $businessType,
+            // The company's side menu starts collapsed at sign-in (2026-11-20, Hordex: "con el menú izquierdo contraído");
+            // the person can still open it (remembered for that browser session).
+            'sidebar_collapsed_default' => (bool) ($settings->sidebar_collapsed_default ?? false),
             // The company has its own manual PDF (files/company_{id}/manual/, 2026-11-09).
             'company_manual' => \App\Http\Controllers\CompanyManualsController::ownPath(
                 $user->type === 'SuperAdmin' ? (int) $this->resolveActingCompanyId($request) : (int) $user->company_id) !== null,

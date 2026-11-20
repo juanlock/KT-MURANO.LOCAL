@@ -21,6 +21,8 @@ Run Protocol A Dormir (user's rule, 2026-10-20). In this order. Stop and report 
 
 2a. **Pending production backups** (user's rule, 2026-11-18) -- `php artisan tinker --execute="require '<repo>\database\scripts\protocol_prod_backup_pending.php';"` **in the background** (never waited for): the backups made on the server before today's writes (`murano_deploy/backups_pending/`) are downloaded, made phpMyAdmin-ready and zipped into `<archive>/production/`; a failed one stays pending. Report the count when it finishes, or "still running".
 
+2b. **This PC's dev version for the other PCs** (user's rule, 2026-11-20) -- right after step 1's backup: `php artisan tinker --execute="$devSyncMode = 'save'; require '<repo>\database\scripts\protocol_dev_sync.php';"` (`<archive>/dev_sync/<PC>.json` points to that backup; the next Wake-up of any PC applies it), then `php artisan tinker --execute="require '<repo>\database\scripts\protocol_files_mirror.php';"` so the files those rows use reach Drive. Production is not touched.
+
 3. **Kelsy catch-up** -- every request of this conversation not yet in `kt_logs` gets its row (`.claude/commands/kelsy.md`, written to production by `protocol_kt_log.php`).
 
 4. **README** -- `README.md`, from the `kt_logs` rows being committed: the "Latest changes" block `### <YYYY-MM-DD> (<location>)` at the top (extend today's if it exists), one bullet per change the user would notice, the user's language, no file names; `Setup:` lines when needed (`php artisan migrate`, `npm run build`, `composer install`). Mark the block **"(not in production yet)"** -- these changes were not deployed. Keep the last 5 blocks. Never secrets or customer data.

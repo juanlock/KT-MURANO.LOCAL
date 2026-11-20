@@ -1383,6 +1383,17 @@ export const PERMISSION_GROUPS = [
         ]
     },
     {
+        "label": "B2B",
+        "raw": true,
+        "items": [
+            { "v": "b2b_view", "l": "b2b_view", "f": "B2B board and the kardex history" },
+            { "v": "b2b_guides", "l": "b2b_guides", "f": "Remission guides: create, cancel" },
+            { "v": "b2b_invoice", "l": "b2b_invoice", "f": "Invoice one or several guides" },
+            { "v": "b2b_collections", "l": "b2b_collections", "f": "Collections: deposits, detracciones, the chain's deductions" },
+            { "v": "b2b_setup", "l": "b2b_setup", "f": "Carriers, reasons of transfer, concepts, payment terms" }
+        ]
+    },
+    {
         "label": "CallCenter",
         "raw": true,
         "items": [

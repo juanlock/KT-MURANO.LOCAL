@@ -34,6 +34,14 @@
         </template>
         <span v-if="!effectiveCollapsed && auth.companyName" class="brand-name">{{ auth.companyName }}</span>
       </div>
+      <!-- Pin: icons only, submenus on hover (2026-11-20). -->
+      <div v-if="!isMobile" class="sider-pin" :class="{ 'sider-pin--rail': effectiveCollapsed }">
+        <a-tooltip :title="ui.sidebarRail ? tf('Show_Menu_Texts', 'Mostrar el menú completo') : tf('Pin_Icons', 'Fijar solo íconos')" placement="right">
+          <a-button type="text" size="small" @click="togglePin">
+            <template #icon><PushpinFilled v-if="ui.sidebarRail" /><PushpinOutlined v-else /></template>
+          </a-button>
+        </a-tooltip>
+      </div>
       <!-- Filter the menu by typing -- hidden in the collapsed icon rail
            (no room for a text box there). Lives in the ui store so every
            sidebar variant can read it. -->
@@ -112,7 +120,7 @@ import SidebarMenu from '../components/SidebarMenu.vue';
 import SidebarLarge from '../components/SidebarLarge.vue';
 import SidebarFlat from '../components/SidebarFlat.vue';
 import AppTopbar from '../components/AppTopbar.vue';
-import { SearchOutlined } from '@ant-design/icons-vue';
+import { SearchOutlined, PushpinOutlined, PushpinFilled } from '@ant-design/icons-vue';
 import Customizer from '../components/Customizer.vue';
 import HospitalQuickNav from '../pages/hospital/HospitalQuickNav.vue';
 import { useUiStore } from '../stores/ui';
@@ -148,7 +156,23 @@ function syncMq(e) {
 
 // On mobile the sidebar is always full-width (never the icon rail); the
 // hamburger controls visibility (mobileOpen) instead of collapse.
-const effectiveCollapsed = computed(() => (isMobile.value ? false : collapsed.value));
+// Pinned (ui.sidebarRail, 2026-11-20 Hordex): the side menu stays as an icon rail -- no texts, each group's submenu opens
+// when its icon is hovered. "Collapse" (the hamburger) still hides it and moves the groups to the top bar.
+const effectiveCollapsed = computed(() => (isMobile.value ? false : (collapsed.value || ui.sidebarRail)));
+function togglePin() { ui.setSidebarRail(!ui.sidebarRail); }
+
+// A company whose side menu starts as the icon rail (settings.sidebar_collapsed_default, 2026-11-20 Hordex: its earlier
+// system's icon bar): applied once per browser session, so unpinning it is respected until the next sign-in.
+const COLLAPSE_KEY = 'company_menu_collapsed_applied';
+watch(() => auth.user?.sidebar_collapsed_default, (on) => {
+  if (!on) return;
+  try {
+    if (sessionStorage.getItem(COLLAPSE_KEY) === '1') return;
+    sessionStorage.setItem(COLLAPSE_KEY, '1');
+  } catch (e) { /* storage blocked: apply anyway */ }
+  ui.setSidebarCollapsed(false);
+  ui.setSidebarRail(true);
+}, { immediate: true });
 
 // Hospital company (user's analysis, 2026-10-25): the side menu starts HIDDEN --
 // people work with the button bar (HospitalQuickNav). The hamburger shows /
@@ -374,6 +398,21 @@ async function logout() {
   min-width: 0;
   overflow: hidden;
   transition: padding 0.2s;
+}
+.sider-pin {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 10px 2px;
+  margin-top: -6px;
+  opacity: 0.65;
+}
+.sider-pin:hover {
+  opacity: 1;
+}
+.sider-pin--rail {
+  justify-content: center;
+  padding: 0 0 4px;
+  margin-top: 0;
 }
 .brand--collapsed {
   justify-content: center;

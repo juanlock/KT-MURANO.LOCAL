@@ -17,7 +17,7 @@ const translated = list => () => list.map(({ en, es, ...rest }) => ({ ...rest, l
 export const PROJECT_STATUSES = translated([
     { value: 'not_started', en: 'Not started', es: 'Sin iniciar', color: 'default' },
     { value: 'progress', en: 'In progress', es: 'En progreso', color: 'processing' },
-    { value: 'on_hold', en: 'On hold', es: 'En pausa', color: 'warning' },
+    { value: 'hold', en: 'On hold', es: 'En pausa', color: 'warning' },
     { value: 'completed', en: 'Completed', es: 'Completado', color: 'success' },
     { value: 'cancelled', en: 'Cancelled', es: 'Cancelado', color: 'error' },
 ]);

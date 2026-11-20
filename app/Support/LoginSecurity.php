@@ -167,8 +167,8 @@ class LoginSecurity
         if (self::isDemo($user)) {
             return false;
         }
-        if (($user->two_factor_confirmed_at ?? null) || ($user->two_factor_email ?? false)) {
-            return true; // the user's own choice (Profile)
+        if (($user->two_factor_confirmed_at ?? null) || ($user->two_factor_email ?? false) || ($user->two_factor_ip ?? false)) {
+            return true; // the user's own choice (Profile), or a code per new IP (two_factor_ip)
         }
         $type = $user->type === 'SuperAdmin' ? 'SuperAdmin' : strtolower((string) $user->type);
 
@@ -324,7 +324,17 @@ class LoginSecurity
 
     public static function rememberedDevice(object $user, Request $request): bool
     {
+        // Authorization per place (users.two_factor_ip, 2026-11-20, Hordex): the login's IPs are remembered when the
+        // emailed code is confirmed there (login_events code_ok); from any other IP the code is asked again, whatever the browser.
         $row = self::deviceRow($user, $request);
+        if ($user->two_factor_ip ?? false) {
+            // ... except on a computer where the app was installed and trusted (DeviceTrustController).
+            if ($row && $row->remember_until && Carbon::parse($row->remember_until)->isAfter(now()->addYears(1))) {
+                return true;
+            }
+
+            return DB::table('login_events')->where('user_id', $user->id)->where('event', 'code_ok')->where('ip', $request->ip())->exists();
+        }
 
         return $row && $row->remember_until && Carbon::parse($row->remember_until)->isFuture();
     }

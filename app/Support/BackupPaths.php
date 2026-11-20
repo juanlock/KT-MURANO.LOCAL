@@ -40,6 +40,18 @@ class BackupPaths
         return self::dir(self::archive().DIRECTORY_SEPARATOR.self::pcFolder($host));
     }
 
+    /**
+     * This PC's record of its morning copy of production (2026-11-20): <archive>/production/last_sync_<PC>.json.
+     * It used to be one last_sync.json shared by every PC through Drive, so one PC's Wake-up moved another PC's
+     * "since" (its Pa Llevar then sent with the wrong time). $read = the file to read: this PC's, else the old one.
+     */
+    public static function lastSync(?string $host = null, bool $read = false): string
+    {
+        $own = self::production('last_sync_'.self::pcFolder($host).'.json');
+
+        return $read && ! is_file($own) ? self::production('last_sync.json') : $own;
+    }
+
     /** <archive>/production/[file] (made when missing). */
     public static function production(string $file = ''): string
     {
