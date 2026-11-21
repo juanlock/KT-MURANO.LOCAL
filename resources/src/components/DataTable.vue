@@ -29,7 +29,7 @@
         </a-button>
         <!-- Safe bulk actions for the selected rows (bulkSelect pages). -->
         <template v-if="bulkSelect && crud.selectedIds.value.length">
-          <span class="dt-bulk-count">{{ crud.selectedIds.value.length }} selected</span>
+          <span class="dt-bulk-count">{{ crud.selectedIds.value.length }} {{ tr('selected', 'seleccionadas') }}</span>
           <slot name="bulk" :ids="crud.selectedIds.value" />
         </template>
         <slot name="toolbar" />
@@ -194,8 +194,10 @@ import { useDatatableStore, headerBgCss } from '../stores/datatable';
 import { useAuthStore } from '../stores/auth';
 import { useFormat } from '../composables/useFormat';
 import http from '../lib/http';
+import { useTr } from '../lib/useTr';
 import { getUserPref, setUserPref } from '../lib/userPrefs';
 
+const tr = useTr();
 const props = defineProps({
   crud: { type: Object, required: true },
   columns: { type: Array, required: true },
@@ -507,6 +509,7 @@ function sumFor(col) {
 
 <style scoped>
 .dt-bulk-count {
+  white-space: nowrap;
   font-weight: 600;
   color: #6d28d9;
 }
@@ -520,7 +523,10 @@ function sumFor(col) {
   border-bottom: 1px solid rgba(5, 5, 5, 0.06);
 }
 .dt-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
-.datatable-toolbar--one { flex-wrap: nowrap; padding: 10px 12px; gap: 8px; }
+/* One line while it fits; the action buttons (bulk count, Facturar, columns...) never shrink: when the filters leave no room
+   they drop to their own line on the right instead of sitting on top of the filters (Hordex Guías, 2026-11-21). */
+.datatable-toolbar--one { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+.datatable-toolbar--one > .ant-space { flex: 0 0 auto; margin-left: auto; }
 .datatable-toolbar--one .dt-left { flex-wrap: nowrap; gap: 6px; }
 .datatable-toolbar--one .dt-search { width: 150px; flex: 0 0 150px; }
 .datatable-toolbar--one :deep(.prf) { flex-wrap: nowrap; gap: 6px; flex: 0 0 auto; }

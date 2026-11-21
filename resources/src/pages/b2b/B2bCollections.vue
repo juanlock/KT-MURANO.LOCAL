@@ -1,7 +1,7 @@
 <template>
   <div class="page b2b hx">
     <!-- Hordex's "Control de Pagos" as it was: the invoices, the payment line, the invoice's payments -- three panels. -->
-    <h1 class="ptitle">Control de Pagos</h1>
+    <!-- The title is in the top bar (useBarTitle, 2026-11-21: "el título arriba para ganar espacio visual"). -->
     <section class="panel">
       <div class="head">
         <h2>{{ showPaid ? 'Facturas canceladas' : 'Facturas pendientes de pago' }}</h2>
@@ -75,6 +75,7 @@ import dayjs from 'dayjs';
 import { ClockCircleOutlined, CheckOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
 
 const auth = useAuthStore();
 const companyWord = computed(() => { const w = String(auth.companyName || '').split(' ')[0].toLowerCase(); return w.charAt(0).toUpperCase() + w.slice(1); });
@@ -120,6 +121,8 @@ async function save() {
 }
 async function remove(id) { try { await http.delete(`b2b/payments/${id}`); await pick(inv.value.id); load(); } catch (e) { message.error(e?.data?.message || 'Error'); } }
 onMounted(load);
+
+useBarTitle('Control de Pagos');
 </script>
 
 <style scoped>

@@ -129,17 +129,101 @@ class B2b
         if (! $g || ! $g->warehouse_id) {
             return;
         }
+        $cid = (int) $g->company_id;
+        $ref = 'Guía '.self::ref((string) $g->series, (int) $g->number);
         foreach (DB::table('b2b_guide_items')->where('guide_id', $guideId)->whereNotNull('product_id')->get() as $it) {
-            $row = DB::table('product_warehouse')->where('product_id', $it->product_id)->where('warehouse_id', $g->warehouse_id)
-                ->whereNull('product_variant_id')->whereNull('deleted_at')->first();
-            $delta = $sign * (float) $it->quantity;
-            if ($row) {
-                DB::table('product_warehouse')->where('id', $row->id)->update(['qte' => (float) $row->qte + $delta, 'updated_at' => now()]);
+            $qty = (float) $it->quantity;
+            // Hordex's way (user's yes, 2026-11-21), calculated right: a guide that takes more of a finished product than
+            // there is in stock first manufactures the shortfall (FABRICACION in) and consumes its recipe's inputs
+            // (FABRICACION out, per unit as in "Insumos necesarios"). The earlier system stored the balance as
+            // "guide qty + stock" instead of "stock + made" and left a phantom stock after every guide.
+            if ($sign < 0) {
+                $short = $qty - max(self::stock((int) $it->product_id), 0);
+                $recipe = DB::table('b2b_product_inputs')->where('company_id', $cid)->where('product_id', $it->product_id)->get();
+                if ($short > 0.0005 && $recipe->isNotEmpty()) {
+                    foreach ($recipe as $r) {
+                        self::changeStock((int) $r->input_id, (int) $g->warehouse_id, -$short * (float) $r->quantity);
+                        self::kardex($cid, (int) $r->input_id, -$short * (float) $r->quantity, 'FABRICACION', $ref);
+                    }
+                    self::changeStock((int) $it->product_id, (int) $g->warehouse_id, $short);
+                    self::kardex($cid, (int) $it->product_id, $short, 'FABRICACION', $ref);
+                }
+            }
+            $delta = $sign * $qty;
+            self::changeStock((int) $it->product_id, (int) $g->warehouse_id, $delta);
+            // Every stock movement goes to the kardex too (2026-11-21: Murano's guides moved stock without leaving the
+            // movement in the product's history). A cancelled guide puts the goods back; what was made stays made.
+            self::kardex($cid, (int) $it->product_id, $delta, $sign < 0 ? 'VENTA' : 'ANULACION DE GUIA', $ref);
+        }
+    }
+
+    /** Stock of a product at a warehouse +/- $delta (the row is created when missing). */
+    public static function changeStock(int $productId, int $warehouseId, float $delta): void
+    {
+        $row = DB::table('product_warehouse')->where('product_id', $productId)->where('warehouse_id', $warehouseId)
+            ->whereNull('product_variant_id')->whereNull('deleted_at')->first();
+        if ($row) {
+            DB::table('product_warehouse')->where('id', $row->id)->update(['qte' => (float) $row->qte + $delta, 'updated_at' => now()]);
+        } else {
+            DB::table('product_warehouse')->insert(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'qte' => $delta,
+                'manage_stock' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+    }
+
+    /**
+     * Recompute a product's kardex balances from its movements (2026-11-21, the rule that corrected Hordex's errors):
+     * in order of date then id, an "ingreso" adds and a "salida" subtracts; an AJUSTE INVENTARIO (a physical count) or an
+     * opening line (quantity 0 with a balance) sets the balance. With $setStock the product's stock becomes the final
+     * balance. Returns whether anything changed.
+     */
+    public static function rebalance(int $cid, int $productId, bool $setStock = false): bool
+    {
+        $run = 0.0;
+        $changed = false;
+        foreach (DB::table('b2b_kardex')->where('company_id', $cid)->where('product_id', $productId)->orderBy('moved_at')->orderBy('id')
+            ->get(['id', 'direction', 'reason', 'quantity', 'balance']) as $k) {
+            $q = (float) $k->quantity;
+            $stored = (float) $k->balance;
+            if ($k->reason === 'AJUSTE INVENTARIO' || ($q == 0.0 && $stored != 0.0)) {
+                $run = $stored;
             } else {
-                DB::table('product_warehouse')->insert(['product_id' => $it->product_id, 'warehouse_id' => $g->warehouse_id, 'qte' => $delta,
-                    'manage_stock' => 1, 'created_at' => now(), 'updated_at' => now()]);
+                $run += $k->direction === 'ingreso' ? $q : -$q;
+            }
+            if (abs($stored - $run) > 0.0005) {
+                DB::table('b2b_kardex')->where('id', $k->id)->update(['balance' => round($run, 3)]);
+                $changed = true;
             }
         }
+        if ($setStock && DB::table('products')->where('id', $productId)->value('type') !== 'is_service') {
+            $rows = DB::table('product_warehouse')->where('product_id', $productId)->whereNull('deleted_at')->orderBy('id')->get(['id', 'qte']);
+            if (abs($rows->sum('qte') - $run) > 0.0005) {
+                foreach ($rows as $i => $w) {
+                    DB::table('product_warehouse')->where('id', $w->id)->update(['qte' => $i === 0 ? round($run, 3) : 0, 'updated_at' => now()]);
+                }
+                $changed = true;
+            }
+        }
+
+        return $changed;
+    }
+
+    /** The product's stock now (every warehouse), as the B2B lists show it. */
+    public static function stock(int $productId): float
+    {
+        return (float) DB::table('product_warehouse')->where('product_id', $productId)->whereNull('deleted_at')->sum('qte');
+    }
+
+    /** One kardex line (Hordex's stock card): in / out, its motive and reference, and the balance after it. */
+    public static function kardex(int $cid, int $productId, float $delta, string $reason, ?string $reference = null, ?float $price = null): void
+    {
+        if (abs($delta) < 0.0005) {
+            return;
+        }
+        DB::table('b2b_kardex')->insert([
+            'company_id' => $cid, 'product_id' => $productId, 'moved_at' => now(), 'direction' => $delta > 0 ? 'ingreso' : 'salida',
+            'reason' => $reason, 'quantity' => abs($delta), 'price' => $price, 'balance' => self::stock($productId), 'reference' => $reference,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
     }
 
     /**

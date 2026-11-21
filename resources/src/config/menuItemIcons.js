@@ -40,6 +40,10 @@ import {
     // Intranet / Intranet Management (CalendarDays, CalendarCheck, Files and
     // FileText are already imported above).
     House, Images, Newspaper, FolderOpen,
+    // Distribución B2B: the closest free equivalents of Hordex's earlier menu icons (Font Awesome Pro, not used:
+    // user's choice, 2026-11-21) -- chalkboard, briefcase, box, cart, file-invoice-dollar, file-invoice, boxes-stacked,
+    // hand-holding-dollar, file-excel.
+    Presentation, Briefcase, Boxes, HandCoins, FileSpreadsheet,
 } from 'lucide-vue-next';
 
 export const MENU_ITEM_ICONS = {
@@ -397,4 +401,17 @@ export const MENU_ITEM_ICONS = {
     "/app/integrations/mailchimp": Mail,
     "/app/integrations/slack": SlackIcon,
     "/app/integrations/telegram": Send,
+    // Distribución B2B, as Hordex's earlier sidebar (2026-11-21).
+    "/app/b2b/dashboard": Presentation,
+    "/app/b2b/clients": Briefcase,
+    "/app/b2b/providers": BriefcaseBusiness,
+    "/app/b2b/products": Package,
+    "/app/b2b/receipts": ShoppingCart,
+    "/app/b2b/invoices": ReceiptText,
+    "/app/b2b/purchases": ReceiptText,
+    "/app/b2b/guides": FileText,
+    "/app/b2b/kardex": Boxes,
+    "/app/b2b/collections": HandCoins,
+    "/app/b2b/reports": FileSpreadsheet,
+    "/app/b2b/setup": Settings,
 };

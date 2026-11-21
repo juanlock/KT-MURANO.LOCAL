@@ -203,6 +203,27 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-21 (Optimum)
+
+- **Distribución B2B now has the same screens, names and order as Hordex's earlier system.** Hordex's menu reads
+  Escritorio · Clientes · Proveedores · Productos · Compras · Facturas de Hordex · Facturas de Proveedores · Guías ·
+  Kardex · Control de Pagos · Reportes, with icons like the earlier ones; every screen's title sits in the top bar.
+- **Compras (new): goods received into the warehouse.** List, purchase detail and "Registrar Nueva Compra" as there;
+  only a "Compra" adds stock, Eliminar takes it back out. Hordex's 677 receipts are loaded.
+- **Facturas de Proveedores** (the screen called "Compras" before): row actions Cancelar / Ver / Anular / Borrar, the form
+  always on the right, "Vincular" brings the supplier's guides not invoiced yet; the next number is suggested.
+- **Clientes / Proveedores / Productos with the earlier cards**: label : value lines, the company name in Hordex's orange,
+  client addresses as a table, payment condition and withholding agent, a supplier's 3 contacts, a product's
+  Ajustar / Editar, recipe ("Insumos necesarios") and last kardex movements.
+- **RUC lookup (free service)** in Nuevo Cliente / Proveedor and on the card: fills the company name, SUNAT state and the
+  fiscal address. (Hordex's old lookup fails: SUNAT refuses automated reads.)
+- **Stock calculated right**: the earlier system left a phantom stock when a guide manufactured; Hordex's kardex was
+  recomputed (21 products change, a physical count with "Ajustar" is pending). A guide now manufactures the shortfall and
+  consumes the recipe's inputs, and each guide line shows a stock light (available / to prepare / no stock).
+- **Dashboard**: rebate cards show sales × % = rebate; fits one screen. Invoices got their payment terms and due dates.
+- **Everywhere**: list + detail screens open the detail as a modal on a phone; dropdown lists are never cut.
+- Setup: `php artisan migrate` and `npm run build`.
+
 ### 2026-11-20 (Thundera)
 
 - **New module "Distribución B2B" and the company HORDEX EIRL** (migrated from its
@@ -320,23 +341,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Alo Mundo (call center demo):** website with a ready-made design, only the
   call center modules on, and a 4-page call center flyer (access levels of the
   supervisor and the agent, security) in the manual's book.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-17 (Thundera)
-
-- **New module: Call center** (off by default; on for call center companies,
-  e.g. Alo Mundo): campaigns that pick their leads by age, sex, location and
-  any imported column; the agent's screen "Mi campaña" (each lead goes to one
-  agent only, results, callbacks, pauses); leads with an Excel / CSV import
-  that matches the columns on screen and skips only the bad rows; call log;
-  agents' shifts with lateness and absences; floor indicators live; quality
-  reviews; billing per campaign to the client as a sale; telephone exchange
-  (click to call + the exchange sends each call).
-- **Alo Mundo** shows only its call center modules; demo with a supervisor and
-  3 agents (`php artisan callcenter:demo --company=1016`).
-- **KT-TOOLS is out of git:** the whole folder travels between the PCs only
-  through Google Drive (Wake-up / Pa Llevar / A Dormir sync it).
 
 Setup: `php artisan migrate`, `npm run build`.
 

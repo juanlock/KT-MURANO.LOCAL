@@ -181,7 +181,9 @@ function icon(name) {
  * distinctly from the `moduleIcon` PARAMETER used below (a plain icon-name
  * string threaded through buildChildNode) to avoid shadowing confusion. */
 function topLevelIcon(group) {
-  const Cmp = MENU_ICONS[group.icon] || fallbackIcon(group.key);
+  // A page moved to the top level (a company's own menu, e.g. Hordex's B2B screens) keeps its page icon
+  // instead of a random one (2026-11-21).
+  const Cmp = MENU_ICONS[group.icon] || (group.to && MENU_ITEM_ICONS[group.to]) || fallbackIcon(group.key);
   return Cmp ? () => h(Cmp, { size: 16 }) : undefined;
 }
 

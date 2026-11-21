@@ -1,6 +1,6 @@
 <template>
   <div class="page b2b">
-    <PageHeader :title="tr('B2B setup', 'Configuración B2B')" :breadcrumb="[tr('B2B distribution', 'Distribución B2B'), tr('Setup', 'Configuración')]" />
+    <!-- The title is in the top bar (useBarTitle, 2026-11-21: "el título arriba para ganar espacio visual"). -->
     <a-spin :spinning="loading">
       <a-tabs v-model:activeKey="tab" class="tabs-strong">
         <a-tab-pane key="settings"><template #tab><SettingOutlined />{{ tr('Series', 'Series') }}</template>
@@ -61,10 +61,10 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, CarOutlined, EnvironmentOutlined, CalendarOutlined, PercentageOutlined, SwapOutlined } from '@ant-design/icons-vue';
-import PageHeader from '../../components/PageHeader.vue';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useTr } from '../../lib/useTr';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
 
 const tr = useTr();
 const KINDS = [['deposit', 'Bank deposit', 'Abono bancario'], ['detraction', 'Detracción (SUNAT)', 'Detracción (SUNAT)'], ['rebate', 'Rebate', 'Rebate'], ['deduction', 'Commercial deduction', 'Deducción comercial']];
@@ -131,6 +131,8 @@ async function remove(type, row) {
   try { await http.delete(`b2b/setup/${type.key}/${row.id}`); load(); } catch (e) { message.error(e?.data?.message || 'Error'); }
 }
 onMounted(load);
+
+useBarTitle(() => tr('B2B setup', 'Configuración B2B'));
 </script>
 
 <style scoped>

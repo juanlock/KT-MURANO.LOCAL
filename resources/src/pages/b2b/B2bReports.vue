@@ -42,6 +42,7 @@ import { ShoppingCartOutlined, FileTextOutlined, BankOutlined, InboxOutlined, Ap
 import { sortByLabel } from '../../lib/filterOptions';
 import { useTr } from '../../lib/useTr';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
 
 const tr = useTr();
 // Hordex's Bootstrap colours: warning, primary, info, success, dark.
@@ -73,6 +74,8 @@ onMounted(async () => {
   opts.value = await http.get('b2b/options');
   providers.value = opts.value.providers || [];
 });
+
+useBarTitle('Reportes');
 </script>
 
 <style scoped>

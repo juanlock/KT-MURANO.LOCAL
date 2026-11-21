@@ -315,5 +315,21 @@
     "That guide number already exists.": "Ese número de guía ya existe.",
     "The file is not a valid XML.": "El archivo no es un XML válido.",
     "This XML is not a SUNAT remission guide.": "Este XML no es una guía de remisión de SUNAT.",
-    "That invoice number already exists.": "Ese número de factura ya existe."
+    "That invoice number already exists.": "Ese número de factura ya existe.",
+    "That RUC is already registered.": "Ese RUC ya está registrado.",
+    "Type the RUC.": "Escriba el RUC.",
+    "Type the company name (Razón Social).": "Escriba la Razón Social.",
+    "A RUC has 11 digits and starts with 10, 15, 16, 17 or 20.": "El RUC tiene 11 dígitos y empieza con 10, 15, 16, 17 o 20.",
+    "The RUC lookup service did not answer. Try again in a moment.": "El servicio de consulta RUC no respondió. Intente en un momento.",
+    "The RUC lookup service is busy. Try again in a minute.": "El servicio de consulta RUC está ocupado. Intente en un minuto.",
+    "SUNAT has no taxpayer with that RUC.": "SUNAT no tiene un contribuyente con ese RUC.",
+    "The receipt date cannot be in the future.": "La fecha de ingreso no puede ser futura.",
+    "Type the purchase price of every line.": "Debe especificar el precio de compra de cada línea.",
+    "Type the guide or the invoice.": "Escriba la guía o la factura.",
+    "That document of this supplier is already registered.": "Ese documento de este proveedor ya fue registrado.",
+    "Type the exchange rate.": "Escriba el tipo de cambio.",
+    "The due date cannot be before the issue date.": "La fecha de vencimiento no puede ser anterior a la de emisión.",
+    "That invoice of this supplier is already registered.": "Esa factura de este proveedor ya fue registrada.",
+    "Only a pending invoice can be paid.": "Solo se puede cancelar una factura pendiente.",
+    "Only a pending invoice can be voided.": "Solo se puede anular una factura pendiente."
 }

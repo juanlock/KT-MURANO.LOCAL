@@ -1,5 +1,8 @@
 <template>
-  <a-config-provider :theme="theme" :direction="ui.direction" :locale="antLocale">
+  <!-- Dropdown lists never cut (user's rule, 2026-11-21: "revisa siempre los droplist, no pueden mostrarse cortados"):
+       an open list is at least 300 px wide (or the field's width when wider; virtual scroll kept), and a long
+       option wraps instead of being cut (global style below). -->
+  <a-config-provider :theme="theme" :direction="ui.direction" :locale="antLocale" :dropdown-match-select-width="300">
     <router-view />
   </a-config-provider>
 </template>

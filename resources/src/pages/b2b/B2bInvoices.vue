@@ -1,12 +1,13 @@
 <template>
   <div class="page b2b">
-    <PageHeader title="Facturas" />
+    <!-- The title is in the top bar (useBarTitle, 2026-11-21: "el título arriba para ganar espacio visual"). -->
     <!-- Hordex's "Facturas" (user, 2026-11-20: "igual que Guías"): "Listado de Facturas" on the left, "Registrar Nueva Factura"
          on the right; a click on an invoice shows it there. -->
     <a-row :gutter="14">
       <a-col :xs="24" :xl="11">
         <a-card size="small" class="side panel">
-          <div class="side-head"><h3>Listado de Facturas</h3></div>
+          <div class="side-head"><h3>Listado de Facturas</h3>
+            <a-button v-if="isPhone" type="primary" size="small" @click="newInvoice(); phoneOpen = true"><PlusOutlined /> Nueva</a-button></div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => openInvoice(r.id)" compact-toolbar table-key="b2b-invoices">
             <template #filters>
               <a-select v-model:value="filters.status" size="small" style="width: 140px" :options="statusOptions" @change="reload" />
@@ -27,7 +28,8 @@
         </a-card>
       </a-col>
 
-      <a-col :xs="24" :xl="13">
+      <!-- Phone: this side opens as a modal (DetailPanel, 2026-11-21). -->
+      <DetailPanel :open="phoneOpen" :xs="24" :xl="13" @close="phoneOpen = false">
         <a-card size="small" class="side panel">
           <!-- New invoice -->
           <template v-if="mode === 'new'">
@@ -130,7 +132,7 @@
             </template>
           </template>
         </a-card>
-      </a-col>
+      </DetailPanel>
     </a-row>
   </div>
 </template>
@@ -141,12 +143,14 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { PlusOutlined, DeleteOutlined, CheckOutlined, ClockCircleOutlined, CloseCircleOutlined, PrinterOutlined, FilePdfOutlined } from '@ant-design/icons-vue';
-import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { sortByLabel } from '../../lib/filterOptions';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
+import DetailPanel from '../../components/DetailPanel.vue';
+import { useIsPhone } from '../../lib/useIsPhone';
 
 const { date, number, money } = useFormat();
 const gref = (s, n) => `${s}-${String(n || 0).padStart(6, '0')}`;
@@ -175,6 +179,9 @@ const unitOptions = computed(() => (opts.value.units || []).map(u => ({ value: u
 const igvRate = computed(() => Number(opts.value.settings?.igv || 18));
 
 const mode = ref('new');
+// Phone (2026-11-21): the right side is a modal, opened by a row or "Nueva".
+const isPhone = useIsPhone();
+const phoneOpen = ref(false);
 const saving = ref(false);
 // Forma de pago by default: "FACTURA 30 DIAS" (user, 2026-11-20).
 const defaultTerm = () => (opts.value.terms || []).find(t => /^factura\s+30\s+d[ií]as$/i.test(String(t.name).trim()))?.id;
@@ -206,7 +213,7 @@ async function saveInvoice() {
 }
 
 const inv = ref(null);
-async function openInvoice(id) { inv.value = await http.get(`b2b/invoices/${id}`); mode.value = 'view'; }
+async function openInvoice(id) { inv.value = await http.get(`b2b/invoices/${id}`); mode.value = 'view'; phoneOpen.value = true; }
 async function cancelInvoice() {
   try {
     await http.post(`b2b/invoices/${inv.value.id}/cancel`);
@@ -231,6 +238,8 @@ async function printInvoice() {
 function pdfInvoice() { http.download(`b2b/invoices/${inv.value.id}/pdf`, `${inv.value.Ref}.pdf`); }
 
 onMounted(async () => { opts.value = await http.get('b2b/options'); newInvoice(); crud.fetchRows(); });
+
+useBarTitle('Facturas');
 </script>
 
 <style scoped>

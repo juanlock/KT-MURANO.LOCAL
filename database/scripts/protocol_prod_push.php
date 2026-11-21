@@ -107,8 +107,21 @@ $refTable = function (string $t, string $col) use ($devTables) {
     return null;
 };
 $liveSkipped = [];
+// The target's UNIQUE indexes (not PRIMARY) per table, as column lists.
+$ukCache = [];
+$uniqueKeys = function (string $t) use ($p, &$ukCache) {
+    return $ukCache[$t] ??= collect($p->select("SELECT index_name i, column_name c FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND non_unique = 0 AND index_name <> 'PRIMARY' ORDER BY index_name, seq_in_index", [$t]))
+        ->groupBy('i')->map(fn ($g) => $g->pluck('c')->all())->values()->all();
+};
+// whereIn('id', ...) in chunks of 5,000 (MySQL refuses more than 65,535 placeholders); returns the ids found.
+$idsIn = function ($query, array $ids): array {
+    $found = [];
+    foreach (array_chunk($ids, 5000) as $part) $found = array_merge($found, (clone $query)->whereIn('id', $part)->pluck('id')->all());
+
+    return $found;
+};
 // Drops the rows of a live company: own company_id, the company row itself, or a parent row (dev) of a live company.
-$dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $d, &$liveSkipped, $keepOnly) {
+$dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $d, &$liveSkipped, $keepOnly, $idsIn) {
     $rows = collect($rows)->map(fn ($r) => (array) $r);
     if ($keepOnly && $rows->isNotEmpty()) {
         $cols = array_keys($rows->first());
@@ -119,7 +132,7 @@ $dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $
                 $rt = $refTable($t, $col);
                 if (! $rt || $rt === $t || ! $companyCol($rt)) continue;
                 $ids = $rows->pluck($col)->filter()->unique()->values()->all();
-                if ($ids) $refs[$col] = array_flip($d->table($rt)->whereIn('id', $ids)->whereIn('company_id', $liveIds)->pluck('id')->all());
+                if ($ids) $refs[$col] = array_flip($idsIn($d->table($rt)->whereIn('company_id', $liveIds), $ids));
             }
             return $rows->filter(function ($r) use ($refs) { foreach ($refs as $col => $set) if (isset($set[$r[$col] ?? null])) return true; return false; })->values();
         }
@@ -140,7 +153,7 @@ $dropLive = function (string $t, $rows) use ($liveIds, $companyCol, $refTable, $
             if (! $rt || $rt === $t || ! $companyCol($rt)) continue;
             $ids = $rows->pluck($col)->filter()->unique()->values()->all();
             if (! $ids) continue;
-            $liveRefs[$col] = array_flip($d->table($rt)->whereIn('id', $ids)->whereIn('company_id', $liveIds)->pluck('id')->all());
+            $liveRefs[$col] = array_flip($idsIn($d->table($rt)->whereIn('company_id', $liveIds), $ids));
         }
         if ($liveRefs) {
             $bad = function ($r) use ($liveRefs) {
@@ -225,7 +238,9 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
         if ($byId) $q->orWhere('id', '>', $devMaxAtPull[$t]);
     })->get($c));
     if ($changed->isEmpty()) continue;
-    $prodRows = $p->table($t)->whereIn('id', $changed->pluck('id'))->get($c)->keyBy('id');
+    // In chunks: a big table (demo_records) passed 65,535 placeholders in one IN (2026-11-20).
+    $prodRows = collect();
+    foreach ($changed->pluck('id')->chunk(5000) as $part) foreach ($p->table($t)->whereIn('id', $part->values()->all())->get($c) as $pr0) $prodRows[$pr0->id] = $pr0;
     $ins = []; $upd = [];
     foreach ($changed as $row) {
         $row = (array) $row;
@@ -247,6 +262,31 @@ foreach (array_diff(array_intersect($tablesOf($d), $tablesOf($p)), $skip, array_
         if (in_array('updated_at', $c, true)) $diff[] = array_search('updated_at', $c, true);
         if ($hasU && (string) ($pr['updated_at'] ?? '') > $since) { $conflicts[] = "$t #{$row['id']}: changed in BOTH dev and production (".implode(', ', array_slice(array_map(fn ($i) => $c[$i], $diff), 0, 4)).')'; continue; }
         $upd[] = ['row' => $row, 'cols' => array_map(fn ($i) => $c[$i], $diff)];
+    }
+    // A "new" row the target already has under another id with the same UNIQUE key (2026-11-20: KcolTech's menu rebuilt
+    // on Thundera = same company + item_key, new ids -> "Duplicate entry 1-dashboard"): it becomes that row -- its id
+    // follows the target's (children too, via $remap) and it is an update, or a conflict when the target changed it too.
+    if ($ins && ($uks = $uniqueKeys($t))) {
+        $keep = [];
+        foreach ($ins as $row) {
+            $hit = null;
+            foreach ($uks as $ukCols) {
+                if (array_diff($ukCols, array_keys($row))) continue;
+                $q = $p->table($t);
+                foreach ($ukCols as $col) { if ($row[$col] === null) continue 2; $q->where($col, $row[$col]); }
+                if ($hit = $q->first($c)) { $hit = (array) $hit; break; }
+            }
+            if (! $hit) { $keep[] = $row; continue; }
+            unset($remap[$t][$row['id']]);
+            if ((int) $hit['id'] !== (int) $row['id']) $remap[$t][$row['id']] = (int) $hit['id'];
+            $diff = array_values(array_filter($c, fn ($col) => ! in_array($col, ['id', 'created_at', 'updated_at'], true) && (string) ($row[$col] ?? '') !== (string) ($hit[$col] ?? '')));
+            if (! $diff) continue;
+            if ($hasU && (string) ($hit['updated_at'] ?? '') > $since) { $conflicts[] = "$t #{$hit['id']}: same unique key changed in BOTH sides (".implode(', ', array_slice($diff, 0, 4)).')'; continue; }
+            if ($hasU) $diff[] = 'updated_at';
+            $upd[] = ['row' => $row, 'cols' => $diff];
+        }
+        if (count($keep) !== count($ins)) echo "  $t: ", count($ins) - count($keep), " row(s) matched by unique key (no duplicate)\n";
+        $ins = $keep;
     }
     if ($ins || $upd) {
         $plan[$t] = compact('ins', 'upd');

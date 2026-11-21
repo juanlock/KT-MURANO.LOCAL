@@ -1,13 +1,14 @@
 <template>
   <div class="page b2b">
-    <PageHeader :title="tr('Guides', 'Guías')" />
+    <!-- The title is in the top bar (useBarTitle, 2026-11-21: "el título arriba para ganar espacio visual"). -->
 
     <!-- Compact way of working (user, 2026-11-20, from Hordex): the list on the left, the form on the right. -->
     <a-row :gutter="14">
       <a-col :xs="24" :xl="14">
         <!-- Two panels side by side, same top and height, like Hordex (user: "las 2 tablas deben empezar en la misma línea"). -->
         <a-card size="small" class="side panel">
-        <div class="side-head"><h3>{{ tr('Guide list', 'Listado de guías') }}</h3></div>
+        <div class="side-head"><h3>{{ tr('Guide list', 'Listado de guías') }}</h3>
+          <a-button v-if="isPhone" type="primary" size="small" @click="newGuide(); phoneOpen = true"><PlusOutlined /> {{ tr('New', 'Nueva') }}</a-button></div>
         <DataTable :crud="crud" :columns="columns" :row-click="r => openGuide(r.id)" bulk-select compact-toolbar table-key="b2b-guides">
           <template #filters>
             <a-select v-model:value="filters.status" size="small" style="width: 150px" :options="statusOptions" @change="reload" />
@@ -35,7 +36,8 @@
         </a-card>
       </a-col>
 
-      <a-col :xs="24" :xl="10">
+      <!-- Phone: this side opens as a modal (DetailPanel, 2026-11-21). -->
+      <DetailPanel :open="phoneOpen" :xs="24" :xl="10" @close="phoneOpen = false">
         <a-card size="small" class="side panel">
           <!-- New guide -->
           <template v-if="mode === 'new'">
@@ -49,6 +51,12 @@
             </div>
             <a-alert v-if="xmlWarnings.length" type="warning" show-icon class="xml-warn" :message="xmlWarnings.join(' · ')" />
             <a-form layout="vertical" class="tight">
+              <!-- Series - number filled in with the next one (2026-11-21: "ayúdalo rellenando acorde al último"); editable. -->
+              <a-row :gutter="8">
+                <a-col :span="8"><a-form-item :label="tr('Guide', 'Guía')">
+                  <span class="doc-in"><a-input v-model:value="form.series" class="ser" :maxlength="5" /><span>-</span><a-input-number v-model:value="form.number" :min="1" class="cor" /></span>
+                </a-form-item></a-col>
+              </a-row>
               <a-row :gutter="8">
                 <a-col :span="8"><a-form-item :label="tr('Issue date', 'Fecha de emisión')"><a-date-picker v-model:value="form.issue_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
                 <a-col :span="8"><a-form-item :label="tr('Transfer date', 'Fecha de traslado')"><a-date-picker v-model:value="form.transfer_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
@@ -75,10 +83,16 @@
                 <a-col :span="7"><a-form-item :label="tr('License', 'Licencia')"><a-input v-model:value="form.driver_license" /></a-form-item></a-col>
               </a-row>
               <table class="lines">
-                <thead><tr><th>#</th><th>{{ tr('Product', 'Producto') }}</th><th class="n">{{ tr('Qty.', 'Cant.') }}</th><th>{{ tr('Unit', 'Unid.') }}</th><th /></tr></thead>
+                <thead><tr><th>#</th><th class="st-col" /><th>{{ tr('Product', 'Producto') }}</th><th class="n">{{ tr('Qty.', 'Cant.') }}</th><th>{{ tr('Unit', 'Unid.') }}</th><th /></tr></thead>
                 <tbody>
                   <tr v-for="(it, i) in form.items" :key="i">
                     <td class="muted">{{ i + 1 }}</td>
+                    <!-- Stock light per line, like the earlier system (2026-11-21): ✓✓ disponible, ✓ por preparar (se fabrica), ✗ sin stock. -->
+                    <td class="st-col">
+                      <a-tooltip v-if="stockState[i]" :title="stockTip(stockState[i])">
+                        <span class="stk" :class="'s' + stockState[i].status">{{ stockState[i].status === 2 ? '✓✓' : stockState[i].status === 1 ? '✓' : '✗' }}</span>
+                      </a-tooltip>
+                    </td>
                     <td><a-select v-model:value="it.product_id" size="small" show-search option-filter-prop="label" :options="productOptions" style="width: 100%" /></td>
                     <td class="n"><a-input-number v-model:value="it.quantity" size="small" :min="0" style="width: 90px" /></td>
                     <td><a-select v-model:value="it.unit" size="small" style="width: 72px" :options="unitOptions" /></td>
@@ -146,7 +160,7 @@
             <a-button type="primary" block class="save" :loading="saving" @click="emitInvoice">{{ tr('Issue invoice', 'Emitir factura') }}</a-button>
           </template>
         </a-card>
-      </a-col>
+      </DetailPanel>
     </a-row>
   </div>
 </template>
@@ -157,11 +171,10 @@
  * status as a dot), the form on the right: a new guide, the guide clicked, or the invoice of the guides ticked (same client,
  * dispatched). B2bController guides / storeGuide / cancelGuide / invoice.
  */
-import { ref as vref, reactive, computed, onMounted } from 'vue';
+import { ref as vref, reactive, computed, onMounted, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { PlusOutlined, DeleteOutlined, FileDoneOutlined, CloudUploadOutlined } from '@ant-design/icons-vue';
-import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -170,6 +183,13 @@ import { sortByLabel } from '../../lib/filterOptions';
 import { useTr } from '../../lib/useTr';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
+import DetailPanel from '../../components/DetailPanel.vue';
+import { useIsPhone } from '../../lib/useIsPhone';
+
+// Phone (2026-11-21): the right side is a modal, opened by a row, "Facturar" or "Nueva".
+const isPhone = useIsPhone();
+const phoneOpen = vref(false);
 
 const tr = useTr();
 const auth = useAuthStore();
@@ -213,7 +233,7 @@ const mode = vref('new');
 const saving = vref(false);
 const blank = () => ({ series: opts.value.settings?.guide_series || 'EG07', issue_date: dayjs().format('YYYY-MM-DD'), transfer_date: dayjs().format('YYYY-MM-DD'),
   client_id: undefined, address_id: undefined, reason_id: (opts.value.reasons || []).find(r => r.sunat_code === '01')?.id, carrier_id: undefined,
-  plate: '', driver_license: '', purchase_order: '', delivery_address: undefined, number: undefined, items: [{ product_id: undefined, quantity: 1, unit: 'UND' }] });
+  plate: '', driver_license: '', purchase_order: '', delivery_address: undefined, number: opts.value.next_guide || undefined, items: [{ product_id: undefined, quantity: 1, unit: 'UND' }] });
 const form = reactive({ items: [] });
 function newGuide() { Object.assign(form, blank()); xmlWarnings.value = []; mode.value = 'new'; }
 
@@ -230,7 +250,8 @@ async function importXml(e) {
   try {
     const fd = new FormData();
     fd.append('file', file);
-    const r = await http.post('b2b/guides/xml', fd);
+    // postForm, not post: post() sends JSON, the file never arrived ("el campo archivo es obligatorio", 2026-11-20).
+    const r = await http.postForm('b2b/guides/xml', fd);
     newGuide();
     Object.assign(form, {
       series: r.series || form.series, number: r.number || undefined, issue_date: r.issue_date || form.issue_date,
@@ -246,6 +267,23 @@ async function importXml(e) {
   } finally { readingXml.value = false; }
 }
 function addLine() { form.items.push({ product_id: undefined, quantity: 1, unit: 'UND' }); }
+
+// The stock light of each line (B2bController::guideStockCheck), refreshed when a product or quantity changes.
+const stockState = vref([]);
+let stockTimer = null;
+watch(() => form.items.map(i => `${i.product_id}:${i.quantity}`).join('|'), () => {
+  clearTimeout(stockTimer);
+  stockTimer = setTimeout(async () => {
+    try { stockState.value = await http.post('b2b/guides/stock-check', { items: form.items.map(i => ({ product_id: i.product_id, quantity: i.quantity })) }); }
+    catch (e) { stockState.value = []; }
+  }, 350);
+});
+function stockTip(s) {
+  const q = v => Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (s.status === 2) return tr(`Available (stock ${q(s.stock)})`, `Disponible (stock ${q(s.stock)})`);
+  if (s.status === 1) return tr(`To prepare: ${q(s.short)} will be manufactured (stock ${q(s.stock)})`, `Por preparar: se fabricarán ${q(s.short)} (stock ${q(s.stock)})`);
+  return tr(`No stock: the inputs don't cover ${q(s.short)} (stock ${q(s.stock)})`, `Sin stock: los insumos no alcanzan para ${q(s.short)} (stock ${q(s.stock)})`);
+}
 function onCarrier(id) {
   const c = (opts.value.carriers || []).find(x => x.id === id);
   if (c) { form.plate = c.plate || form.plate; form.driver_license = c.license || form.driver_license; }
@@ -257,6 +295,7 @@ async function saveGuide() {
     message.success(tr(`Guide ${r.ref} saved`, `Guía ${r.ref} guardada`));
     await loadOptions();
     newGuide();
+    phoneOpen.value = false;
     crud.fetchRows();
   } catch (e) {
     message.error(e?.data?.message || tr('Could not save the guide.', 'No se pudo guardar la guía.'));
@@ -265,7 +304,7 @@ async function saveGuide() {
 
 // ---- one guide
 const guide = vref(null);
-async function openGuide(id) { guide.value = await http.get(`b2b/guides/${id}`); mode.value = 'view'; }
+async function openGuide(id) { guide.value = await http.get(`b2b/guides/${id}`); mode.value = 'view'; phoneOpen.value = true; }
 async function cancelGuide() {
   try { await http.post(`b2b/guides/${guide.value.id}/cancel`); message.success(tr('Guide cancelled', 'Guía anulada')); await openGuide(guide.value.id); crud.fetchRows(); } catch (e) { message.error(e?.data?.message || 'Error'); }
 }
@@ -289,6 +328,7 @@ async function startInvoice(ids) {
     // Forma de pago by default: "FACTURA 30 DIAS" (user, 2026-11-20).
     payment_term_id: (opts.value.terms || []).find(t => /^factura\s+30\s+d[ií]as$/i.test(String(t.name).trim()))?.id });
   mode.value = 'invoice';
+  phoneOpen.value = true;
 }
 async function emitInvoice() {
   saving.value = true;
@@ -299,6 +339,7 @@ async function emitInvoice() {
     crud.selectedIds.value = [];
     await loadOptions();
     newGuide();
+    phoneOpen.value = false;
     crud.fetchRows();
   } catch (e) {
     message.error(e?.data?.message || tr('Could not issue the invoice.', 'No se pudo emitir la factura.'));
@@ -307,6 +348,8 @@ async function emitInvoice() {
 
 async function loadOptions() { opts.value = await http.get('b2b/options'); }
 onMounted(async () => { await loadOptions(); newGuide(); crud.fetchRows(); });
+
+useBarTitle(() => tr('Guides', 'Guías'));
 </script>
 
 <style scoped>
@@ -330,6 +373,14 @@ onMounted(async () => { await loadOptions(); newGuide(); crud.fetchRows(); });
 .lines tbody tr:nth-child(even) td { background: rgba(128, 128, 128, 0.05); }
 .lines tbody tr:hover td { background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.08); }
 .lines .n { text-align: right; font-variant-numeric: tabular-nums; }
+.lines .st-col { width: 30px; text-align: center; padding: 0 2px; }
+.doc-in { display: flex; align-items: center; gap: 4px; }
+.doc-in .ser { width: 70px; text-align: right; }
+.doc-in .cor { flex: 1 1 auto; }
+.stk { font-weight: 800; font-size: 13px; letter-spacing: -2px; cursor: default; }
+.stk.s2 { color: #15803d; }
+.stk.s1 { color: #1677ff; }
+.stk.s0 { color: #cf1322; }
 .lines tfoot td { border: 0; padding: 2px 6px; }
 .lines tfoot .tot td { font-weight: 700; font-size: 14px; }
 .save { margin-top: 10px; }

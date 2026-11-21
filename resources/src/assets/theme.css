@@ -212,3 +212,16 @@ html.gdt-density-large .ant-table-wrapper:not(.dt-managed) .ant-table-tbody > tr
   flex: 1 1 480px;
   min-width: 0;
 }
+
+/* Dropdown lists never cut (user's rule, 2026-11-21): a long option wraps onto a second line instead of ending in "…".
+   The width floor (300 px) is App.vue's ConfigProvider dropdownMatchSelectWidth. */
+.ant-select-dropdown .ant-select-item-option-content {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+/* ...and never narrower than 260 px (the library ignores ConfigProvider's dropdownMatchSelectWidth for the width). */
+.ant-select-dropdown {
+  min-width: min(260px, 92vw) !important;
+}

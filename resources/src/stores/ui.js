@@ -57,6 +57,9 @@ function modeIsDark(mode) {
  *  'language'). All are the settings the legacy customizer panel exposed. */
 export const useUiStore = defineStore('ui', {
     state: () => ({
+        // A page's title shown in the top bar next to the company name, in bold, instead of a header of its own
+        // (Hordex's screens, 2026-11-21: "usemos ese espacio"). The page sets it on mount and clears it on unmount.
+        barTitle: '',
         // 'light' | 'dark' | 'auto' — `dark` below is the resolved boolean the
         // rest of the app keeps reading (App.vue theme algorithm, topbar, …).
         themeMode: initialThemeMode(),

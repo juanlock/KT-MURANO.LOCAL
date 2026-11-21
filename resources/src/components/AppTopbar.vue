@@ -19,6 +19,9 @@
       <span v-if="auth.user?.company && !topNav" class="tb-brand-name">{{ auth.user.company }}</span>
     </div>
 
+    <!-- The page's own title, when it asked for the bar (ui.barTitle), in bold next to the company. -->
+    <span v-if="ui.barTitle && !topNav" class="tb-page-title">{{ ui.barTitle }}</span>
+
     <!-- Side menu collapsed (user's rule, 2026-11-10): its groups as buttons here, items in a popup. -->
     <SidebarMenu v-if="topNav" horizontal :theme="ui.dark ? 'dark' : 'light'" />
 
@@ -717,6 +720,11 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 }
 .tb-brand-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 @media (max-width: 767px) { .tb-brand-name { display: none; } }
+/* Right beside the company name: the brand gives up its push to the right and the title takes it. */
+.tb-brand:has(+ .tb-page-title) { margin-right: 0; padding-right: 0; }
+.tb-page-title { font-weight: 700; font-size: 20px; white-space: nowrap; margin: 0 auto 0 14px; padding-left: 14px;
+  border-left: 1px solid rgba(128, 128, 128, 0.35); line-height: 28px; }
+@media (max-width: 767px) { .tb-page-title { display: none; } }
 
 /* Company switcher (SuperAdmin only) -- tinted like the install-btn so it
    reads as its own distinct, always-visible context control rather than a

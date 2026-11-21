@@ -59,7 +59,7 @@ class B2bImportHordex extends Command
             $this->map[$m->source][$m->legacy_id] = (int) $m->target_id;
         }
         if ($this->option('dry')) {
-            foreach (['clientes', 'proveedores', 'productos', 'facturas', 'pagos', 'guias', 'facturas_proveedores', 'kardex'] as $t) {
+            foreach (['clientes', 'proveedores', 'productos', 'facturas', 'pagos', 'guias', 'facturas_proveedores', 'ingresos', 'kardex'] as $t) {
                 $this->line(str_pad($t, 22).$this->src->table($t)->count().' rows, already imported '.count($this->map["hordex.$t"] ?? []));
             }
 
@@ -78,6 +78,7 @@ class B2bImportHordex extends Command
             $this->payments();
             $this->guides();
             $this->purchases();
+            $this->receipts();
             $this->kardex();
             $this->counters();
         });
@@ -142,6 +143,7 @@ class B2bImportHordex extends Command
             DB::table('purchase_details')->whereIn('purchase_id', $purchaseIds)->delete();
             $guideIds = ($maps['b2b_guides'] ?? collect())->pluck('target_id');
             DB::table('b2b_guide_items')->whereIn('guide_id', $guideIds)->delete();
+            DB::table('b2b_receipt_items')->whereIn('receipt_id', ($maps['b2b_receipts'] ?? collect())->pluck('target_id'))->delete();
             foreach ($maps as $table => $rows) {
                 DB::table($table)->whereIn('id', $rows->pluck('target_id'))->delete();
             }
@@ -218,10 +220,16 @@ class B2bImportHordex extends Command
         $code = (int) DB::table('providers')->max('code');
         foreach ($this->src->table('proveedores')->orderBy('id')->get() as $p) {
             $id = $this->mapped('hordex.proveedores', $p->id);
+            // Its card (2026-11-21): trade name, location from the ubigeo (city = "district - province - department", zip = the
+            // code), the 3 contacts and 3 phones joined with " / " like the clients' phones.
+            $u = $p->ubigeo_id ? $this->src->table('ubigeos')->where('id', str_pad((string) $p->ubigeo_id, 6, '0', STR_PAD_LEFT))->first() : null;
             $this->upsert('hordex.proveedores', $p->id, 'providers', [
-                'company_id' => $this->cid, 'name' => $this->fix($p->razon_social), 'tax_number' => $p->ruc, 'adresse' => $this->fix($p->direccion),
+                'company_id' => $this->cid, 'name' => $this->fix($p->razon_social), 'short_name' => $this->fix($p->nombre_comercial),
+                'tax_number' => $p->ruc, 'adresse' => $this->fix($p->direccion),
+                'city' => $u ? implode(' - ', array_filter([$u->distrito, $u->provincia, $u->departamento])) : null, 'zip' => $u->id ?? null,
                 'phone' => implode(' / ', array_filter([$p->telefono1, $p->telefono2, $p->telefono3])) ?: null, 'email' => $p->email ?: null,
-                'contact_name' => $this->fix($p->contacto1), 'country' => 'Peru', 'deleted_at' => $p->deleted_at ?? null,
+                'contact_name' => implode(' / ', array_filter(array_map(fn ($c) => $this->fix($c), [$p->contacto1, $p->contacto2, $p->contacto3]))) ?: null,
+                'country' => 'Peru', 'deleted_at' => $p->deleted_at ?? null,
             ] + ($id ? [] : ['code' => ++$code, 'created_at' => $p->created_at]));
         }
         $this->line('providers: '.count($this->map['hordex.proveedores'] ?? []));
@@ -237,11 +245,14 @@ class B2bImportHordex extends Command
                 'company_id' => $this->cid, 'type' => $service ? 'is_service' : 'is_single', 'code' => $p->sku ?: 'HX'.$p->id, 'Type_barcode' => 'CODE128',
                 'name' => $this->fix($p->nombre), 'cost' => 0, 'price' => (float) $p->precio, 'category_id' => $this->map['cat'][$p->tipo] ?? $this->map['cat']['out'],
                 'unit_id' => $unit, 'unit_sale_id' => $unit, 'unit_purchase_id' => $unit, 'TaxNet' => 0, 'tax_method' => '2', 'note' => $this->fix($p->detalle),
+                'pack_size' => (int) ($p->paso ?? 0) ?: null,   // "Empaque" (2026-11-21)
                 'is_active' => (int) ($p->estado ?? 1) ? 1 : 0, 'not_selling' => in_array($p->tipo, ['insumo', 'embalaje'], true) ? 1 : 0, 'stock_alert' => 0,
                 'deleted_at' => $p->deleted_at,
             ]);
             if (! $service) {
-                $balance = $this->src->table('kardex')->where('producto_id', $p->id)->whereNull('deleted_at')->orderByDesc('f_movimiento')->orderByDesc('id')->value('saldo');
+                // The stock its screen shows: Producto::saldo() = the last kardex line by created_at, then id (2026-11-21: by
+                // f_movimiento, BOLSA TRANSPARENTE GRANDE POR 100U came in as 1,000 where Hordex shows 1,005).
+                $balance = $this->src->table('kardex')->where('producto_id', $p->id)->whereNull('deleted_at')->orderByDesc('created_at')->orderByDesc('id')->value('saldo');
                 DB::table('product_warehouse')->updateOrInsert(['product_id' => $id, 'warehouse_id' => $this->warehouseId, 'product_variant_id' => null],
                     ['qte' => (float) ($balance ?? 0), 'manage_stock' => 1, 'updated_at' => now(), 'created_at' => now()]);
             }
@@ -251,9 +262,30 @@ class B2bImportHordex extends Command
 
     private function setupTables(): void
     {
+        // A finished product's recipe ("Insumos necesarios", producto_insumos), 2026-11-21.
+        DB::table('b2b_product_inputs')->where('company_id', $this->cid)->delete();
+        foreach ($this->src->table('producto_insumos')->orderBy('id')->get() as $r) {
+            $prod = $this->mapped('hordex.productos', $r->producto_id);
+            $input = $this->mapped('hordex.productos', $r->insumo_id);
+            if ($prod && $input) {
+                DB::table('b2b_product_inputs')->insert(['company_id' => $this->cid, 'product_id' => $prod, 'input_id' => $input,
+                    'quantity' => (float) $r->cantidad, 'created_at' => now(), 'updated_at' => now()]);
+            }
+        }
         foreach ($this->src->table('pago_condiciones')->orderBy('id')->get() as $t) {
             $this->upsert('hordex.pago_condiciones', $t->id, 'b2b_payment_terms', ['company_id' => $this->cid, 'code' => $t->abrev,
                 'name' => $this->fix($t->nombre), 'days' => (int) $t->dias, 'active' => 1]);
+        }
+        // Each client's payment condition and withholding agent flag (its card, 2026-11-21) -- after the terms exist.
+        foreach ($this->src->table('clientes')->orderBy('id')->get(['id', 'pago_condicion_id', 'agente_retencion']) as $c) {
+            $client = $this->mapped('hordex.clientes', $c->id);
+            if (! $client) {
+                continue;
+            }
+            DB::table('b2b_client_info')->updateOrInsert(['client_id' => $client], [
+                'company_id' => $this->cid, 'payment_term_id' => $c->pago_condicion_id ? $this->mapped('hordex.pago_condiciones', $c->pago_condicion_id) : null,
+                'retention_agent' => (int) $c->agente_retencion ? 1 : 0, 'updated_at' => now(), 'created_at' => now(),
+            ]);
         }
         foreach ($this->src->table('comisiones')->orderBy('id')->get() as $k) {
             $name = $this->fix($k->concepto);
@@ -290,7 +322,8 @@ class B2bImportHordex extends Command
             $date = substr((string) $f->fecha_emision, 0, 10);
             $id = $this->upsert('hordex.facturas', $f->id, 'sales', [
                 'company_id' => $this->cid, 'user_id' => $this->userId, 'date' => $date, 'time' => '00:00:00',
-                'Ref' => B2b::ref((string) $f->serie, (int) $f->correlativo), 'is_pos' => 0, 'client_id' => $client, 'warehouse_id' => $this->warehouseId,
+                // The series in capitals (11 were typed "e001" there; 2026-11-21).
+                'Ref' => B2b::ref(strtoupper(trim((string) $f->serie)), (int) $f->correlativo), 'is_pos' => 0, 'client_id' => $client, 'warehouse_id' => $this->warehouseId,
                 'tax_rate' => 18, 'TaxNet' => (float) $f->igv, 'discount' => 0, 'shipping' => 0, 'GrandTotal' => (float) $f->total,
                 'statut' => $f->estado === 'ANULADA' ? 'canceled' : 'completed', 'payment_statut' => $f->estado === 'CANCELADA' ? 'paid' : 'unpaid',
                 'paid_amount' => 0, 'notes' => $f->oc ? 'OC '.$f->oc : null, 'created_at' => $f->created_at,
@@ -302,7 +335,7 @@ class B2bImportHordex extends Command
                     'discount' => 0, 'discount_method' => '2', 'sale_unit_id' => $this->mapped('hordex.medidas', $d->medida_id),
                     'created_at' => now(), 'updated_at' => now()]);
             }
-            DB::table('b2b_sale_info')->updateOrInsert(['sale_id' => $id], ['company_id' => $this->cid, 'series' => $f->serie, 'number' => (int) $f->correlativo,
+            DB::table('b2b_sale_info')->updateOrInsert(['sale_id' => $id], ['company_id' => $this->cid, 'series' => strtoupper(trim((string) $f->serie)), 'number' => (int) $f->correlativo,
                 'purchase_order' => $f->oc, 'payment_term_id' => $this->mapped('hordex.pago_condiciones', $f->pago_condicion_id),
                 'due_date' => $f->fecha_vencimiento ?: ($terms[$f->pago_condicion_id] ?? null ? date('Y-m-d', strtotime($date.' +'.(int) $terms[$f->pago_condicion_id].' days')) : $date),
                 'created_at' => now(), 'updated_at' => now()]);
@@ -390,6 +423,15 @@ class B2bImportHordex extends Command
                 'payment_statut' => $f->estado === 'CANCELADA' ? 'paid' : 'unpaid', 'notes' => ($f->moneda_id == 2 ? 'Dólares, TC '.$f->tc : null),
                 'created_at' => $f->created_at,
             ]);
+            // Its kind, currency, dates and state (Hordex's Facturas de Proveedores, 2026-11-21).
+            DB::table('b2b_purchase_info')->updateOrInsert(['purchase_id' => $id], ['company_id' => $this->cid,
+                // There is no kind column there: adelanto by its flag, else servicios when every line is a service, else bienes.
+                'kind' => $f->adelanto ? 'adelanto' : ($this->src->table('facturas_proveedores_detalles as d')->join('productos as x', 'x.id', '=', 'd.producto_id')
+                    ->where('d.factura_id', $f->id)->where('x.tipo', '!=', 'servicio')->exists() ? 'bienes'
+                    : ($this->src->table('facturas_proveedores_detalles')->where('factura_id', $f->id)->exists() ? 'servicios' : 'bienes')),
+                'currency' => $f->moneda_id == 2 ? 'USD' : 'PEN', 'exchange_rate' => $f->tc ?: null,
+                'due_date' => substr((string) $f->f_vencimiento, 0, 10) ?: null, 'pay_date' => $f->f_pago ? substr((string) $f->f_pago, 0, 10) : null,
+                'status' => $f->estado ?: 'PENDIENTE', 'created_at' => now(), 'updated_at' => now()]);
             DB::table('purchase_details')->where('purchase_id', $id)->delete();
             foreach ($this->src->table('facturas_proveedores_detalles')->where('factura_id', $f->id)->get() as $d) {
                 DB::table('purchase_details')->insert(['purchase_id' => $id, 'product_id' => $this->mapped('hordex.productos', $d->producto_id),
@@ -432,16 +474,22 @@ class B2bImportHordex extends Command
     {
         DB::table('b2b_kardex')->where('company_id', $this->cid)->delete();
         $rows = [];
+        // The movement's motive by its earlier name (2026-11-21: the product card's "Últimos movimientos").
+        $reasons = $this->src->table('transporte_motivos')->pluck('nombre', 'id');   // its Kardex::Motivo()
         foreach ($this->src->table('kardex')->whereNull('deleted_at')->orderBy('f_movimiento')->orderBy('id')->cursor() as $k) {
             $ref = null;
             if ($k->referencia_type === 'App\\Models\\Guia' && $k->referencia_id) {
                 $g = $this->src->table('guias')->where('id', $k->referencia_id)->first(['serie', 'correlativo']);
                 $ref = $g ? 'Guía '.B2b::ref((string) $g->serie, (int) $g->correlativo) : null;
             } elseif ($k->referencia_type === 'App\\Models\\Ingreso' && $k->referencia_id) {
-                $ref = 'Ingreso #'.$k->referencia_id;
+                $in = $this->src->table('ingresos')->where('id', $k->referencia_id)->first(['guia', 'factura']);
+                $ref = 'Compra'.($in && ($in->factura || $in->guia) ? ' '.($in->factura ? 'Fact. '.$in->factura : 'G.R. '.$in->guia) : ' #'.$k->referencia_id);
             }
             $rows[] = ['company_id' => $this->cid, 'product_id' => $this->mapped('hordex.productos', $k->producto_id) ?: 0, 'moved_at' => $k->f_movimiento,
-                'direction' => $k->sentido, 'quantity' => (float) $k->cantidad, 'price' => $k->precio, 'balance' => $k->saldo, 'reference' => $ref,
+                'direction' => $k->sentido, 'reason' => $reasons[$k->motivo_id] ?? null,
+                'quantity' => (float) $k->cantidad, 'price' => $k->precio, 'balance' => $k->saldo, 'reference' => $ref,
+                // The receipt ("Compras") that brought it in, so deleting the receipt takes its stock back out (2026-11-21).
+                'receipt_id' => $k->referencia_type === 'App\\Models\\Ingreso' ? $this->mapped('hordex.ingresos', $k->referencia_id) : null,
                 'created_at' => now(), 'updated_at' => now()];
             if (count($rows) >= 500) {
                 DB::table('b2b_kardex')->insert($rows);
@@ -451,6 +499,38 @@ class B2bImportHordex extends Command
         if ($rows) {
             DB::table('b2b_kardex')->insert($rows);
         }
-        $this->line('kardex: '.DB::table('b2b_kardex')->where('company_id', $this->cid)->count());
+        // The earlier balances carry its calculation errors (phantom stock when a guide manufactured, packing subtracted
+        // undivided): recompute every product's balances and stock from the movements (user's decision, 2026-11-21).
+        $fixed = 0;
+        foreach (DB::table('b2b_kardex')->where('company_id', $this->cid)->distinct()->pluck('product_id') as $pid) {
+            if ($pid && B2b::rebalance($this->cid, (int) $pid, true)) {
+                $fixed++;
+            }
+        }
+        $this->line('kardex: '.DB::table('b2b_kardex')->where('company_id', $this->cid)->count().', products rebalanced: '.$fixed);
+    }
+
+    /** Hordex's "Compras" (ingresos: goods received) -> b2b_receipts + items (2026-11-21). */
+    private function receipts(): void
+    {
+        $motives = $this->src->table('transporte_motivos')->pluck('nombre', 'id');
+        $kinds = [8 => 'compra', 12 => 'adelanto', 13 => 'servicio'];
+        $currency = $this->src->table('monedas')->pluck('abrev', 'id');
+        foreach ($this->src->table('ingresos')->orderBy('id')->get() as $r) {
+            $id = $this->upsert('hordex.ingresos', $r->id, 'b2b_receipts', [
+                'company_id' => $this->cid, 'date' => $r->fecha_ingreso, 'motive' => $motives[$r->transporte_motivo_id] ?? null,
+                'kind' => $kinds[$r->transporte_motivo_id] ?? null, 'provider_id' => $this->mapped('hordex.proveedores', $r->proveedor_id),
+                'guide' => $r->guia, 'invoice' => $r->factura, 'invoice_date' => $r->fecha_factura, 'notes' => $this->fix($r->observaciones),
+                'purchase_id' => $r->factura_id ? $this->mapped('hordex.facturas_proveedores', $r->factura_id) : null,   // "Vincular"
+                'created_at' => $r->created_at ?? now(),
+            ]);
+            DB::table('b2b_receipt_items')->where('receipt_id', $id)->delete();
+            foreach ($this->src->table('ingreso_detalles')->where('ingreso_id', $r->id)->whereNull('deleted_at')->orderBy('id')->get() as $d) {
+                DB::table('b2b_receipt_items')->insert(['receipt_id' => $id, 'product_id' => $this->mapped('hordex.productos', $d->producto_id),
+                    'currency' => ($currency[$d->moneda_id] ?? 'PEN') === 'DOL' ? 'USD' : 'PEN', 'price' => $d->precio_compra,
+                    'quantity' => (float) $d->cantidad, 'created_at' => $d->created_at ?? now(), 'updated_at' => now()]);
+            }
+        }
+        $this->line('receipts (compras): '.count($this->map['hordex.ingresos'] ?? []));
     }
 }

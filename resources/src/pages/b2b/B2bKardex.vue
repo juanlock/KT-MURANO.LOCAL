@@ -1,6 +1,6 @@
 <template>
   <div class="page b2b">
-    <PageHeader title="Kardex" />
+    <!-- The title is in the top bar (useBarTitle, 2026-11-21: "el título arriba para ganar espacio visual"). -->
     <h2 class="ptl">{{ tr('Kardex movements', 'Movimientos del Kardex') }}</h2>
     <DataTable :crud="crud" :columns="columns" table-key="b2b-kardex">
       <template #filters>
@@ -28,7 +28,6 @@
 <script setup>
 /** Distribución B2B -> Kardex (2026-11-20): the stock card history of the earlier system (b2b_kardex, read only). */
 import { ref, computed, onMounted } from 'vue';
-import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -36,6 +35,7 @@ import { useFormat } from '../../composables/useFormat';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useTr } from '../../lib/useTr';
 import http from '../../lib/http';
+import { useBarTitle } from '../../composables/useBarTitle';
 
 const tr = useTr();
 const { date, number, money } = useFormat();
@@ -56,6 +56,8 @@ const columns = computed(() => [
   { title: tr('Reference', 'Referencia'), key: 'reference', dataIndex: 'reference', width: 180 },
 ]);
 onMounted(async () => { products.value = (await http.get('b2b/options')).products || []; crud.fetchRows(); });
+
+useBarTitle('Kardex');
 </script>
 
 <style scoped>

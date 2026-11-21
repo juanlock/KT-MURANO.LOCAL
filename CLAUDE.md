@@ -1043,6 +1043,18 @@ the start of each session).
   side menu has a **pin** button (`ui.sidebarRail`, per browser): icons only, each group's submenu opens on hover. A
   company can start pinned (`settings.sidebar_collapsed_default`, once per browser session; Hordex). A whole group can be
   hidden for a role with `menu_hide:<group key>` (`lib/menuVisibility.js`), a screen with `menu_hide:<route>`.
+- **List + detail screens on a phone (user's rule, 2026-11-21, every module):** the list on the left, the record on the
+  right on a computer; **on a phone only**, the right side becomes a full-screen modal and the list takes the whole width.
+  Use `components/DetailPanel.vue` as the right column (`:open`, `@close`, the column's span / xl as attrs) and
+  `lib/useIsPhone.js`; a panel that always shows a "new" form opens on the phone from a "Nuevo" button shown there only.
+  Done for the B2B screens (Guías, Facturas, Compras, Clientes / Productos / Proveedores). Hordex's split is 40 % list / 60 %
+  record (Clientes).
+- **Dropdown lists are never cut (user's rule, 2026-11-21):** an open `a-select` list is at least 260 px wide and a long
+  option wraps instead of ending in "…" (global rule in `assets/theme.css`; the library ignores ConfigProvider's
+  `dropdownMatchSelectWidth` for the width). In a narrow table cell give the select room or `:dropdown-match-select-width="false"`.
+- **A page title can go in the top bar** (2026-11-21, Hordex: "usemos ese espacio"): `useBarTitle(fallback)`
+  (`composables/useBarTitle.js`, sets `ui.barTitle`, cleared on unmount; the company's own menu label wins) shows it in bold
+  next to the company name instead of a page header; hidden on a phone (it overlapped the logo). Every B2B screen uses it.
 - **A migrated client's screens look like its earlier system (user's rule, 2026-11-20: "muy parecido a su sistema
   anterior para que no se queje o pida capacitación"):** same menu options, names and order, same first screen, same
   board layout; Murano's extra screens hidden for its daily role.
