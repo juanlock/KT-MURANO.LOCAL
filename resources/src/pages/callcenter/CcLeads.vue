@@ -73,8 +73,8 @@
         <a-row :gutter="10">
           <a-col :span="12"><a-form-item :label="tr('First name', 'Nombres')"><a-input v-model:value="editing.first_name" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item :label="tr('Last name', 'Apellidos')"><a-input v-model:value="editing.last_name" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item :label="tr('Phone', 'Teléfono')" required><a-input v-model:value="editing.phone" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item :label="tr('Phone 2', 'Teléfono 2')"><a-input v-model:value="editing.phone2" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="tr('Phone', 'Teléfono')" required><PhoneInput v-model:value="editing.phone" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item :label="tr('Phone 2', 'Teléfono 2')"><PhoneInput v-model:value="editing.phone2" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item :label="tr('ID document', 'DNI')"><a-input v-model:value="editing.document" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item :label="tr('Email', 'Correo')"><a-input v-model:value="editing.email" /></a-form-item></a-col>
           <a-col :span="6"><a-form-item :label="tr('Birth date', 'Nacimiento')"><a-date-picker v-model:value="editing.birth_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>

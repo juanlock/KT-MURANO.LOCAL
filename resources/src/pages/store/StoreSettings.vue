@@ -243,7 +243,7 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Contact_Phone')">
-              <a-input v-model:value="form.contact_phone" />
+              <PhoneInput v-model:value="form.contact_phone" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">

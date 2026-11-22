@@ -1049,6 +1049,21 @@ the start of each session).
   `lib/useIsPhone.js`; a panel that always shows a "new" form opens on the phone from a "Nuevo" button shown there only.
   Done for the B2B screens (Guías, Facturas, Compras, Clientes / Productos / Proveedores). Hordex's split is 40 % list / 60 %
   record (Clientes).
+- **Projects: four pillars as stages (user's rule, 2026-11-22):** Requerimiento, Análisis y Diseño, Implementación,
+  Puesta en Marcha (`App\Support\ProjectPillars`; tests inside Implementación, support / closing inside Puesta en
+  Marcha). A new project is born with them plus objective 1 "Definición del alcance del proyecto ..." and its meeting
+  task; the standard templates are grouped in them and applying one fills these stages (never new ones by name).
+- **Project members, any company (2026-11-22):** "Mis proyectos" (`/mis-proyectos`, account menu; `my/projects`,
+  `my/tasks/{id}`) shows a member their projects (their tasks first, the rest read only); they record progress and upload
+  documents only on tasks assigned to them (or as project manager). Membership opens the project's endpoints even
+  across companies and without the Projects module (`ProjectTeamController::project/taskInScope`,
+  `EnforceModuleFlags::memberRequest`). Project -> Configuración: links, web access addresses, members' credentials
+  (standard password shown, changed ones never), WhatsApp text / one-device link, email through `CompanyMail`. Another
+  company's member's login is shown only to the SuperAdmin.
+- **Opening a record = a panel from the right, half the screen, compact (user's rule, 2026-11-22, first done for
+  project tasks: `pages/projects/TaskDrawer.vue`):** name on top; what it is on the left; the informative fields
+  (stage, assigned, status, dates) grouped on the right; then the activity log (`task_activities`: date and time +
+  progress, filled by the assigned person); then documents, links and gallery. Full width on a phone.
 - **Dropdown lists are never cut (user's rule, 2026-11-21):** an open `a-select` list is at least 260 px wide and a long
   option wraps instead of ending in "…" (global rule in `assets/theme.css`; the library ignores ConfigProvider's
   `dropdownMatchSelectWidth` for the width). In a narrow table cell give the select room or `:dropdown-match-select-width="false"`.
@@ -1068,6 +1083,12 @@ the start of each session).
   Clock in / out = attendance = the HRM module (`hrm`): no HRM, no clock icon (`AppTopbar` `canClock` uses
   `auth.moduleEnabled('hrm')`) and `attendance_self` refuses it on the server. A new header icon tied to a module checks
   that module the same way, besides the role's permission and the header-icon switch.
+- **Country and phone fields (user's rule, 2026-11-21):** a country is chosen from the list (`<CountrySelect>`, global
+  component; stores the English name as before, so `DateFormats` keeps setting the date format from it; a new record
+  starts in the company's country, `auth.user.company_country` from `App\Support\Countries`), and every phone is
+  `<PhoneInput>` (global: calling-code select + number, stored "+51 987654321", the company's code by default, or the
+  form's own country with `:country`). The company form asks the country first and requires it. Never a bare `<a-input>`
+  for a phone or a country in a new form.
 - **Dropdowns are alphabetically sorted by default.** Any `<a-select>`/combobox
   option list (Vue `computed` building `{value, label}` options) must be
   sorted alphabetically by its displayed label, using the shared

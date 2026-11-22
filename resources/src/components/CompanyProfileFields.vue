@@ -7,6 +7,10 @@
     <template v-if="show('company')">
     <div v-if="section === 'all'" class="cp-title">{{ $t('Company') }}</div>
     <a-row :gutter="16">
+      <!-- The country first (user, 2026-11-21): it sets the phone code and the date format of the company. -->
+      <a-col :xs="24" :md="12">
+        <a-form-item :label="$t('Country')" name="country" :extra="tr('Sets the phone code and the date format.', 'Define el código telefónico y el formato de fecha.')"><CountrySelect v-model:value="form.country" no-default /></a-form-item>
+      </a-col>
       <a-col :xs="24" :md="12">
         <a-form-item :label="$t('CompanyName')" name="name"><a-input v-model:value="form.name" /></a-form-item>
       </a-col>
@@ -24,10 +28,7 @@
         </a-form-item>
       </a-col>
       <a-col :xs="24" :md="12">
-        <a-form-item :label="$t('Phone')" name="phone"><a-input v-model:value="form.phone" /></a-form-item>
-      </a-col>
-      <a-col :xs="24" :md="12">
-        <a-form-item :label="$t('Country')" name="country"><a-input v-model:value="form.country" /></a-form-item>
+        <a-form-item :label="$t('Phone')" name="phone"><PhoneInput v-model:value="form.phone" :country="form.country" /></a-form-item>
       </a-col>
       <a-col :span="24">
         <a-form-item :label="$t('Address')" name="address" :extra="$t('tx_Street_city_state_ZIP_printed_on_invoices_and_quotes_e10c1')">
@@ -99,7 +100,7 @@
 /** The profile's empty values (Add) -- Edit fills them from GET company/{id}. */
 export function emptyProfile() {
   return {
-    name: '', owner_name: '', business_type: undefined, email: '', phone: '', country: 'United States', address: '',
+    name: '', owner_name: '', business_type: undefined, email: '', phone: '', country: '', address: '',
     helpdesk_email: '', helpdesk_name: 'Helpdesk',
     currency_id: undefined, default_language: 'en', sale_prefix: 'INV', public_base_url: '',
     default_password_employee_new: '', default_password_customer_new: '',
@@ -115,6 +116,7 @@ export function profileRules() {
     business_type: [req('Choose the business type')],
     owner_name: [req('Enter the owner\'s name')],
     email: [req('Enter the company email'), { type: 'email', message: 'Not a valid email' }],
+    country: [req('Choose the country')],
     phone: [req('Enter the phone')],
     address: [req('Enter the address')],
     helpdesk_email: [req('Enter the helpdesk email'), { type: 'email', message: 'Not a valid email' }],
@@ -144,6 +146,9 @@ export function profilePayload(form) {
 <script setup>
 import { computed } from 'vue';
 import { sortByLabel } from '../lib/filterOptions';
+import { useTr } from '../lib/useTr';
+
+const tr = useTr();
 
 const props = defineProps({
   form: { type: Object, required: true },

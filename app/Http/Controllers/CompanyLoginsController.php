@@ -25,7 +25,39 @@ class CompanyLoginsController extends Controller
         abort_unless($this->allowed($user), 403, 'Your role cannot see the company logins.');
         $cid = \App\Support\CompanyFiles::actingCompanyId($request);
 
-        $users = DB::table('users')->where('company_id', $cid)->whereNull('deleted_at')
+        // By group (user, 2026-11-21: "lo hace super pesado cargar"): the list opens on the logins that run the application
+        // (access logins + staff with a working role); plain employees / suppliers / agents and the customers load only when
+        // their tab is opened, the customers with a search and a limit. Disabled logins only on request.
+        $group = in_array($request->group, ['access', 'staff', 'customers'], true) ? $request->group : 'access';
+        $withDisabled = $request->boolean('disabled');
+        $generic = ['Employee', 'Customer', 'Supplier', 'Sales Agent', 'Online Store'];
+        $base = fn () => DB::table('users as u')->where('u.company_id', $cid)->whereNull('u.deleted_at')
+            ->leftJoin('role_user as ru', 'ru.user_id', '=', 'u.id')->leftJoin('roles as r', 'r.id', '=', DB::raw('COALESCE(ru.role_id, u.role_id)'));
+        $inGroup = function ($q, string $g) use ($generic) {
+            if ($g === 'customers') {
+                return $q->whereIn('u.type', ['customer', 'Online_store']);
+            }
+            if ($g === 'staff') {
+                return $q->whereIn('u.type', ['employee', 'sales_agent', 'supplier'])
+                    ->where(fn ($w) => $w->whereNull('r.name')->orWhereIn('r.name', $generic));
+            }
+
+            return $q->where(fn ($w) => $w->where('u.type', 'admin')->orWhere(fn ($s) => $s->whereIn('u.type', ['employee', 'sales_agent', 'supplier'])
+                ->whereNotNull('r.name')->whereNotIn('r.name', $generic)));
+        };
+        $counts = [];
+        foreach (['access', 'staff', 'customers'] as $g) {
+            $counts[$g] = $inGroup($base(), $g)->when(! $withDisabled, fn ($q) => $q->where('u.statut', 1))->distinct()->count('u.id');
+        }
+        $disabledCount = $inGroup($base(), $group)->where('u.statut', '!=', 1)->distinct()->count('u.id');
+        $limit = $group === 'customers' ? 150 : 2000;
+        $search = trim((string) $request->search);
+        $ids = $inGroup($base(), $group)->when(! $withDisabled, fn ($q) => $q->where('u.statut', 1))
+            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('u.firstname', 'like', "%$search%")->orWhere('u.lastname', 'like', "%$search%")
+                ->orWhere('u.email', 'like', "%$search%")->orWhere('u.username', 'like', "%$search%")))
+            ->distinct()->limit($limit)->pluck('u.id');
+
+        $users = DB::table('users')->whereIn('id', $ids)
             ->orderByRaw("FIELD(type, 'admin', 'employee', 'sales_agent', 'supplier', 'customer', 'Online_store')")->orderBy('firstname')
             ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'statut', 'password', 'role_id', 'portal_enabled']);
         $roleIds = DB::table('role_user')->whereIn('user_id', $users->pluck('id'))->pluck('role_id', 'user_id');
@@ -67,6 +99,8 @@ class CompanyLoginsController extends Controller
                 ];
             })->values(),
             'role_permissions' => $perms,
+            'group' => $group, 'counts' => $counts, 'disabled_count' => $disabledCount,
+            'limited' => $group === 'customers' && $counts['customers'] > $limit && $search === '' ? $limit : null,
         ]);
     }
 

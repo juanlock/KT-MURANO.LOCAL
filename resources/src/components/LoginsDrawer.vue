@@ -7,10 +7,16 @@
     be read back (stored hashed) and shows as "custom".
   -->
   <a-drawer :open="open" width="min(1320px, 96vw)" :title="tx('Company logins', 'Logins de la empresa')" @close="$emit('close')">
+    <!-- By group (user, 2026-11-21): opens on the logins that run the application; staff and customers load on demand. -->
+    <a-tabs v-model:activeKey="group" size="small" class="groups" @change="onGroup">
+      <a-tab-pane key="access" :tab="tx('Access and roles', 'Accesos y roles') + ' (' + (counts.access ?? '…') + ')'" />
+      <a-tab-pane key="staff" :tab="tx('Other staff', 'Otro personal') + ' (' + (counts.staff ?? '…') + ')'" />
+      <a-tab-pane key="customers" :tab="tx('Customers', 'Clientes') + ' (' + (counts.customers ?? '…') + ')'" />
+    </a-tabs>
     <div class="bar">
-      <a-segmented v-model:value="type" :options="typeOptions" />
+      <a-segmented v-if="typeOptions.length > 2" v-model:value="type" :options="typeOptions" />
       <a-input-search v-model:value="search" allow-clear :placeholder="tx('Search name, user or email', 'Buscar nombre, usuario o correo')" style="width: 210px" />
-      <a-button v-if="disabledCount" :type="showDisabled ? 'primary' : 'default'" @click="showDisabled = !showDisabled">
+      <a-button v-if="disabledCount" :type="showDisabled ? 'primary' : 'default'" @click="showDisabled = !showDisabled; load()">
         {{ showDisabled ? tx('Hide disabled', 'Ocultar desactivados') : tx('Show disabled', 'Mostrar desactivados') }} ({{ disabledCount }})
       </a-button>
       <a-button @click="load"><template #icon><ReloadOutlined /></template></a-button>
@@ -19,6 +25,7 @@
     <div v-if="roleOptions.length > 1" class="bar roles">
       <a-segmented v-model:value="role" :options="roleOptions" />
     </div>
+    <a-alert v-if="limited" type="warning" show-icon class="note" :message="tx('Showing the first {n} customers: use the search to find the others.', 'Se muestran los primeros {n} clientes: usa la búsqueda para encontrar a los demás.').replace('{n}', limited)" />
     <a-alert type="info" show-icon class="note"
       :message="tx('Passwords are stored encrypted: only the standard password of each type can be shown. One changed by the user shows as Custom.', 'Las contraseñas se guardan cifradas: solo se puede mostrar la contraseña estándar de cada tipo. Si el usuario la cambió, aparece como Personalizada.')" />
     <a-table :data-source="rows" :columns="columns" row-key="id" size="small" :loading="loading" :pagination="{ pageSize: 25, hideOnSinglePage: true }">
@@ -151,7 +158,11 @@ const typeLabel = v => (TYPES[v] ? tx(...TYPES[v]) : v);
 // Fixed order (access first, then staff, then outside people), not alphabetical.
 // Disabled logins hidden until "Mostrar desactivados" (user, 2026-11-20: they confused); counts follow what is shown.
 const showDisabled = ref(false);
-const disabledCount = computed(() => logins.value.filter(l => !l.active).length);
+const group = ref('access');
+const counts = ref({});
+const limited = ref(null);
+const serverDisabled = ref(0);
+const disabledCount = computed(() => serverDisabled.value);
 const shown = computed(() => (showDisabled.value ? logins.value : logins.value.filter(l => l.active)));
 const typeOptions = computed(() => [{ value: 'all', label: `${tx('All', 'Todos')} (${shown.value.length})` }]
   .concat(Object.keys(TYPES).filter(k => shown.value.some(l => l.type === k))
@@ -284,8 +295,11 @@ function accesses(roleId) {
 async function load() {
   loading.value = true;
   try {
-    const res = await http.get('company-logins');
+    const res = await http.get('company-logins', { group: group.value, disabled: showDisabled.value ? 1 : 0, search: group.value === 'customers' ? search.value : '' });
     logins.value = res.logins || [];
+    counts.value = res.counts || {};
+    serverDisabled.value = res.disabled_count || 0;
+    limited.value = res.limited || null;
     perms.value = res.role_permissions || {};
   } catch (e) {
     message.error(e?.data?.message || tx('Could not load', 'No se pudo cargar'));
@@ -372,6 +386,10 @@ async function copy(v) {
   try { await navigator.clipboard.writeText(v); message.success(tx('Copied', 'Copiado')); } catch (e) { /* clipboard blocked */ }
 }
 watch(() => props.open, o => { if (o) load(); });
+function onGroup() { type.value = 'all'; role.value = 'all'; search.value = ''; load(); }
+// Customers are searched on the server (only the first ones are loaded).
+let searchTimer = null;
+watch(search, () => { if (group.value !== 'customers') return; clearTimeout(searchTimer); searchTimer = setTimeout(load, 400); });
 </script>
 
 <style scoped>

@@ -39,7 +39,7 @@
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')" name="phone" :validate-status="phoneDup ? 'warning' : undefined"
               :help="phoneDup ? $t('Phone_Already_Registered') : undefined">
-              <a-input v-model:value="form.phone" :placeholder="$t('Enter_Phone')" @blur="checkPhone" />
+              <PhoneInput v-model:value="form.phone" :country="form.country" :placeholder="$t('Enter_Phone')" @blur="checkPhone" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -65,7 +65,7 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Country')" name="country">
-              <a-input v-model:value="form.country" :placeholder="$t('Enter_Country')" />
+              <CountrySelect v-model:value="form.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -102,7 +102,7 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Phone')" name="contact_phone">
-              <a-input v-model:value="form.contact_phone" />
+              <PhoneInput v-model:value="form.contact_phone" :country="form.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">

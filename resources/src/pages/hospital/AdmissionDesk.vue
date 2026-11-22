@@ -107,7 +107,7 @@
             <a-col :xs="24" :md="6"><a-form-item :label="s('Visitor')"><a-input v-model:value="visit.name" /></a-form-item></a-col>
             <a-col :xs="12" :md="4"><a-form-item :label="s('ID document')"><a-input v-model:value="visit.document" /></a-form-item></a-col>
             <a-col :xs="12" :md="3"><a-form-item :label="s('Relationship')"><a-input v-model:value="visit.relation" /></a-form-item></a-col>
-            <a-col :xs="12" :md="3"><a-form-item :label="s('Phone')"><a-input v-model:value="visit.phone" /></a-form-item></a-col>
+            <a-col :xs="12" :md="3"><a-form-item :label="s('Phone')"><PhoneInput v-model:value="visit.phone" /></a-form-item></a-col>
           </a-row>
           <a-button type="primary" :loading="saving" @click="checkIn">{{ s('Check in') }}</a-button>
         </a-card>
@@ -145,7 +145,7 @@
           <a-col :span="12"><a-form-item :label="s('Gender')"><a-select v-model:value="np.gender" :options="genderOptions" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item :label="s('Date of birth')"><a-date-picker v-model:value="np.date_of_birth" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item :label="s('ID document')"><a-input v-model:value="np.national_id" /></a-form-item></a-col>
-          <a-col :span="12"><a-form-item :label="s('Phone')"><a-input v-model:value="np.phone" /></a-form-item></a-col>
+          <a-col :span="12"><a-form-item :label="s('Phone')"><PhoneInput v-model:value="np.phone" /></a-form-item></a-col>
         </a-row>
       </a-form>
     </a-modal>

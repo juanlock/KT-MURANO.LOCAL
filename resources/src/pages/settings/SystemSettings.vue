@@ -100,7 +100,7 @@
                 </a-col>
                 <a-col :xs="24" :md="12">
                   <a-form-item :label="$t('Phone')">
-                    <a-input v-model:value="setting.CompanyPhone" />
+                    <PhoneInput v-model:value="setting.CompanyPhone" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :md="12">

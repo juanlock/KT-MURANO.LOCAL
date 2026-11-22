@@ -23,7 +23,7 @@
           v-model:value="filters.search" :placeholder="tr('Search task…', 'Buscar tarea…')"
           allow-clear class="tb-search" @search="load"
         />
-        <a-button v-if="projectId" type="primary" @click="$router.push(`/tasks/create?project_id=${projectId}`)">
+        <a-button v-if="projectId" type="primary" @click="$emit('new-task')">
           <template #icon><PlusOutlined /></template>
           {{ tr('New task', 'Nueva tarea') }}
         </a-button>
@@ -54,7 +54,7 @@
             <article
               v-for="task in columns[col.key] || []" :key="task.id"
               class="card" :class="{ overdue: task.is_overdue }"
-              @click="$router.push(projectId ? `/tasks/${task.id}/edit?project_id=${projectId}` : `/tasks/${task.id}/edit`)"
+              @click="projectId ? $emit('open-task', task.id) : $router.push(`/tasks/${task.id}/edit`)"
             >
               <div class="card-top">
                 <span class="card-title">{{ task.title }}</span>
@@ -132,6 +132,8 @@ import { useTr } from '../../lib/useTr';
 
 // Inside a project (ProjectDetail's "Tareas" tab): that project only, no project filter / column.
 const props = defineProps({ projectId: { type: [Number, String], default: null } });
+// Inside a project the task opens in the side panel (TaskDrawer, 2026-11-22).
+defineEmits(['open-task', 'new-task']);
 
 const tr = useTr();
 const { date } = useFormat();

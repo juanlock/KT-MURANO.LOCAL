@@ -18,8 +18,8 @@
         <a-popover trigger="click" placement="bottomRight">
           <template #content>
             <div class="help">{{ tr(
-              'Each milestone closes a phase: a task belongs to the phase of the first milestone due on or after its end date. Tasks after the last milestone form the closing phase.',
-              'Cada hito cierra una fase: una tarea pertenece a la fase del primer hito que vence el mismo día o después de su fecha de fin. Las tareas posteriores al último hito forman la fase de cierre.') }}</div>
+              'Each stage of the project is a phase with its own tasks. A task without a stage goes to the first stage ending on or after its end date.',
+              'Cada etapa del proyecto es una fase con sus tareas. Una tarea sin etapa va a la primera etapa que termina el mismo día o después de su fecha de fin.') }}</div>
           </template>
           <a-button size="small" type="text"><InfoCircleOutlined /></a-button>
         </a-popover>
@@ -212,8 +212,8 @@ const offset = ref(0);
 const viewOptions = computed(() => [
   { value: 'simple', label: tr('Simple', 'Simple') },
   { value: 'gantt', label: tr('Gantt', 'Gantt') },
-  { value: 'milestones', label: tr('Milestones', 'Hitos') },
-  { value: 'phases', label: tr('Phases', 'Fases') },
+  { value: 'milestones', label: tr('Stage ends', 'Fin de etapas') },
+  { value: 'phases', label: tr('Stages', 'Etapas') },
 ]);
 const viewLabel = computed(() => viewOptions.value.find(o => o.value === view.value)?.label);
 const scaleOptions = computed(() => [{ value: 'week', label: tr('Weeks', 'Semanas') }, { value: 'month', label: tr('Months', 'Meses') }]);
@@ -223,7 +223,7 @@ const windowOptions = computed(() => [
   { value: 6, label: tr('6 months', '6 meses') },
   { value: 12, label: tr('12 months', '12 meses') },
 ]);
-const colorOptions = computed(() => [{ value: 'phase', label: tr('By phase', 'Por fase') }, { value: 'status', label: tr('By status', 'Por estado') }]);
+const colorOptions = computed(() => [{ value: 'phase', label: tr('By stage', 'Por etapa') }, { value: 'status', label: tr('By status', 'Por estado') }]);
 watch(windowMonths, () => { offset.value = 0; });
 watch(windowMonths, m => { if (m >= 6) scale.value = 'month'; });
 
@@ -242,7 +242,7 @@ const today = dayjs().format('YYYY-MM-DD');
 const rows = computed(() => props.tasks.map(t => {
   const start = d10(t.start_date) || d10(t.end_date);
   const end = d10(t.end_date) || start;
-  return { key: `t${t.id}`, id: t.id, title: t.title, status: t.status, progress: t.status === 'completed' ? 100 : (t.progress || 0), assignees: t.assignees, start, end, late: !!t.is_overdue };
+  return { key: `t${t.id}`, id: t.id, stage: t.milestone_id || null, title: t.title, status: t.status, progress: t.status === 'completed' ? 100 : (t.progress || 0), assignees: t.assignees, start, end, late: !!t.is_overdue };
 }).sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999') || (a.end || '').localeCompare(b.end || '')));
 
 const miles = computed(() => props.milestones.filter(m => m.due_date).map(m => ({
@@ -251,11 +251,15 @@ const miles = computed(() => props.milestones.filter(m => m.due_date).map(m => (
 })).sort((a, b) => a.date.localeCompare(b.date)));
 
 const phases = computed(() => {
-  const list = miles.value.map((m, i) => ({ key: m.key, title: m.title, milestone: m, color: phaseColor(i), tasks: [] }));
+  // The project's stages in their order (2026-11-21: a task belongs to its own stage, tasks.milestone_id).
+  const stages = props.milestones.map(m => ({ key: `m${m.id}`, id: m.id, title: m.title, date: d10(m.due_date), progress: m.progress,
+    done: m.status === 'completed', late: !!m.due_date && m.status !== 'completed' && d10(m.due_date) < today }));
+  const list = stages.map((m, i) => ({ key: m.key, title: m.title, milestone: m.date ? m : null, stageId: m.id, color: phaseColor(i), tasks: [] }));
   const closing = { key: 'close', title: list.length ? tr('Closing', 'Cierre') : (props.project.title || tr('Project', 'Proyecto')), milestone: null, color: phaseColor(list.length), tasks: [] };
   rows.value.forEach(t => {
     const ref = t.end || t.start;
-    const ph = ref ? list.find(p => p.milestone.date >= ref) : null;
+    // Its own stage; a task without one goes by date (the first stage ending on or after it).
+    const ph = (t.stage && list.find(p => p.stageId === t.stage)) || (!t.stage && ref ? list.find(p => p.milestone && p.milestone.date >= ref) : null);
     (ph || closing).tasks.push(t);
   });
   const all = closing.tasks.length || !list.length ? [...list, closing] : list;

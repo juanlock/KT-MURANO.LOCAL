@@ -47,7 +47,7 @@
           <a-input v-model:value="form.email" type="email" />
         </a-form-item>
         <a-form-item :label="$t('phone')">
-          <a-input v-model:value="form.phone" />
+          <PhoneInput v-model:value="form.phone" />
         </a-form-item>
         <a-form-item v-if="editMode" :label="$t('Link_User')">
           <!-- Read-only: the linked login account is created automatically

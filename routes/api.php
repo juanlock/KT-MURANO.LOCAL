@@ -1641,6 +1641,43 @@ Route::get('hospital/patients/{patientId}/wristband', 'HospitalDeskController@wr
     Route::put('project_time_logs/{id}', 'ProjectTimeLogController@update');
     Route::delete('project_time_logs/{id}', 'ProjectTimeLogController@destroy');
 
+    // A project's members, documents and templates (2026-11-21).
+    Route::get('projects/{id}/members', 'ProjectTeamController@index')->whereNumber('id');
+    Route::post('projects/{id}/members', 'ProjectTeamController@store')->whereNumber('id');
+    Route::put('projects/{id}/members/{employee}', 'ProjectTeamController@update')->whereNumber('id');
+    Route::delete('projects/{id}/members/{employee}', 'ProjectTeamController@destroy')->whereNumber('id');
+    Route::post('projects/{id}/client-company', 'ProjectTeamController@clientCompany')->whereNumber('id');
+    Route::get('projects/{id}/task-meta', 'ProjectTeamController@taskMeta')->whereNumber('id');
+    Route::get('projects/{id}/documents', 'ProjectTeamController@documents')->whereNumber('id');
+    Route::post('projects/{id}/documents', 'ProjectTeamController@upload')->whereNumber('id');
+    Route::get('projects/{id}/link-preview', 'ProjectTeamController@linkPreview')->whereNumber('id')->middleware('throttle:60,1');
+    Route::get('project_files/{doc}', 'ProjectTeamController@file')->whereNumber('doc');
+    Route::delete('project_files/{doc}', 'ProjectTeamController@deleteFile')->whereNumber('doc');
+    Route::get('project_templates', 'ProjectTeamController@templates');
+    Route::delete('project_templates/{id}', 'ProjectTeamController@deleteTemplate')->whereNumber('id');
+    Route::post('projects/{id}/apply-template', 'ProjectTeamController@applyTemplate')->whereNumber('id');
+    Route::post('projects/{id}/save-template', 'ProjectTeamController@saveTemplate')->whereNumber('id');
+    Route::get('projects/{id}/objectives', 'ProjectTeamController@objectives')->whereNumber('id');
+    // The member's own screen and the project's configuration / credentials (2026-11-22).
+    Route::get('my/projects', 'ProjectTeamController@myProjects');
+    Route::get('my/projects/{id}', 'ProjectTeamController@myProject')->whereNumber('id');
+    Route::get('my/tasks/{id}', 'ProjectTeamController@myTask')->whereNumber('id');
+    Route::get('projects/{id}/config', 'ProjectTeamController@config')->whereNumber('id');
+    Route::put('projects/{id}/config', 'ProjectTeamController@saveConfig')->whereNumber('id');
+    Route::post('projects/{id}/members/{employee}/send-credentials', 'ProjectTeamController@sendCredentials')->whereNumber('id')->middleware('throttle:20,1');
+    Route::post('projects/{id}/members/{employee}/access-link', 'ProjectTeamController@accessLink')->whereNumber('id')->middleware('throttle:20,1');
+    Route::get('tasks/{id}/activities', 'ProjectTeamController@activities')->whereNumber('id');
+    Route::post('tasks/{id}/activities', 'ProjectTeamController@addActivity')->whereNumber('id');
+    Route::delete('task_activities/{id}', 'ProjectTeamController@deleteActivity')->whereNumber('id');
+    Route::post('projects/{id}/entities', 'ProjectTeamController@storeEntity')->whereNumber('id');
+    Route::put('projects/{id}/entities/{eid}', 'ProjectTeamController@updateEntity')->whereNumber('id')->whereNumber('eid');
+    Route::delete('projects/{id}/entities/{eid}', 'ProjectTeamController@deleteEntity')->whereNumber('id')->whereNumber('eid');
+    Route::put('projects/{id}/description', 'ProjectTeamController@saveDescription')->whereNumber('id');
+    Route::post('projects/{id}/objectives', 'ProjectTeamController@storeObjective')->whereNumber('id');
+    Route::put('projects/{id}/objectives/{oid}', 'ProjectTeamController@updateObjective')->whereNumber('id')->whereNumber('oid');
+    Route::delete('projects/{id}/objectives/{oid}', 'ProjectTeamController@deleteObjective')->whereNumber('id')->whereNumber('oid');
+    Route::post('projects/{id}/objectives/{oid}/tasks', 'ProjectTeamController@linkObjectiveTask')->whereNumber('id')->whereNumber('oid');
+
     Route::resource('projects', 'ProjectController');
 
     Route::post('projects/delete/by_selection', 'ProjectController@delete_by_selection');

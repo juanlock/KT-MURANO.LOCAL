@@ -82,9 +82,7 @@
               <a-col :xs="24" :md="12">
                 <a-form-item :label="$t('Phone')" name="phone" :validate-status="phoneDup ? 'warning' : undefined"
                   :help="phoneDup ? $t('Phone_Already_Registered') : undefined">
-                  <a-input v-model:value="form.phone" :placeholder="$t('Enter_Phone')" allow-clear @blur="checkPhone">
-                    <template #prefix><PhoneOutlined class="field-prefix" /></template>
-                  </a-input>
+                  <PhoneInput v-model:value="form.phone" :placeholder="$t('Enter_Phone')" allow-clear @blur="checkPhone" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="12">

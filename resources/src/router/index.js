@@ -350,6 +350,7 @@ const ProjectMilestones = lazy('ProjectMilestones', () => import('../pages/proje
 const ProjectTimesheets = lazy('ProjectTimesheets', () => import('../pages/projects/Timesheets.vue'));
 const ProjectReports = lazy('ProjectReports', () => import('../pages/projects/ProjectReports.vue'));
 const ProjectDetail = lazy('ProjectDetail', () => import('../pages/projects/ProjectDetail.vue'));
+const MyProjects = lazy('MyProjects', () => import('../pages/projects/MyProjects.vue'));
 const Promotions = lazy('Promotions', () => import('../pages/promotions/Promotions.vue'));
 const PromotionForm = lazy('PromotionForm', () => import('../pages/promotions/PromotionForm.vue'));
 const PromotionUsages = lazy('PromotionUsages', () => import('../pages/promotions/PromotionUsages.vue'));
@@ -753,6 +754,9 @@ const routes = [
             { path: 'projects/create', name: 'project-create', component: ProjectForm, meta: { title: 'Add Project', permission: 'projects' } },
             // One project = its own workspace with tabs (2026-11-19, like Asana).
             { path: 'projects/:id(\\d+)', name: 'project-detail', component: ProjectDetail, meta: { title: 'Project', permission: 'projects' } },
+      // A member's own projects, whatever company (2026-11-22): no permission, the server checks the membership.
+      { path: 'mis-proyectos', name: 'my-projects', component: MyProjects, meta: { title: 'Mis proyectos' } },
+      { path: 'mis-proyectos/:id(\\d+)', name: 'my-project', component: MyProjects, meta: { title: 'Mis proyectos' } },
             { path: 'projects/:id/edit', name: 'project-edit', component: ProjectForm, meta: { title: 'Edit Project', permission: 'projects' } },
             { path: 'tasks', name: 'tasks', component: Tasks, meta: { title: 'Tasks', permission: 'tasks' } },
             { path: 'tasks/create', name: 'task-create', component: TaskForm, meta: { title: 'Add Task', permission: 'tasks' } },

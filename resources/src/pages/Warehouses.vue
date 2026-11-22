@@ -101,12 +101,12 @@
           </a-col>
           <a-col :span="12">
             <a-form-item :label="$t('Phone')" name="mobile">
-              <a-input v-model:value="form.mobile" />
+              <PhoneInput v-model:value="form.mobile" :country="form.country" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
             <a-form-item :label="$t('Country')" name="country">
-              <a-input v-model:value="form.country" />
+              <CountrySelect v-model:value="form.country" />
             </a-form-item>
           </a-col>
           <a-col :span="12">

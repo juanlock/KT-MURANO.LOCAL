@@ -28,7 +28,7 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')">
-              <a-input v-model:value="form.phone" />
+              <PhoneInput v-model:value="form.phone" :country="(countries.find(c => c.iso2 === form.country_iso2) || {}).name || form.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -68,12 +68,12 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')">
-              <a-input v-model:value="form.phone" />
+              <PhoneInput v-model:value="form.phone" :country="form.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Country')">
-              <a-input v-model:value="form.country" />
+              <CountrySelect v-model:value="form.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -166,7 +166,8 @@ const blank = () => ({
   // flows are for US-based customers, so this saves a click and puts City
   // straight into the searchable US-city picker. Supplier is unaffected
   // (its Country stays the plain `country` text field, untouched).
-  country_iso2: isClient.value ? 'US' : undefined,
+  // The company's country by default (2026-11-21; was always the US).
+  country_iso2: isClient.value ? (useAuthStore().user?.company_country?.iso2 || 'US') : undefined,
   city: '',
   city_id: undefined,
   state: '',

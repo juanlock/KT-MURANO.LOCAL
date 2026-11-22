@@ -194,13 +194,13 @@
               <a-input v-model:value="form.agent_name" />
             </a-form-item>
             <a-form-item :label="$t('Phone')">
-              <a-input v-model:value="form.agent_phone" />
+              <PhoneInput v-model:value="form.agent_phone" />
             </a-form-item>
             <a-form-item :label="$t('Email')">
               <a-input v-model:value="form.agent_email" />
             </a-form-item>
             <a-form-item label="WhatsApp" style="margin-bottom: 0">
-              <a-input v-model:value="form.agent_whatsapp" />
+              <PhoneInput v-model:value="form.agent_whatsapp" />
             </a-form-item>
           </a-form>
         </a-card>

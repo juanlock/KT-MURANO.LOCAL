@@ -30,7 +30,7 @@
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')" name="phone" :validate-status="phoneDup ? 'warning' : undefined"
               :help="phoneDup ? $t('Phone_Already_Registered') : undefined">
-              <a-input v-model:value="form.phone" :placeholder="$t('Enter_Phone')" @blur="checkPhone" />
+              <PhoneInput v-model:value="form.phone" :country="form.country" :placeholder="$t('Enter_Phone')" @blur="checkPhone" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
@@ -107,7 +107,7 @@
           </a-col>
           <a-col :xs="24" :md="8">
             <a-form-item :label="$t('Phone')" name="contact_phone">
-              <a-input v-model:value="form.contact_phone" />
+              <PhoneInput v-model:value="form.contact_phone" :country="form.country" />
             </a-form-item>
           </a-col>
 
@@ -205,7 +205,7 @@ const emptyForm = () => ({
   // New customers default to the United States (most add-customer flows are
   // for US-based customers) -- City then starts straight in the searchable
   // US-city picker below.
-  country: isEdit.value ? '' : 'United States', city: '', state: '', zip: '', adresse: '',
+  country: isEdit.value ? '' : (auth.user?.company_country?.name || 'United States'), // the company's country (2026-11-21) city: '', state: '', zip: '', adresse: '',
   opening_balance: 0, credit_limit: 0, is_royalty_eligible: false,
   contact_name: '', contact_email: '', contact_phone: '',
 });
@@ -218,7 +218,9 @@ const form = ref(emptyForm());
 // 31k+ US cities (UsCityPicker), never loaded as a full dropdown, and only
 // swapped in once Country is the United States.
 const { countries, ensureLoaded: ensureCountriesLoaded } = useCountries();
-const countryOptions = computed(() => sortByLabel(countries.value.map(c => ({ value: c.iso2, label: c.name }))));
+// Country names in the screen's language (Intl), stored in English as before.
+const regionName = c => { try { return new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'region' }).of(c.iso2) || c.name; } catch (e) { return c.name; } };
+const countryOptions = computed(() => sortByLabel(countries.value.map(c => ({ value: c.iso2, label: regionName(c) }))));
 const countryIso2 = computed({
   get: () => countries.value.find(c => c.name === form.value.country)?.iso2,
   set(iso2) {
@@ -361,6 +363,8 @@ async function loadRecord() {
 onMounted(() => {
   ensureCountriesLoaded();
   if (isEdit.value) loadRecord();
+  // A new customer starts in the company's country (2026-11-21).
+  else if (!form.value.country && auth.user?.company_country?.name) form.value.country = auth.user.company_country.name;
 });
 </script>
 

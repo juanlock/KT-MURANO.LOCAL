@@ -41,13 +41,13 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Country')" name="country">
-              <a-input v-model:value="form.country" :placeholder="$t('Enter_Country')" />
+              <CountrySelect v-model:value="form.country" />
             </a-form-item>
           </a-col>
 
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')" name="phone">
-              <a-input v-model:value="form.phone" :placeholder="$t('Enter_Phone_Number')" />
+              <PhoneInput v-model:value="form.phone" :country="form.country" :placeholder="$t('Enter_Phone_Number')" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">

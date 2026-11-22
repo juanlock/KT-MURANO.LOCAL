@@ -10,7 +10,7 @@
               <a-input v-model:value="form.name" />
             </a-form-item>
             <a-form-item :label="$t('Phone')">
-              <a-input v-model:value="form.phone" />
+              <PhoneInput v-model:value="form.phone" />
             </a-form-item>
             <a-form-item :label="$t('Email')">
               <a-input v-model:value="form.email" type="email" />

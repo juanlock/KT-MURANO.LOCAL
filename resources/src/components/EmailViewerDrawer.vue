@@ -198,7 +198,7 @@
           <a-input v-model:value="contact.email" :placeholder="$t('tx_optional_f53d1')" />
         </a-form-item>
         <a-form-item :label="$t('Phone')">
-          <a-input v-model:value="contact.phone" :placeholder="$t('tx_optional_f53d1')" />
+          <PhoneInput v-model:value="contact.phone" :country="contact.country" :placeholder="$t('tx_optional_f53d1')" />
           <div v-if="phonesFound.length" style="margin-top: 4px">
             <span class="ev-muted">{{ $t('tx_In_the_email_5dc41') }} </span>
             <a-tag v-for="p in phonesFound" :key="p" style="cursor: pointer" :color="contact.phone === p ? 'purple' : undefined" @click="contact.phone = p">{{ p }}</a-tag>
@@ -220,7 +220,7 @@
           <a-col :span="9"><a-form-item label="ZIP" style="margin-bottom: 8px"><a-input v-model:value="contact.zip" /></a-form-item></a-col>
         </a-row>
         <a-form-item :label="$t('Country')">
-          <a-input v-model:value="contact.country" />
+          <CountrySelect v-model:value="contact.country" />
         </a-form-item>
 
         <!-- Contact person -->
@@ -228,7 +228,7 @@
         <a-row :gutter="8">
           <a-col :span="24"><a-form-item :label="$t('Name')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_name" :placeholder="$t('tx_optional_f53d1')" /></a-form-item></a-col>
           <a-col :span="14"><a-form-item :label="$t('Email')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_email" /></a-form-item></a-col>
-          <a-col :span="10"><a-form-item :label="$t('Phone')" style="margin-bottom: 8px"><a-input v-model:value="contact.contact_phone" /></a-form-item></a-col>
+          <a-col :span="10"><a-form-item :label="$t('Phone')" style="margin-bottom: 8px"><PhoneInput v-model:value="contact.contact_phone" :country="contact.country" /></a-form-item></a-col>
         </a-row>
         <a-checkbox v-if="senderCount > 1" v-model:checked="contact.linkAll">
           {{ $t('tx_Link_all_c285c') }} {{ senderCount }} emails from {{ senderName }} {{ $t('tx_to_it_6a94c') }}

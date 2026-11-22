@@ -264,6 +264,11 @@
               <DesktopOutlined class="acct-ic" />
               <span>Open POS</span>
             </button>
+            <!-- The projects I take part in (2026-11-22): any staff login, also the client's people. -->
+            <button v-if="auth.user && auth.user.type !== 'customer'" type="button" class="acct-item" @click="go('/mis-proyectos')">
+              <FolderOpenOutlined class="acct-ic" />
+              <span>{{ ui.locale === 'es' ? 'Mis proyectos' : 'My projects' }}</span>
+            </button>
             <!-- The company's logins, roles and standard passwords: the company admin only. -->
             <button v-if="canSeeLogins" type="button" class="acct-item" @click="userMenuOpen = false; loginsOpen = true">
               <KeyOutlined class="acct-ic" />
@@ -353,7 +358,7 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled,
+  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled, FolderOpenOutlined,
 } from '@ant-design/icons-vue';
 import { useTr } from '../lib/useTr';
 import { useIsPhone } from '../lib/useIsPhone';

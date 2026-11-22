@@ -111,9 +111,32 @@ class EnforceModuleFlags
         if (! $companyId || $companyId === 999) {
             return $next($request);
         }
+        // A member of another company's project works on it from "Mis proyectos" even when their own company has no
+        // Projects module (2026-11-22: the client's staff); the controller checks the membership.
+        if ($module === 'projects' && self::memberRequest($segments, (int) $user->id)) {
+            return $next($request);
+        }
 
         ModuleFlags::abortUnlessEnabled($companyId, $module);
 
         return $next($request);
+    }
+
+    /** projects/{id}/(task-meta|objectives|documents|link-preview) or tasks/{id}/activities of a project the user is a member of. */
+    private static function memberRequest(array $segments, int $userId): bool
+    {
+        $projectId = null;
+        if (($segments[0] ?? '') === 'projects' && ctype_digit((string) ($segments[1] ?? ''))
+            && in_array($segments[2] ?? '', ['task-meta', 'objectives', 'documents', 'link-preview'], true)) {
+            $projectId = (int) $segments[1];
+        } elseif (($segments[0] ?? '') === 'tasks' && ctype_digit((string) ($segments[1] ?? '')) && ($segments[2] ?? '') === 'activities') {
+            $projectId = (int) \Illuminate\Support\Facades\DB::table('tasks')->where('id', (int) $segments[1])->value('project_id');
+        }
+        if (! $projectId) {
+            return false;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('employee_project as ep')->join('employees as e', 'e.id', '=', 'ep.employee_id')
+            ->where('ep.project_id', $projectId)->where('e.user_id', $userId)->whereNull('e.deleted_at')->exists();
     }
 }

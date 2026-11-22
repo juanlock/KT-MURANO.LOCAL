@@ -42,8 +42,8 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
-            <a-form-item :label="$t('Finish_Date')" name="end_date">
-              <a-date-picker v-model:value="form.end_date" value-format="YYYY-MM-DD" style="width: 100%" />
+            <a-form-item :label="$t('Finish_Date')" name="end_date" :extra="ui.locale === 'es' ? 'Vacío = sin fecha final (p. ej. soporte mensual)' : 'Empty = no end date (e.g. monthly support)'">
+              <a-date-picker v-model:value="form.end_date" value-format="YYYY-MM-DD" style="width: 100%" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
@@ -122,8 +122,8 @@ const rules = computed(() => ({
   status: [{ required: true, message: t('Field_is_required') }],
   // The server needs both dates (2026-11-19: they weren't asked here and saving failed with a vague message).
   start_date: [{ required: true, message: t('Field_is_required') }],
+  // No end date = an open-ended project (monthly support after go-live, 2026-11-21).
   end_date: [
-    { required: true, message: t('Field_is_required') },
     { validator: (_r, v) => (!v || !form.value.start_date || v >= form.value.start_date ? Promise.resolve()
       : Promise.reject(ui.locale === 'es' ? 'La fecha de fin no puede ser anterior a la de inicio' : 'The end date cannot be before the start date')) },
   ],

@@ -63,7 +63,7 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Phone')">
-              <a-input v-model:value="candidate.phone" />
+              <PhoneInput v-model:value="candidate.phone" :country="candidate.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="8">
@@ -107,7 +107,7 @@
           </a-col>
           <a-col :xs="24" :md="12">
             <a-form-item :label="$t('Country')">
-              <a-input v-model:value="candidate.country" />
+              <CountrySelect v-model:value="candidate.country" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">

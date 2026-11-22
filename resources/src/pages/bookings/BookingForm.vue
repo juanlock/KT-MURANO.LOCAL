@@ -240,7 +240,7 @@
           <a-input v-model:value="client.email" />
         </a-form-item>
         <a-form-item :label="$t('Phone')">
-          <a-input v-model:value="client.phone" />
+          <PhoneInput v-model:value="client.phone" />
         </a-form-item>
         <a-form-item :label="$t('Address')">
           <a-textarea v-model:value="client.adresse" :rows="2" />
@@ -268,7 +268,7 @@
             </a-col>
             <a-col :span="12">
               <a-form-item :label="$t('Phone')" name="phone">
-                <a-input v-model:value="editCustomer.phone" />
+                <PhoneInput v-model:value="editCustomer.phone" />
               </a-form-item>
             </a-col>
           </a-row>

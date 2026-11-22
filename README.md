@@ -203,6 +203,26 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-22 (Optimum) — not in production yet
+
+- **Projects rebuilt around the four pillars**: every project's stages are Requerimiento, Análisis y Diseño,
+  Implementación and Puesta en Marcha; a new project is born with them plus objective 1 "Definición del alcance" and its
+  meeting. Eight project templates (system from scratch, language migration, new office, hiring, security audit, cloud
+  migration, digital assessment, help desk) fill those stages with tasks, roles and approximate dates.
+- **Objectives**: grouped by pillar with a colour each, numbered in order, collapsible (remembered); each objective
+  creates its task and assigns it; completed tasks show one line of what they were; assignees as avatars (our staff /
+  the client's in two colours).
+- **A task opens in a side panel (70 %)**: name, requirement / why, the informative box in the status colour, meetings
+  (date, medium, link, Outlook invitation), the activity log with date, time and %, and documents, links (with YouTube /
+  TikTok previews) and pasted screenshots; Guardar / Guardar y cerrar.
+- **Mis proyectos**: any member (also the client's staff) sees their projects and tasks, records progress and uploads
+  documents on the tasks assigned to them. Project → Configuración: links, web access and each member's credentials
+  (copy, WhatsApp, email). Members show user and password.
+- **Company logins** opens by group (access and roles / other staff / customers) and loads much faster.
+- **Country from a list and phones with their country code** in every form; the company's country comes first and
+  still sets the date format.
+- Setup: `php artisan migrate` and `npm run build`.
+
 ### 2026-11-21 (Optimum)
 
 - **Distribución B2B now has the same screens, names and order as Hordex's earlier system.** Hordex's menu reads
@@ -326,26 +346,6 @@ Setup: `php artisan migrate`, `npm run build`.
   OneDrive folder (`D:\NetLock\OneDrive\...` on Thundera and Optimum).
 
 Setup: `php artisan migrate`, `npm run build`.
-### 2026-11-17 (Optimum)
-
-- **Ready-made websites become the company's own:** Website → Settings →
-  Front page now always shows the gallery of 31 ready-made websites (it was
-  hidden behind "import from an address"); using one puts the company's logo
-  (also logos drawn by the stylesheet), name, e-mail and phone in its copy.
-- **Their contact forms work:** a ready-made website with a contact form
-  switches the Forms module on, creates the company's "Contáctenos" form and
-  connects it, so the visitors' messages arrive in Forms (22 of the 31 have one).
-- **No Shop / Cart / My Account bar** on a website whose company has no online
-  store.
-- **"Quotations" was translated as "Citas"** in Spanish: now "Cotizaciones".
-- **Alo Mundo (call center demo):** website with a ready-made design, only the
-  call center modules on, and a 4-page call center flyer (access levels of the
-  supervisor and the agent, security) in the manual's book.
-
-Setup: `php artisan migrate`, `npm run build`.
-
----
-
 ## Session protocols
 
 These are run from Claude Code. The definitions are in `.claude/commands/`.

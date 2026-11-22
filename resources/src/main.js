@@ -11,6 +11,8 @@ import App from './App.vue';
 import router from './router';
 import { goBack } from './lib/goBack';
 import PermLink from './components/PermLink.vue';
+import CountrySelect from './components/CountrySelect.vue';
+import PhoneInput from './components/PhoneInput.vue';
 import { CompanyDatePicker, CompanyRangePicker } from './components/CompanyDatePicker';
 import { i18n, loadLocale, storedLocale } from './i18n';
 // Arms the beforeinstallprompt listener before the topbar exists (see file).
@@ -74,6 +76,9 @@ app.use(router);
 app.config.globalProperties.$goBack = fallback => goBack(router, fallback);
 // <PermLink permission="Sales_view">: a link only when the role may open the page, else plain text.
 app.component('PermLink', PermLink);
+// Country list + phone with its calling code, used by every form (user's rule, 2026-11-21).
+app.component('CountrySelect', CountrySelect);
+app.component('PhoneInput', PhoneInput);
 app.use(Antd);
 // Dates in the company's format (Peru DD-MM-YYYY, USA MM-DD-YYYY) that can be
 // typed: replaces Ant's <a-date-picker> / <a-range-picker> everywhere (2026-10-25).

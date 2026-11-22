@@ -39,14 +39,19 @@ class ProjectController extends Controller
     }
 
     /** The customer and employees sent, refused (422) unless they belong to the project's company. */
-    private function checkedRefs(Request $request, int $cid): array
+    private function checkedRefs(Request $request, int $cid, ?int $projectId = null): array
     {
         $client = (int) $request['client'];
         abort_unless(Client::where('id', $client)->where('company_id', $cid)->whereNull('deleted_at')->exists(), 422,
             __('The customer does not belong to this company.'));
         $staff = array_values(array_unique(array_map('intval', (array) ($request['assigned_to'] ?? []))));
-        if ($staff) {
-            abort_unless(Employee::whereIn('id', $staff)->where('company_id', $cid)->whereNull('deleted_at')->count() === count($staff), 422,
+        // A member from the client's company (Members tab) stays a member (2026-11-21).
+        $kept = $projectId ? DB::table('employee_project as ep')->join('employees as e', 'e.id', '=', 'ep.employee_id')
+            ->where('ep.project_id', $projectId)->where('e.company_id', '!=', $cid)->pluck('e.id')->map(fn ($v) => (int) $v)->all() : [];
+        $check = array_values(array_diff($staff, $kept));
+        $staff = array_values(array_unique(array_merge($staff, $kept)));
+        if ($check) {
+            abort_unless(Employee::whereIn('id', $check)->where('company_id', $cid)->whereNull('deleted_at')->count() === count($check), 422,
                 __('An employee does not belong to this company.'));
         }
 
@@ -209,7 +214,7 @@ class ProjectController extends Controller
             // 2026-11-19: the employee is optional (the form never asked for it); dates as before, the end not before the start.
             'assigned_to' => 'nullable|array',
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+            'end_date' => 'nullable|date|after_or_equal:start_date', // none = open-ended (monthly support, 2026-11-21)
             'status' => 'required',
         ]);
 
@@ -219,7 +224,7 @@ class ProjectController extends Controller
         $project = Project::create([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
-            'end_date' => $request['end_date'],
+            'end_date' => $request['end_date'] ?: null,
             'company_id' => $cid,
             'client_id' => $client,
             'status' => $request['status'],
@@ -227,6 +232,26 @@ class ProjectController extends Controller
         ]);
 
         $project->assignedEmployees()->sync($staff);
+
+        // Every project starts with its scope (user's rule, 2026-11-22): objective 1 "Definición del alcance del proyecto"
+        // and its first task, the meeting with the client.
+        if (\Illuminate\Support\Facades\Schema::hasTable('project_objectives')) {
+            DB::transaction(function () use ($project, $cid) {
+                // ...and its four pillars as its stages (2026-11-22).
+                \App\Support\ProjectPillars::seed($project->id, optional(request()->user('api'))->id);
+                $oid = DB::table('project_objectives')->insertGetId([
+                    'company_id' => $cid, 'project_id' => $project->id, 'position' => 1,
+                    'title' => __('Definition of the project scope').' '.$project->title,
+                    'description' => __('Agree with the client what the project includes and gather the information to plan it.'),
+                    'created_by' => optional(request()->user('api'))->id, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+                \App\Models\Task::create([
+                    'title' => __('Meeting with the client to define the project scope'), 'project_id' => $project->id, 'company_id' => $cid,
+                    'objective_id' => $oid, 'milestone_id' => \App\Support\ProjectPillars::stageId($project->id, \App\Support\ProjectPillars::REQ), 'is_meeting' => 1, 'start_date' => $project->start_date, 'end_date' => $project->start_date,
+                    'status' => 'not_started', 'priority' => 'high', 'task_progress' => 0,
+                ]);
+            });
+        }
 
         // The form opens the new project's workspace (2026-11-19).
         return response()->json(['success' => true, 'id' => $project->id]);
@@ -250,13 +275,11 @@ class ProjectController extends Controller
 
         $today = Carbon::today()->toDateString();
         $tasks = \App\Models\Task::whereNull('deleted_at')->where('project_id', $id)
-            ->get(['id', 'title', 'status', 'priority', 'start_date', 'end_date', 'task_progress', 'estimated_hour']);
-        $milestones = \App\Models\ProjectMilestone::whereNull('deleted_at')->where('project_id', $id)->orderBy('due_date')
-            ->get(['id', 'title', 'status', 'due_date', 'progress']);
+            ->get(['id', 'title', 'status', 'priority', 'start_date', 'end_date', 'task_progress', 'estimated_hour', 'milestone_id', 'objective_id']);
+        $milestones = \App\Models\ProjectMilestone::whereNull('deleted_at')->where('project_id', $id)->orderBy('position')->orderBy('due_date')
+            ->get(['id', 'title', 'description', 'status', 'due_date', 'progress', 'position', 'budget']);
         $logs = \App\Models\ProjectTimeLog::whereNull('deleted_at')->where('project_id', $id);
-        $team = Employee::whereIn('id', EmployeeProject::where('project_id', $id)->pluck('employee_id'))
-            ->get(['id', 'firstname', 'lastname', 'username'])
-            ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->firstname.' '.$e->lastname) ?: $e->username])->values();
+        $team = ProjectTeamController::members((int) $id);
 
         // Who does each task (the Timeline tab's "Responsable" column).
         $assignees = DB::table('employee_task as et')->join('employees as e', 'e.id', '=', 'et.employee_id')
@@ -288,13 +311,14 @@ class ProjectController extends Controller
                 'billable_amount' => round((float) (clone $logs)->where('billable', 1)->sum('amount'), 2),
             ],
             'tasks' => $tasks->map(fn ($t) => [
-                'id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'priority' => $t->priority,
+                'id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'priority' => $t->priority, 'milestone_id' => $t->milestone_id, 'objective_id' => $t->objective_id,
                 'start_date' => $t->start_date, 'end_date' => $t->end_date, 'progress' => (int) $t->task_progress,
                 'assignees' => (string) ($assignees[$t->id] ?? ''),
                 'is_overdue' => $open($t) && $t->end_date && $t->end_date < $today,
             ])->values(),
             'milestones' => $milestones->map(fn ($m) => [
-                'id' => $m->id, 'title' => $m->title, 'status' => $m->status, 'progress' => (int) $m->progress,
+                'id' => $m->id, 'title' => $m->title, 'description' => $m->description, 'status' => $m->status, 'progress' => (int) $m->progress,
+                'position' => (int) $m->position, 'budget' => $m->budget === null ? null : (float) $m->budget,
                 'due_date' => optional($m->due_date)->toDateString(),
             ])->values(),
         ]);
@@ -343,19 +367,19 @@ class ProjectController extends Controller
             // 2026-11-19: the employee is optional (the form never asked for it); dates as before, the end not before the start.
             'assigned_to' => 'nullable|array',
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+            'end_date' => 'nullable|date|after_or_equal:start_date', // none = open-ended (monthly support, 2026-11-21)
             'status' => 'required',
         ]);
 
         $project = Project::where('deleted_at', '=', null)->findOrFail($id);
         abort_unless($this->inScope($request, $project->company_id), 404);
         $cid = $this->writeCompanyId($request);
-        [$client, $staff] = $this->checkedRefs($request, $cid);
+        [$client, $staff] = $this->checkedRefs($request, $cid, (int) $id);
 
         Project::whereId($id)->update([
             'title' => $request['title'],
             'start_date' => $request['start_date'],
-            'end_date' => $request['end_date'],
+            'end_date' => $request['end_date'] ?: null,
             'company_id' => $cid,
             'client_id' => $client,
             'status' => $request['status'],

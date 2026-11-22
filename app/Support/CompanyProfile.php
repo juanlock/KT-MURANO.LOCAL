@@ -77,7 +77,8 @@ class CompanyProfile
             'business_type' => ['required', Rule::in(array_keys(BusinessTypes::LABELS))],
             'email' => ['required', 'email', 'max:190'],
             'phone' => ['required', 'string', 'max:50'],
-            'country' => ['nullable', 'string', 'max:100'],
+            // From the countries list (2026-11-21): it sets the phone code and, as before, the date format.
+            'country' => ['required', 'string', 'max:100', fn ($a, $v, $fail) => Countries::match($v) ? null : $fail(__('Choose the country from the list.'))],
             'address' => ['required', 'string', 'max:255'],
             'helpdesk_email' => ['required', 'email', 'max:190'],
             'helpdesk_name' => ['nullable', 'string', 'max:190'],
@@ -104,6 +105,9 @@ class CompanyProfile
     {
         DB::transaction(function () use ($companyId, $d) {
             $company = array_intersect_key($d, array_flip(['name', 'owner_name', 'email', 'phone', 'country']));
+            if (! empty($company['country']) && ($hit = Countries::match($company['country']))) {
+                $company['country'] = $hit['name']; // the list's name: what DateFormats reads
+            }
             if (array_key_exists('business_type', $d)) {
                 $company['business_type'] = BusinessTypes::valid($d['business_type']);
             }

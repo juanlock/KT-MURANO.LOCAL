@@ -86,12 +86,12 @@
               </a-col>
               <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Phone')" name="phone">
-                  <a-input v-model:value="employee.phone" :placeholder="$t('Enter_Phone_Number')" />
+                  <PhoneInput v-model:value="employee.phone" :country="employee.country" :placeholder="$t('Enter_Phone_Number')" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :md="8">
                 <a-form-item :label="$t('Country')" name="country">
-                  <a-input v-model:value="employee.country" :placeholder="$t('Enter_Country')" />
+                  <CountrySelect v-model:value="employee.country" />
                 </a-form-item>
               </a-col>
 

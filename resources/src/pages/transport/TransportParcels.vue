@@ -54,9 +54,9 @@
           <a-col :xs="24" :md="8"><a-form-item :label="es ? 'Origen *' : 'Origin *'"><a-select v-model:value="form.from_location_id" :options="originOptions" :disabled="originOptions.length < 2" /></a-form-item></a-col>
           <a-col :xs="24" :md="8"><a-form-item :label="es ? 'Destino *' : 'Destination *'"><a-select v-model:value="form.to_location_id" :options="destinationOptions" /></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Remitente *' : 'Sender *'"><a-input v-model:value="form.sender_name" :maxlength="120" /></a-form-item></a-col>
-          <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Teléfono del remitente' : 'Sender\'s phone'"><a-input v-model:value="form.sender_phone" :maxlength="40" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Teléfono del remitente' : 'Sender\'s phone'"><PhoneInput v-model:value="form.sender_phone" :maxlength="40" /></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Destinatario *' : 'Receiver *'"><a-input v-model:value="form.receiver_name" :maxlength="120" /></a-form-item></a-col>
-          <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Teléfono del destinatario' : 'Receiver\'s phone'"><a-input v-model:value="form.receiver_phone" :maxlength="40" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Teléfono del destinatario' : 'Receiver\'s phone'"><PhoneInput v-model:value="form.receiver_phone" :maxlength="40" /></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Contenido' : 'Contents'"><a-input v-model:value="form.description" :maxlength="190" /></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item :label="es ? 'Tipo de carga' : 'Cargo type'" :extra="es ? 'Frágil o de valor (un televisor) cuesta más por m³.' : 'Fragile or valuable costs more per m³.'"><a-select v-model:value="form.cargo_type" :options="cargoOptions" /></a-form-item></a-col>
           <a-col :xs="12" :md="6"><a-form-item :label="es ? 'Largo (cm) *' : 'Length (cm) *'"><a-input-number v-model:value="form.length_cm" :min="0.1" style="width: 100%" /></a-form-item></a-col>

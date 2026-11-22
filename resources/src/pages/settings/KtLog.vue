@@ -153,7 +153,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { UpOutlined, DownOutlined, CopyOutlined, PaperClipOutlined, FilterOutlined } from '@ant-design/icons-vue';
-import DOMPurify from 'dompurify';
+import { markdown } from '../../lib/markdown';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
@@ -254,81 +254,6 @@ async function copy(text) {
 // ---------------- markdown (the closing message's own format) ----------------
 // Small subset -- paragraphs, **bold**, `code`, - bullets (nested by indent), 1. lists.
 // The text is HTML-escaped first and the result goes through DOMPurify.
-const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const inline = s => esc(s)
-  .replace(/`([^`]+)`/g, '<code>$1</code>')
-  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-function markdown(src) {
-  const out = [];
-  const stack = []; // open lists: { indent, tag }
-  const closeTo = (indent) => {
-    while (stack.length && stack[stack.length - 1].indent >= indent) out.push(`</li></${stack.pop().tag}>`);
-  };
-  let para = [];
-  let table = [];
-  const flush = () => { if (para.length) { out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; } };
-  // Tables (| a | b | with a |---| line) and headings (#, ##, ###) -- the chat's own format (2026-11-15).
-  const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(x => x.trim());
-  const flushTable = () => {
-    if (!table.length) return;
-    const rows = table.filter(l => !/^[\s|:-]+$/.test(l));  // drop the |---|---| line
-    const [head, ...body] = rows;
-    out.push('<table class="md-table"><thead><tr>' + cells(head).map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
-      + body.map(r => '<tr>' + cells(r).map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>');
-    table = [];
-  };
-  for (const raw of String(src).replace(/\r/g, '').split('\n')) {
-    if (/^\s*\|.*\|\s*$/.test(raw)) {
-      flush();
-      closeTo(0);
-      table.push(raw);
-      continue;
-    }
-    flushTable();
-    const h = raw.match(/^\s*(#{1,4})\s+(.*)$/);
-    if (h) {
-      flush();
-      closeTo(0);
-      out.push(`<h5 class="md-h md-h${h[1].length}">${inline(h[2])}</h5>`);
-      continue;
-    }
-    if (/^\s*(---|\*\*\*)\s*$/.test(raw)) {
-      flush();
-      closeTo(0);
-      out.push('<hr>');
-      continue;
-    }
-    const m = raw.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
-    if (m) {
-      flush();
-      const indent = m[1].length;
-      const tag = /\d/.test(m[2]) ? 'ol' : 'ul';
-      const top = stack[stack.length - 1];
-      if (!top || indent > top.indent) {
-        out.push(`<${tag}><li>`);
-        stack.push({ indent, tag });
-      } else {
-        closeTo(indent + 1);
-        const cur = stack[stack.length - 1];
-        if (cur && cur.indent === indent && cur.tag === tag) out.push('</li><li>');
-        else { closeTo(indent); out.push(`<${tag}><li>`); stack.push({ indent, tag }); }
-      }
-      out.push(inline(m[3]));
-    } else if (!raw.trim()) {
-      flush();
-      closeTo(0);
-    } else if (stack.length && /^\s+/.test(raw)) {
-      out.push(`<br>${inline(raw.trim())}`); // a continuation line inside a list item
-    } else {
-      closeTo(0);
-      para.push(raw.trim());
-    }
-  }
-  flushTable();
-  flush();
-  closeTo(0);
-  return DOMPurify.sanitize(out.join(''));
-}
 
 onMounted(() => {
   // Restored (Back) = its own filters; otherwise PresetRangeFilter applies the user's

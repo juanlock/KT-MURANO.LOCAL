@@ -170,7 +170,7 @@
               </a-form-item>
             </a-col>
             <a-col :xs="12" :sm="6"><a-form-item :label="s('Date of birth')"><a-date-picker v-model:value="form.new_patient.date_of_birth" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-            <a-col :xs="24" :sm="12"><a-form-item :label="s('Phone')"><a-input v-model:value="form.new_patient.phone" /></a-form-item></a-col>
+            <a-col :xs="24" :sm="12"><a-form-item :label="s('Phone')"><PhoneInput v-model:value="form.new_patient.phone" /></a-form-item></a-col>
           </a-row>
         </template>
         <div v-else class="target">{{ editing.patient_name }} · {{ editing.patient_mrn }}</div>

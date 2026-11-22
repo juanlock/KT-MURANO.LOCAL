@@ -114,7 +114,7 @@
           </a-col>
           <a-col :xs="12" :md="6">
             <a-form-item :label="s('Phone')">
-              <a-input v-model:value="form.phone" allow-clear />
+              <PhoneInput v-model:value="form.phone" allow-clear />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="10">

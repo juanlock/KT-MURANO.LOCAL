@@ -30,6 +30,52 @@ class TaskController extends Controller
     }
 
     /**
+     * Requirement + reason (2026-11-22) also kept as the description other screens read; a form without them (the old task
+     * form) sends its description as before.
+     */
+    private function composedDescription(Request $request): ?string
+    {
+        if (! $request->has('requirement') && ! $request->has('reason')) {
+            return $request['description'];
+        }
+        $req = trim((string) $request['requirement']);
+        $why = trim((string) $request['reason']);
+
+        return trim(($req !== '' ? 'Qué buscamos: '.$req : '').($why !== '' ? "\n\nPor qué: ".$why : '')) ?: null;
+    }
+
+    /** The stage (milestone) sent, only one of the task's project (2026-11-21). */
+    private function checkedStage(Request $request): ?int
+    {
+        $sid = (int) $request['milestone_id'];
+        if (! $sid) {
+            return null;
+        }
+        abort_unless(\App\Models\ProjectMilestone::whereKey($sid)->where('project_id', $request['project_id'])->whereNull('deleted_at')->exists(),
+            422, __('The stage does not belong to this project.'));
+
+        return $sid;
+    }
+
+    /** Assignees: the project's members (its company or the client's) or the project company's employees. */
+    private function checkedAssignees(Request $request): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($request['assigned_to'] ?? [])))));
+        if (! $ids) {
+            return [];
+        }
+        $pid = (int) $request['project_id'];
+        $cid = (int) Project::whereKey($pid)->value('company_id');
+        $members = \Illuminate\Support\Facades\DB::table('employee_project')->where('project_id', $pid)->pluck('employee_id')->map(fn ($v) => (int) $v)->all();
+        $own = Employee::whereIn('id', $ids)->where('company_id', $cid)->whereNull('deleted_at')->pluck('id')->map(fn ($v) => (int) $v)->all();
+        foreach ($ids as $i) {
+            abort_unless(in_array($i, $members, true) || in_array($i, $own, true), 422, __('An employee does not belong to this project.'));
+        }
+
+        return $ids;
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
@@ -180,15 +226,32 @@ class TaskController extends Controller
             'project_id' => $request['project_id'],
             'company_id' => $cid,
             'status' => $request['status'],
-            'description' => $request['description'],
+            'description' => $this->composedDescription($request),
+            // Only when the form sends them (the old task form doesn't): never wiped by it.
+            ...($request->has('requirement') || $request->has('reason') ? ['requirement' => $request['requirement'], 'reason' => $request['reason']] : []),
+            // A meeting: date and time, medium, link or place (2026-11-22); only when the form sends them.
+            ...($request->has('is_meeting') ? [
+                'is_meeting' => $request->boolean('is_meeting'),
+                'meeting_at' => $request->boolean('is_meeting') && $request['meeting_at'] ? date('Y-m-d H:i:s', strtotime($request['meeting_at'])) : null,
+                'meeting_medium' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_medium'], 0, 30) ?: null : null,
+                'meeting_link' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_link'], 0, 1000) ?: null : null,
+            ] : []),
             'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
+            'milestone_id' => $this->checkedStage($request),
+            'objective_id' => (int) $request['objective_id'] && \Illuminate\Support\Facades\DB::table('project_objectives')->where('id', (int) $request['objective_id'])->where('project_id', $request['project_id'])->whereNull('deleted_at')->exists() ? (int) $request['objective_id'] : null,
         ]);
 
-        $task->assignedEmployees()->sync($request['assigned_to']);
+        // No one picked = the project manager (2026-11-21).
+        $who = $this->checkedAssignees($request);
+        if (! $who) {
+            $mgr = \Illuminate\Support\Facades\DB::table('employee_project')->where('project_id', $task->project_id)->where('is_manager', 1)->value('employee_id');
+            $who = $mgr ? [(int) $mgr] : [];
+        }
+        $task->assignedEmployees()->sync($who);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'id' => $task->id]);
 
     }
 
@@ -268,14 +331,25 @@ class TaskController extends Controller
             'project_id' => $request['project_id'],
             'company_id' => $cid,
             'status' => $request['status'],
-            'description' => $request['description'],
+            'description' => $this->composedDescription($request),
+            // Only when the form sends them (the old task form doesn't): never wiped by it.
+            ...($request->has('requirement') || $request->has('reason') ? ['requirement' => $request['requirement'], 'reason' => $request['reason']] : []),
+            // A meeting: date and time, medium, link or place (2026-11-22); only when the form sends them.
+            ...($request->has('is_meeting') ? [
+                'is_meeting' => $request->boolean('is_meeting'),
+                'meeting_at' => $request->boolean('is_meeting') && $request['meeting_at'] ? date('Y-m-d H:i:s', strtotime($request['meeting_at'])) : null,
+                'meeting_medium' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_medium'], 0, 30) ?: null : null,
+                'meeting_link' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_link'], 0, 1000) ?: null : null,
+            ] : []),
             'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
+            'milestone_id' => $this->checkedStage($request),
+            'objective_id' => (int) $request['objective_id'] && \Illuminate\Support\Facades\DB::table('project_objectives')->where('id', (int) $request['objective_id'])->where('project_id', $request['project_id'])->whereNull('deleted_at')->exists() ? (int) $request['objective_id'] : null,
         ]);
 
         $task = Task::where('deleted_at', '=', null)->findOrFail($id);
-        $task->assignedEmployees()->sync($request['assigned_to']);
+        $task->assignedEmployees()->sync($this->checkedAssignees($request));
 
         return response()->json(['success' => true]);
 
@@ -303,7 +377,7 @@ class TaskController extends Controller
      * The task board, grouped by status.
      *
      * This method (and the two below) are reached by routes that already
-     * existed but had no implementation — calling them used to 500. The board
+     * existed but had no implementation â€” calling them used to 500. The board
      * columns are the statuses the Tasks list already filters on, so the two
      * screens can never disagree about what states exist.
      */

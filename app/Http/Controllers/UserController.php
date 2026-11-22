@@ -200,6 +200,8 @@ class UserController extends BaseController
             'sidebar_logo_height' => (int) ($settings->sidebar_logo_height ?: 32),
             'sidebar_show_logo' => (bool) ($settings->sidebar_show_logo ?? true),
             'company' => $settings->CompanyName ?? '',
+            // The acting company's country {name, iso2, calling_code}: country fields and phone codes start with it (2026-11-21).
+            'company_country' => \App\Support\Countries::ofCompany((int) $this->resolveActingCompanyId($request)),
             'date_format' => $settings->date_format ?? 'YYYY-MM-DD',
             'price_format' => $settings->price_format ?? null,
             // Monetary precision (3 when 3-decimal pricing is enabled, else 2) â€” read by the SPA at boot

@@ -85,7 +85,7 @@
         </a-row>
         <a-row :gutter="12">
           <a-col :span="14"><a-form-item :label="es ? 'Dirección' : 'Address'"><a-input v-model:value="locationForm.address" :maxlength="190" /></a-form-item></a-col>
-          <a-col :span="10"><a-form-item :label="es ? 'Teléfono' : 'Phone'"><a-input v-model:value="locationForm.phone" :maxlength="60" /></a-form-item></a-col>
+          <a-col :span="10"><a-form-item :label="es ? 'Teléfono' : 'Phone'"><PhoneInput v-model:value="locationForm.phone" :maxlength="60" /></a-form-item></a-col>
         </a-row>
         <a-form-item :label="es ? 'Descripción' : 'Description'"><a-textarea v-model:value="locationForm.description" :rows="2" /></a-form-item>
         <!-- An agency = a city's hub; a terminal belongs to an agency (empty = the

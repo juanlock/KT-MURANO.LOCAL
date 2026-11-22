@@ -94,7 +94,7 @@
         <template v-else>
           <a-form-item :label="s('Name')"><a-input v-model:value="nf.new_patient.name" /></a-form-item>
           <a-row :gutter="8">
-            <a-col :span="12"><a-form-item :label="s('Phone')"><a-input v-model:value="nf.new_patient.phone" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item :label="s('Phone')"><PhoneInput v-model:value="nf.new_patient.phone" /></a-form-item></a-col>
             <a-col :span="12"><a-form-item :label="s('Email')"><a-input v-model:value="nf.new_patient.email" /></a-form-item></a-col>
           </a-row>
         </template>

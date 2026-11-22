@@ -216,7 +216,7 @@
                 <a-row :gutter="6" align="bottom" class="addr-new">
                   <a-col :span="7"><div class="lbl">Nombre</div><a-input v-model:value="kon.name" size="small" @press-enter="addContact" /></a-col>
                   <a-col :span="4"><div class="lbl">Área</div><a-input v-model:value="kon.area" size="small" /></a-col>
-                  <a-col :span="5"><div class="lbl">Teléfono</div><a-input v-model:value="kon.phone" size="small" /></a-col>
+                  <a-col :span="5"><div class="lbl">Teléfono</div><PhoneInput v-model:value="kon.phone" size="small" /></a-col>
                   <a-col :span="5"><div class="lbl">Email</div><a-input v-model:value="kon.email" size="small" /></a-col>
                   <a-col :span="3"><a-button type="primary" size="small" block :loading="savingKon" @click="addContact"><PlusOutlined /></a-button></a-col>
                 </a-row>
