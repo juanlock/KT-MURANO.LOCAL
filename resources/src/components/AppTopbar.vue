@@ -1,12 +1,20 @@
 <template>
   <div class="topbar-inner">
-    <!-- Left: sidebar toggle -->
-    <a-button type="text" class="icon-btn" aria-label="Toggle menu" @click="$emit('toggle-sidebar')">
-      <template #icon>
-        <MenuUnfoldOutlined v-if="collapsed" />
-        <MenuFoldOutlined v-else />
-      </template>
-    </a-button>
+    <!-- Left: the two menu controls side by side, each with what it does (2026-11-21): the hamburger (menu to the
+         top bar / back to the side) and the pin (side menu as icons only, submenus on hover). -->
+    <a-tooltip :title="collapsed ? trx('Show the side menu', 'Mostrar el menú al costado') : trx('Move the menu to the top bar', 'Llevar el menú a la barra de arriba')" placement="bottom">
+      <a-button type="text" class="icon-btn" aria-label="Toggle menu" @click="$emit('toggle-sidebar')">
+        <template #icon>
+          <MenuUnfoldOutlined v-if="collapsed" />
+          <MenuFoldOutlined v-else />
+        </template>
+      </a-button>
+    </a-tooltip>
+    <a-tooltip v-if="!topNav && !isPhoneBar" :title="ui.sidebarRail ? trx('Show the full side menu (icons and names)', 'Mostrar el menú completo (íconos y nombres)') : trx('Pin the side menu as icons only (more room for the page)', 'Fijar el menú solo con íconos (más espacio para la pantalla)')" placement="bottom">
+      <a-button type="text" class="icon-btn" :class="{ 'pin-on': ui.sidebarRail }" aria-label="Pin menu" @click="ui.setSidebarRail(!ui.sidebarRail)">
+        <template #icon><PushpinFilled v-if="ui.sidebarRail" /><PushpinOutlined v-else /></template>
+      </a-button>
+    </a-tooltip>
 
     <!-- The company's logo and name next to the toggle while the side menu (and
          its brand) is hidden or collapsed, so the header is never left empty. -->
@@ -345,8 +353,10 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined, RollbackOutlined,
+  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled,
 } from '@ant-design/icons-vue';
+import { useTr } from '../lib/useTr';
+import { useIsPhone } from '../lib/useIsPhone';
 import TodaySummary from './TodaySummary.vue';
 import ManualDrawer from './ManualDrawer.vue';
 import SidebarMenu from './SidebarMenu.vue';
@@ -400,6 +410,9 @@ async function toggleClock() {
 
 const auth = useAuthStore();
 const ui = useUiStore();
+// The menu buttons' help texts and the pin only on a computer (a phone has its own off-canvas menu).
+const trx = useTr();
+const isPhoneBar = useIsPhone();
 // A white logo needs a coloured plate to be seen on the white bar (lib/logoTone.js).
 const lightLogo = ref(false);
 watch(() => auth.logoUrl, async (u) => { lightLogo.value = await isLightLogo(u); }, { immediate: true });
@@ -664,6 +677,10 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 }
 .icon-btn:active {
   transform: scale(0.92);
+}
+/* The pin shows when it is on (the side menu fixed as icons). */
+.icon-btn.pin-on {
+  color: rgb(var(--app-primary-rgb, 0, 120, 212));
 }
 
 /* Each header button its own color on a soft tint (hover: a bit stronger),

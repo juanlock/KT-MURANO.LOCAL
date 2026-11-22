@@ -867,6 +867,10 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::delete('/receipts/{id}', 'deleteReceipt')->whereNumber('id');
         Route::get('/products/{id}/card', 'productCard')->whereNumber('id');
         Route::post('/products/{id}/adjust', 'adjustProduct')->whereNumber('id');
+        Route::get('/clients/{id}/contacts', 'clientContacts')->whereNumber('id');
+        Route::post('/clients/{id}/contacts', 'saveClientContact')->whereNumber('id');
+        Route::put('/clients/{id}/contacts/{kid}', 'saveClientContact')->whereNumber('id')->whereNumber('kid');
+        Route::delete('/clients/{id}/contacts/{kid}', 'deleteClientContact')->whereNumber('id')->whereNumber('kid');
         Route::get('/clients/{id}/addresses', 'clientAddresses')->whereNumber('id');
         Route::post('/clients/{id}/addresses', 'saveClientAddress')->whereNumber('id');
         Route::put('/clients/{id}/addresses/{aid}', 'saveClientAddress')->whereNumber('id')->whereNumber('aid');

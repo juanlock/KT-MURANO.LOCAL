@@ -200,6 +200,19 @@ class B2bImportHordex extends Command
                 'deleted_at' => $c->deleted_at ?? null,
             ] + ($id ? [] : ['code' => ++$code, 'created_at' => $c->created_at]));
         }
+        // Every contact of each client (contactos), not only the first (2026-11-21).
+        foreach ($this->src->table('contactos')->orderBy('id')->get() as $k) {
+            $cl = $this->mapped('hordex.clientes', $k->cliente_id);
+            if (! $cl) {
+                continue;
+            }
+            $this->upsert('hordex.contactos', $k->id, 'b2b_client_contacts', [
+                'company_id' => $this->cid, 'client_id' => $cl,
+                'name' => $this->fix(trim(implode(' ', array_filter([$k->nombre, $k->mas_nombres, $k->paterno, $k->materno])))) ?: '-',
+                'area' => $this->fix($k->area), 'phone' => implode(' / ', array_filter([$k->telefono1, $k->telefono2, $k->telefono3])) ?: null,
+                'email' => $k->email ?: null,
+            ]);
+        }
         foreach ($this->src->table('direcciones')->orderBy('id')->get() as $d) {
             $u = $this->src->table('ubigeos')->where('id', $d->ubigeo_id)->first();
             $cl = $this->mapped('hordex.clientes', $d->cliente_id);

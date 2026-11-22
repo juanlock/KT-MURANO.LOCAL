@@ -987,6 +987,56 @@ class B2bController extends Controller
         return response()->json(['ok' => true, 'stock' => B2b::stock($id)]);
     }
 
+    /** A client's contacts -- several people, as Hordex's earlier system (2026-11-21). */
+    public function clientContacts(Request $request, int $id)
+    {
+        $cid = $this->clientInScope($request, $id);
+
+        return response()->json(DB::table('b2b_client_contacts')->where('company_id', $cid)->where('client_id', $id)->whereNull('deleted_at')
+            ->orderBy('id')->get(['id', 'name', 'area', 'phone', 'email']));
+    }
+
+    public function saveClientContact(Request $request, int $id, ?int $kid = null)
+    {
+        $cid = $this->clientInScope($request, $id);
+        $d = $request->validate(['name' => 'required|string|max:190', 'area' => 'nullable|string|max:120', 'phone' => 'nullable|string|max:60',
+            'email' => 'nullable|email|max:190'], ['name.required' => __('Type the contact name.')]);
+        $d = array_map(fn ($v) => is_string($v) && trim($v) === '' ? null : (is_string($v) ? trim($v) : $v), $d);
+        DB::transaction(function () use ($cid, $id, $kid, $d) {
+            if ($kid) {
+                $q = DB::table('b2b_client_contacts')->where('company_id', $cid)->where('client_id', $id)->where('id', $kid)->whereNull('deleted_at');
+                abort_unless($q->exists(), 404);
+                $q->update($d + ['updated_at' => now()]);
+            } else {
+                DB::table('b2b_client_contacts')->insert($d + ['company_id' => $cid, 'client_id' => $id, 'created_at' => now(), 'updated_at' => now()]);
+            }
+            $this->syncFirstContact($cid, $id);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function deleteClientContact(Request $request, int $id, int $kid)
+    {
+        $cid = $this->clientInScope($request, $id);
+        DB::transaction(function () use ($cid, $id, $kid) {
+            $n = DB::table('b2b_client_contacts')->where('company_id', $cid)->where('client_id', $id)->where('id', $kid)->whereNull('deleted_at')
+                ->update(['deleted_at' => now(), 'updated_at' => now()]);
+            abort_unless($n, 404);
+            $this->syncFirstContact($cid, $id);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** clients.contact_name / phone / email = the first contact, for the screens that read one contact. */
+    private function syncFirstContact(int $cid, int $clientId): void
+    {
+        $k = DB::table('b2b_client_contacts')->where('company_id', $cid)->where('client_id', $clientId)->whereNull('deleted_at')->orderBy('id')->first();
+        DB::table('clients')->where('id', $clientId)->update(['contact_name' => $k->name ?? null, 'contact_phone' => $k->phone ?? null,
+            'contact_email' => $k->email ?? null, 'updated_at' => now()]);
+    }
+
     public function clientAddresses(Request $request, int $id)
     {
         $cid = $this->clientInScope($request, $id);
@@ -1134,7 +1184,9 @@ class B2bController extends Controller
             'name.required' => __('Type the company name (Razón Social).'),
         ]);
         $row = ['tax_number' => trim($d['tax_number']), 'name' => trim($d['name']), 'adresse' => $d['adresse'] ?? null, 'phone' => $d['phone'] ?? null,
-            'email' => $d['email'] ?? null, 'contact_name' => $d['contact_name'] ?? null, 'updated_at' => now()]
+            'email' => $d['email'] ?? null, 'updated_at' => now()]
+            // A client's contact comes from its Contactos table once it exists (2026-11-21): the card no longer sends it.
+            + ($request->has('contact_name') ? ['contact_name' => $d['contact_name'] ?? null] : [])
             + ['short_name' => $d['short_name'] ?? null]
             + ($type === 'providers' ? ['city' => $d['city'] ?? null, 'zip' => $d['zip'] ?? null] : []);
         // A client's card also keeps its payment condition and withholding-agent flag (b2b_client_info, 2026-11-21).
@@ -1182,17 +1234,38 @@ class B2bController extends Controller
             ->map(fn ($g) => B2b::ref($g->series, (int) $g->number))->implode(', ');
         $estado = fn ($s) => $s->statut === 'canceled' ? 'ANULADA' : ($s->payment_statut === 'paid' ? 'CANCELADA' : 'PENDIENTE');
         $rows = [];
+        // Excel layout as Hordex's exports (2026-11-21): title lines above the header (a product's report), which columns
+        // get a SUM in the "Total" row and where the word "Total" goes, which columns are 2-decimal numbers.
+        $titles = [];
+        $sum = [];
+        $totalAt = null;
+        $num = [];
         switch ($type) {
             case 'compras':
-                $head = ['Fecha', 'Código', 'Producto', 'Cant.', 'Unit.', 'Monto', 'Moneda', 'Proveedor', 'Factura', 'Guía'];
-                $q = DB::table('purchase_details as d')->join('purchases as p', 'p.id', '=', 'd.purchase_id')->leftJoin('products as pr', 'pr.id', '=', 'd.product_id')
-                    ->leftJoin('providers as v', 'v.id', '=', 'p.provider_id')->where('p.company_id', $cid)->whereNull('p.deleted_at')
-                    ->whereBetween('p.date', [$from, $to])->when($request->producto_id, fn ($q, $v) => $q->where('d.product_id', $v))
-                    ->when($request->proveedor_id, fn ($q, $v) => $q->where('p.provider_id', $v))->orderBy('p.date')->orderBy('p.id')
-                    ->get(['p.date', 'pr.code', 'pr.name', 'd.quantity', 'd.cost', 'p.notes', 'v.name as provider', 'p.Ref']);
-                foreach ($q as $r) {
-                    $rows[] = [$d($r->date), $r->code, $r->name, (float) $r->quantity, (float) $r->cost, round($r->quantity * $r->cost, 2),
-                        str_starts_with((string) $r->notes, 'Dólares') ? 'DOL' : 'PEN', $r->provider, $r->Ref, ''];
+                // Compras = goods received (b2b_receipts), as its IngresosExport -- not the suppliers' invoices (2026-11-21:
+                // ours listed the invoices' services and lines without a guide).
+                $q = DB::table('b2b_receipt_items as i')->join('b2b_receipts as r', 'r.id', '=', 'i.receipt_id')->leftJoin('products as pr', 'pr.id', '=', 'i.product_id')
+                    ->leftJoin('providers as v', 'v.id', '=', 'r.provider_id')->where('r.company_id', $cid)->whereNull('r.deleted_at')
+                    ->whereBetween('r.date', [$from, $to])->when($request->producto_id, fn ($q, $v) => $q->where('i.product_id', $v))
+                    ->when($request->proveedor_id, fn ($q, $v) => $q->where('r.provider_id', $v))->orderBy('r.date')->orderBy('r.id')->orderBy('i.id')
+                    ->get(['r.date', 'pr.code', 'pr.name', 'i.quantity', 'i.price', 'i.currency', DB::raw("COALESCE(NULLIF(v.short_name, ''), v.name) as provider"), 'r.invoice', 'r.guide']);
+                $cur = fn ($c) => $c === 'USD' ? 'DOL' : 'PEN';
+                if ($request->producto_id) {
+                    $p = DB::table('products')->where('id', $request->producto_id)->first(['code', 'name']);
+                    $titles = ['PRODUCTO : '.($p->name ?? ''), 'CÓDIGO : '.($p->code ?? ''), 'PERIODO : '.$from.' al '.$to];
+                    $head = ['Fecha', 'Cant.', 'Unit.', 'Monto', 'Moneda', 'Proveedor', 'Factura', 'Guía'];
+                    foreach ($q as $r) {
+                        $rows[] = [$d($r->date), (float) $r->quantity, $r->price !== null ? (float) $r->price : null, round($r->quantity * (float) $r->price, 2),
+                            $cur($r->currency), $r->provider, $r->invoice, $r->guide];
+                    }
+                    [$sum, $totalAt, $num] = [['B', 'D'], 'A', ['B', 'C', 'D']];
+                } else {
+                    $head = ['Fecha', 'Código', 'Producto', 'Cant.', 'Unit.', 'Monto', 'Moneda', 'Proveedor', 'Factura', 'Guía'];
+                    foreach ($q as $r) {
+                        $rows[] = [$d($r->date), $r->code, $r->name, (float) $r->quantity, $r->price !== null ? (float) $r->price : null,
+                            round($r->quantity * (float) $r->price, 2), $cur($r->currency), $r->provider, $r->invoice, $r->guide];
+                    }
+                    [$sum, $totalAt, $num] = [['F'], 'E', ['E', 'F']];
                 }
                 break;
             case 'ventas':
@@ -1204,6 +1277,9 @@ class B2bController extends Controller
                     foreach ($q as $r) {
                         $rows[] = [$r->Ref, $d($r->date), $r->name, $guideOf($r->id), (float) $r->quantity, round((float) $r->price, 2), round($r->quantity * $r->price, 2)];
                     }
+                    $p = DB::table('products')->where('id', $request->producto_id)->first(['code', 'name']);
+                    $titles = ['PRODUCTO : '.($p->name ?? ''), 'CÓDIGO : '.($p->code ?? ''), 'PERIODO : '.$from.' al '.$to];
+                    [$sum, $totalAt, $num] = [['E', 'G'], 'D', ['E', 'F', 'G']];
                 } else {
                     $head = ['Factura', 'Emisión', 'Cliente', 'Items', 'Guía', 'Subtotal', 'IGV', 'Total', 'Estado'];
                     $q = DB::table('sales as s')->leftJoin('clients as c', 'c.id', '=', 's.client_id')->where('s.company_id', $cid)->whereNull('s.deleted_at')
@@ -1214,6 +1290,7 @@ class B2bController extends Controller
                         $rows[] = [$r->Ref, $d($r->date), $r->name, (int) $r->items, $guideOf($r->id), round($r->GrandTotal - $r->TaxNet, 2), round((float) $r->TaxNet, 2),
                             round((float) $r->GrandTotal, 2), $estado($r)];
                     }
+                    [$sum, $totalAt, $num] = [['F', 'G', 'H'], 'E', ['F', 'G', 'H']];
                 }
                 break;
             case 'pagos':
@@ -1229,6 +1306,7 @@ class B2bController extends Controller
                 foreach ($q as $r) {
                     $rows[] = [$r->Ref, $r->document, $d($r->document_date), $r->name ?: $r->notes, $d($r->date), round((float) $r->montant, 2)];
                 }
+                [$sum, $totalAt, $num] = [['F'], 'E', ['F']];
                 break;
             case 'existencias':
                 $head = ['#', 'Código', 'Nombre', 'Saldo'];
@@ -1238,18 +1316,11 @@ class B2bController extends Controller
                 foreach ($q->values() as $i => $r) {
                     $rows[] = [$i + 1, $r->code, $r->name, round((float) $r->saldo, 2)];
                 }
+                $num = ['D'];
                 break;
         }
-        $export = new class($head, $rows) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\ShouldAutoSize
-        {
-            public function __construct(private array $head, private array $rows) {}
 
-            public function array(): array { return $this->rows; }
-
-            public function headings(): array { return $this->head; }
-        };
-
-        return \Maatwebsite\Excel\Facades\Excel::download($export, $type.'.xlsx');
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\B2bReportExport($head, $rows, $titles, $sum, $totalAt, $num), $type.'.xlsx');
     }
 
     // ------------------------------------------------------------------ setup

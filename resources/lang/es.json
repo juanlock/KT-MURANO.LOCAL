@@ -331,5 +331,6 @@
     "The due date cannot be before the issue date.": "La fecha de vencimiento no puede ser anterior a la de emisión.",
     "That invoice of this supplier is already registered.": "Esa factura de este proveedor ya fue registrada.",
     "Only a pending invoice can be paid.": "Solo se puede cancelar una factura pendiente.",
-    "Only a pending invoice can be voided.": "Solo se puede anular una factura pendiente."
+    "Only a pending invoice can be voided.": "Solo se puede anular una factura pendiente.",
+    "Type the contact name.": "Escriba el nombre del contacto."
 }

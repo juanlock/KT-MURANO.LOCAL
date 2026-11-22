@@ -34,14 +34,7 @@
         </template>
         <span v-if="!effectiveCollapsed && auth.companyName" class="brand-name">{{ auth.companyName }}</span>
       </div>
-      <!-- Pin: icons only, submenus on hover (2026-11-20). -->
-      <div v-if="!isMobile" class="sider-pin" :class="{ 'sider-pin--rail': effectiveCollapsed }">
-        <a-tooltip :title="ui.sidebarRail ? tf('Show_Menu_Texts', 'Mostrar el menú completo') : tf('Pin_Icons', 'Fijar solo íconos')" placement="right">
-          <a-button type="text" size="small" @click="togglePin">
-            <template #icon><PushpinFilled v-if="ui.sidebarRail" /><PushpinOutlined v-else /></template>
-          </a-button>
-        </a-tooltip>
-      </div>
+      <!-- The pin moved to the top bar, beside the hamburger (2026-11-21: here it sat on the logo and could not be seen). -->
       <!-- Filter the menu by typing -- hidden in the collapsed icon rail
            (no room for a text box there). Lives in the ui store so every
            sidebar variant can read it. -->

@@ -129,9 +129,10 @@
               <div class="cx-phones">
                 <div v-for="n in 3" :key="n" class="cx-row"><span class="cx-lbl sm">Telf. {{ n }}</span><input v-model="phones[n - 1]" class="cx-in" /></div>
               </div>
-              <template v-if="type === 'clients'">
+              <!-- A client's contacts are a table below (several people, 2026-11-21); a new client starts with one. -->
+              <template v-if="type === 'clients' && !sel.id">
                 <div class="cx-row"><span class="cx-lbl">Contacto</span><input v-model="sel.contact_name" class="cx-in" /></div>
-                <div v-if="!sel.id" class="cx-row"><span class="cx-lbl">Dirección</span><input v-model="sel.adresse" class="cx-in" /></div>
+                <div class="cx-row"><span class="cx-lbl">Dirección</span><input v-model="sel.adresse" class="cx-in" /></div>
               </template>
             </div>
             <a-form layout="vertical" class="tight">
@@ -196,6 +197,28 @@
                   <a-col :span="7"><div class="lbl">Provincia</div><a-input v-model:value="addr.province" size="small" /></a-col>
                   <a-col :span="7"><div class="lbl">Departamento</div><a-input v-model:value="addr.department" size="small" /></a-col>
                   <a-col :span="3"><a-button type="primary" size="small" block :loading="savingAddr" @click="addAddress"><PlusOutlined /></a-button></a-col>
+                </a-row>
+
+                <!-- Contactos: several people per client, as the earlier system (2026-11-21). -->
+                <h4 class="sub">Contactos</h4>
+                <table class="addr">
+                  <thead><tr><th class="nr">#</th><th>Nombre</th><th>Área</th><th>Teléfono</th><th>Email</th><th /></tr></thead>
+                  <tbody>
+                    <tr v-for="(k, i) in clientContacts" :key="k.id">
+                      <td class="nr">{{ i + 1 }}.</td><td>{{ k.name }}</td><td>{{ k.area }}</td><td>{{ k.phone }}</td><td>{{ k.email }}</td>
+                      <td class="del">
+                        <a-popconfirm title="¿Quitar este contacto?" ok-text="Sí" cancel-text="No" @confirm="removeContact(k)"><a><DeleteOutlined /></a></a-popconfirm>
+                      </td>
+                    </tr>
+                    <tr v-if="!clientContacts.length"><td colspan="6" class="muted">Sin contactos</td></tr>
+                  </tbody>
+                </table>
+                <a-row :gutter="6" align="bottom" class="addr-new">
+                  <a-col :span="7"><div class="lbl">Nombre</div><a-input v-model:value="kon.name" size="small" @press-enter="addContact" /></a-col>
+                  <a-col :span="4"><div class="lbl">Área</div><a-input v-model:value="kon.area" size="small" /></a-col>
+                  <a-col :span="5"><div class="lbl">Teléfono</div><a-input v-model:value="kon.phone" size="small" /></a-col>
+                  <a-col :span="5"><div class="lbl">Email</div><a-input v-model:value="kon.email" size="small" /></a-col>
+                  <a-col :span="3"><a-button type="primary" size="small" block :loading="savingKon" @click="addContact"><PlusOutlined /></a-button></a-col>
                 </a-row>
               </template>
             </a-form>
@@ -268,12 +291,32 @@ function pick(r) {
 const addresses = ref([]);
 const addr = reactive({ address: '', district: '', province: '', department: '' });
 const savingAddr = ref(false);
+// The client's contacts (several people; B2bController::clientContacts).
+const clientContacts = ref([]);
+const kon = reactive({ name: '', area: '', phone: '', email: '' });
+const savingKon = ref(false);
+async function loadContacts() {
+  clientContacts.value = props.type === 'clients' && sel.value?.id ? await http.get(`b2b/clients/${sel.value.id}/contacts`) : [];
+}
+async function addContact() {
+  if (!kon.name.trim()) { message.warning('Escriba el nombre del contacto'); return; }
+  savingKon.value = true;
+  try {
+    await http.post(`b2b/clients/${sel.value.id}/contacts`, { ...kon });
+    Object.assign(kon, { name: '', area: '', phone: '', email: '' });
+    await loadContacts();
+  } catch (e) { message.error(e?.data?.message || 'No se pudo guardar'); } finally { savingKon.value = false; }
+}
+async function removeContact(k) {
+  try { await http.delete(`b2b/clients/${sel.value.id}/contacts/${k.id}`); await loadContacts(); } catch (e) { message.error(e?.data?.message || 'No se pudo quitar'); }
+}
 async function loadAddresses() {
   addresses.value = props.type === 'clients' && sel.value?.id ? await http.get(`b2b/clients/${sel.value.id}/addresses`) : [];
 }
 watch(() => sel.value?.id, () => {
   Object.assign(addr, { address: '', district: '', province: '', department: '' }); cardFound.value = null; editing.value = false;
-  loadAddresses(); loadCard();
+  Object.assign(kon, { name: '', area: '', phone: '', email: '' });
+  loadAddresses(); loadContacts(); loadCard();
 });
 
 // A product's card (B2bController::productCard): stock, recipe, last kardex movements; "Ajustar" sets the counted stock.
@@ -342,6 +385,8 @@ async function save(row) {
     if (props.type !== 'products' && row === sel.value) {
       row = { ...row, phone: join3(phones.value) };
       if (props.type === 'providers') row.contact_name = join3(contacts.value);
+      // An existing client's contacts live in its Contactos table: the card does not send the old single field.
+      if (props.type === 'clients' && row.id) delete row.contact_name;
     }
     const r = row.id ? await http.put(`b2b/masters/${props.type}/${row.id}`, row) : await http.post(`b2b/masters/${props.type}`, row);
     message.success(`${cfg.value.one} guardado`);
