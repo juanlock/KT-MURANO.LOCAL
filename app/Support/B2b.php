@@ -307,6 +307,66 @@ class B2b
         });
     }
 
+    /**
+     * The guides an invoice takes (user, 2026-11-22: a new invoice from products and / or guides; editing clears it and
+     * rebuilds it from a guide): same client, dispatched and not invoiced -- or already on THIS invoice when editing.
+     * Marks them invoiced. Runs inside the caller's transaction.
+     */
+    public static function attachGuides(int $cid, int $saleId, int $clientId, array $guideIds): void
+    {
+        $guideIds = array_values(array_unique(array_map('intval', $guideIds)));
+        if (! $guideIds) {
+            return;
+        }
+        $guides = DB::table('b2b_guides')->where('company_id', $cid)->whereIn('id', $guideIds)->whereNull('deleted_at')->lockForUpdate()->get();
+        abort_if($guides->count() !== count($guideIds), 404, __('Guide not found.'));
+        abort_if($guides->contains(fn ($g) => (int) $g->client_id !== $clientId), 422, __('The guides must be of the invoice\'s client.'));
+        abort_if($guides->contains(fn ($g) => ! ($g->status === 'dispatched' && ! $g->sale_id) && (int) $g->sale_id !== $saleId), 422,
+            __('Only dispatched guides that are not invoiced yet can be invoiced.'));
+        DB::table('b2b_guides')->whereIn('id', $guideIds)->update(['sale_id' => $saleId, 'status' => 'invoiced', 'updated_at' => now()]);
+    }
+
+    /**
+     * "Editar" an invoice (user, 2026-11-22): its lines are cleared and written again (same series and number), its guides
+     * go back to "to invoice" and the ones picked now are attached. Not for a cancelled invoice or one with payments.
+     * $lines = [{product_id, quantity, price (without IGV), unit_id}]; $data: date, payment_term_id, purchase_order, notes.
+     */
+    public static function rebuildInvoice(int $cid, int $saleId, array $lines, array $guideIds, array $data): void
+    {
+        DB::transaction(function () use ($cid, $saleId, $lines, $guideIds, $data) {
+            $sale = DB::table('sales')->where('company_id', $cid)->where('id', $saleId)->whereNull('deleted_at')->lockForUpdate()->first();
+            abort_unless($sale, 404);
+            abort_if($sale->statut === 'canceled', 422, __('A cancelled invoice cannot be edited.'));
+            abort_if((float) $sale->paid_amount > 0, 422, __('The invoice has payments: remove them first.'));
+            $s = self::settings($cid);
+            $date = $data['date'] ?? $sale->date;
+
+            DB::table('b2b_guides')->where('company_id', $cid)->where('sale_id', $saleId)->update(['sale_id' => null, 'status' => 'dispatched', 'updated_at' => now()]);
+            DB::table('sale_details')->where('sale_id', $saleId)->delete();
+            $net = 0;
+            foreach ($lines as $l) {
+                $price = round((float) $l['price'], 4);
+                $total = round($price * (float) $l['quantity'], 2);
+                $net += $total;
+                DB::table('sale_details')->insert([
+                    'date' => $date, 'sale_id' => $saleId, 'product_id' => $l['product_id'], 'price' => $price, 'quantity' => $l['quantity'],
+                    'total' => $total, 'TaxNet' => 0, 'tax_method' => '2', 'discount' => 0, 'discount_method' => '2',
+                    'sale_unit_id' => $l['unit_id'] ?? DB::table('products')->where('id', $l['product_id'])->value('unit_sale_id'),
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            $igv = round($net * (float) $s['igv'] / 100, 2);
+            DB::table('sales')->where('id', $saleId)->update(['date' => $date, 'TaxNet' => $igv, 'GrandTotal' => round($net + $igv, 2),
+                'notes' => $data['notes'] ?? $sale->notes, 'payment_statut' => 'unpaid', 'updated_at' => now()]);
+            $term = ! empty($data['payment_term_id']) ? DB::table('b2b_payment_terms')->where('company_id', $cid)->where('id', $data['payment_term_id'])->first() : null;
+            DB::table('b2b_sale_info')->where('sale_id', $saleId)->update([
+                'purchase_order' => $data['purchase_order'] ?? null, 'payment_term_id' => $term->id ?? null,
+                'due_date' => $term ? date('Y-m-d', strtotime($date.' +'.(int) $term->days.' days')) : $date, 'updated_at' => now(),
+            ]);
+            self::attachGuides($cid, $saleId, (int) $sale->client_id, $guideIds);
+        });
+    }
+
     public static function methodId(string $kind): int
     {
         $name = self::METHODS[$kind] ?? self::METHODS['deposit'];

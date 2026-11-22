@@ -18,9 +18,10 @@ data a feature needs go as migrations. `kt_logs` lives in production
 `protocol_prod_pull.php` is only for an exceptional case.
 **Dev data goes up, except the companies in production (user's rule,
 2026-10-26, replacing "dev data never goes up"):** `companies.is_live`
-(Companies -> Edit -> Website, superadmin/AdminSystem only; today **Ruba**
-(sales), **New Era** (appointments), **Turismo Cautivo** (forms), **KcolTech** and **ChulucanasPe**
-(website, 2026-11-05)) = production
+(the **"En producción" switch in the Companies list** -- also in Companies -> Edit -> Website --, superadmin/AdminSystem
+only, asks first; today **Ruba** (sales), **New Era** (appointments), **Turismo Cautivo** (forms), **KcolTech** and
+**ChulucanasPe** (website, 2026-11-05) and **HORDEX EIRL** (user, 2026-11-22: "Hordex, Ruba, New Era y KcolTech están
+en modo producción"; migration 2026_11_22_170000)) = **production's data prevails over a developer PC's changes**: production
 owns that company's data and nothing of it is ever sent from dev. Everything
 else created / changed in dev since the morning's copy (`last_sync.json`,
 written by `murano:from-prod`) goes up with `protocol_prod_push.php` (Pa

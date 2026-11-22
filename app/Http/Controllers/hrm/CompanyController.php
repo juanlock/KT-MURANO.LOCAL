@@ -465,6 +465,20 @@ class CompanyController extends Controller
         return response()->json(['success' => true, 'done' => $done]);
     }
 
+    /**
+     * POST company/{id}/live {is_live} -- "En producción" straight from the Companies list (user, 2026-11-22): production
+     * owns that company's data and a developer PC never sends it up (protocol_prod_push). superadmin/AdminSystem only.
+     */
+    public function setLive(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request) && $this->isSystemContext($request), 403,
+            __('Only the SuperAdmin with AdminSystem picked can change this.'));
+        abort_unless(DB::table('companies')->where('id', (int) $id)->exists(), 404);
+        DB::table('companies')->where('id', (int) $id)->update(['is_live' => $request->boolean('is_live'), 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'is_live' => $request->boolean('is_live')]);
+    }
+
     public function clearDemo(Request $request, $id)
     {
         abort_unless($this->isSuperAdmin($request), 403, 'Only a SuperAdmin can clear a company\'s demo data.');

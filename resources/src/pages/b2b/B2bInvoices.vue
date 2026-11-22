@@ -32,18 +32,24 @@
       <DetailPanel :open="phoneOpen" :xs="24" :xl="13" @close="phoneOpen = false">
         <a-card size="small" class="side panel">
           <!-- New invoice -->
-          <template v-if="mode === 'new'">
+          <template v-if="mode === 'new' || mode === 'edit'">
             <div class="side-head">
-              <h3>Registrar Nueva Factura</h3>
-              <a-button type="primary" size="small" @click="addLine"><PlusOutlined /> Agregar producto</a-button>
+              <h3>{{ mode === 'edit' ? `Editar Factura ${editRef}` : 'Registrar Nueva Factura' }}</h3>
+              <a-space :size="6">
+                <a-popconfirm v-if="form.items.length" title="¿Limpiar la factura? Se quitan todos los productos y guías (no se guarda hasta pulsar Guardar)." ok-text="Limpiar" cancel-text="No" @confirm="clearInvoice">
+                  <a-button size="small" danger><ClearOutlined /> Limpiar factura</a-button>
+                </a-popconfirm>
+                <a-button type="primary" size="small" @click="addLine"><PlusOutlined /> Agregar producto</a-button>
+                <a-button v-if="mode === 'edit'" size="small" @click="openInvoice(editId)">Cancelar</a-button>
+              </a-space>
             </div>
             <a-form layout="vertical" class="tight">
               <a-row :gutter="8">
                 <a-col :span="8">
                   <a-form-item label="Nro. Factura">
                     <a-input-group compact>
-                      <a-input v-model:value="form.series" style="width: 40%" />
-                      <a-input-number v-model:value="form.number" :min="1" style="width: 60%" />
+                      <a-input v-model:value="form.series" :disabled="mode === 'edit'" style="width: 40%" />
+                      <a-input-number v-model:value="form.number" :disabled="mode === 'edit'" :min="1" style="width: 60%" />
                     </a-input-group>
                   </a-form-item>
                 </a-col>
@@ -51,18 +57,37 @@
                 <a-col :span="10"><a-form-item label="Forma de Pago"><a-select v-model:value="form.payment_term_id" allow-clear :options="termOptions" /></a-form-item></a-col>
               </a-row>
               <a-row :gutter="8">
-                <a-col :span="16"><a-form-item label="Cliente"><a-select v-model:value="form.client_id" show-search option-filter-prop="label" :options="clientOptions" /></a-form-item></a-col>
+                <a-col :span="16"><a-form-item label="Cliente"><a-select v-model:value="form.client_id" :disabled="mode === 'edit'" show-search option-filter-prop="label" :options="clientOptions" @change="onClient" /></a-form-item></a-col>
                 <a-col :span="8"><a-form-item label="Orden de compra"><a-input v-model:value="form.purchase_order" /></a-form-item></a-col>
               </a-row>
-              <table class="lines">
+              <!-- The client's guides to invoice (2026-11-22): ticking one adds its products; products can be added too. -->
+              <div v-if="form.client_id" class="gl">
+                <div class="gl-h">Guías del cliente por facturar <span class="muted">({{ cGuides.length }})</span></div>
+                <div v-if="!cGuides.length" class="muted small">No tiene guías despachadas por facturar.</div>
+                <div class="gl-list">
+                  <label v-for="g in cGuides" :key="g.id" class="gl-row" :class="{ on: form.guide_ids.includes(g.id) }">
+                    <a-checkbox :checked="form.guide_ids.includes(g.id)" @change="e => toggleGuide(g, e.target.checked)" />
+                    <span class="mono">{{ gref(g.series, g.number) }}</span>
+                    <span class="muted">{{ date(g.issue_date) }}</span>
+                    <span v-if="g.purchase_order" class="muted">OC {{ g.purchase_order }}</span>
+                    <span class="grow" />
+                    <span class="muted">{{ g.items.length }} prod. · {{ number(g.items.reduce((s, i) => s + Number(i.quantity), 0), 0) }} unid.</span>
+                  </label>
+                </div>
+              </div>
+              <table class="lines edit-lines">
+                <colgroup><col style="width: 24px" /><col /><col style="width: 100px" /><col style="width: 85px" /><col style="width: 82px" /><col style="width: 96px" /><col style="width: 34px" /></colgroup>
                 <thead><tr><th>#</th><th class="pc">Producto</th><th class="n">V.U.</th><th class="n">Cant.</th><th>Unid.</th><th class="n">Subtotal</th><th /></tr></thead>
                 <tbody>
                   <tr v-for="(it, i) in form.items" :key="i">
                     <td class="muted">{{ i + 1 }}</td>
-                    <td><a-select v-model:value="it.product_id" size="small" show-search option-filter-prop="label" :options="productOptions" style="width: 100%" @change="onProduct(it)" /></td>
-                    <td class="n"><a-input-number v-model:value="it.price" size="small" :min="0" :precision="4" style="width: 90px" /></td>
-                    <td class="n"><a-input-number v-model:value="it.quantity" size="small" :min="0" style="width: 75px" /></td>
-                    <td><a-select v-model:value="it.unit_id" size="small" style="width: 72px" :options="unitOptions" /></td>
+                    <td>
+                      <a-select v-model:value="it.product_id" size="small" show-search option-filter-prop="label" :options="productOptions" :disabled="!!it.guide_id" style="width: 100%" @change="onProduct(it)" />
+                      <div v-if="it.guide_id" class="from-g">de la guía {{ guideRef(it.guide_id) }}</div>
+                    </td>
+                    <td class="n"><a-input-number v-model:value="it.price" size="small" :min="0" :precision="4" style="width: 100%" /></td>
+                    <td class="n"><a-input-number v-model:value="it.quantity" size="small" :min="0" :disabled="!!it.guide_id" style="width: 100%" /></td>
+                    <td><a-select v-model:value="it.unit_id" size="small" style="width: 100%" :options="unitOptions" /></td>
                     <td class="n">{{ money((it.price || 0) * (it.quantity || 0)) }}</td>
                     <td><a-button type="text" size="small" danger @click="form.items.splice(i, 1)"><DeleteOutlined /></a-button></td>
                   </tr>
@@ -73,7 +98,7 @@
                   <tr class="tot"><td colspan="5" class="n">Total</td><td class="n">{{ money(net + igv) }}</td><td /></tr>
                 </tfoot>
               </table>
-              <a-button type="primary" block class="save" :loading="saving" @click="saveInvoice">Guardar Factura</a-button>
+              <a-button type="primary" block class="save" :loading="saving" @click="saveInvoice">{{ mode === 'edit' ? 'Guardar cambios' : 'Guardar Factura' }}</a-button>
             </a-form>
           </template>
 
@@ -81,12 +106,19 @@
           <template v-else-if="inv">
             <!-- Buttons where Hordex had "ANULAR FACTURA", plus Imprimir and PDF (client's request, 2026-11-20). -->
             <div class="doc-actions">
-              <a-popconfirm v-if="inv.state !== 'ANULADA' && inv.state !== 'CANCELADA'" :title="`¿Anular la factura ${inv.Ref}? Esta acción no podrá deshacerse.`"
+              <a-popconfirm v-if="inv.state !== 'ANULADA' && inv.state !== 'CANCELADA'" :title="`¿Anular la factura ${inv.Ref}? Sus guías quedarán libres para facturar.`"
                 ok-text="Anular" cancel-text="No" @confirm="cancelInvoice">
                 <a-button size="small" danger>ANULAR FACTURA</a-button>
               </a-popconfirm>
+              <a-popconfirm v-if="inv.state === 'ANULADA'" :title="`¿Revertir la anulación de ${inv.Ref}? La factura vuelve a estar vigente con sus guías.`"
+                ok-text="Revertir" cancel-text="No" @confirm="revertCancel">
+                <a-button size="small"><UndoOutlined /> Revertir anulación</a-button>
+              </a-popconfirm>
               <a-button size="small" :loading="printing" @click="printInvoice"><PrinterOutlined /> Imprimir</a-button>
               <a-button size="small" @click="pdfInvoice"><FilePdfOutlined /> PDF</a-button>
+              <a-tooltip :title="inv.paid_amount > 0 ? 'Tiene pagos: quítelos primero para editarla' : 'Limpiar la factura y rearmarla con guías o productos'">
+                <a-button v-if="inv.state !== 'ANULADA'" size="small" :disabled="inv.paid_amount > 0" @click="editInvoice"><EditOutlined /> Editar</a-button>
+              </a-tooltip>
               <a-button size="small" @click="newInvoice"><PlusOutlined /> Nueva factura</a-button>
             </div>
             <!-- Hordex's invoice document (parciales/detalleFactura): number box on the right, state under it. -->
@@ -142,7 +174,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { PlusOutlined, DeleteOutlined, CheckOutlined, ClockCircleOutlined, CloseCircleOutlined, PrinterOutlined, FilePdfOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, DeleteOutlined, CheckOutlined, ClockCircleOutlined, CloseCircleOutlined, PrinterOutlined, FilePdfOutlined, EditOutlined, ClearOutlined, UndoOutlined } from '@ant-design/icons-vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
@@ -187,12 +219,46 @@ const saving = ref(false);
 const defaultTerm = () => (opts.value.terms || []).find(t => /^factura\s+30\s+d[ií]as$/i.test(String(t.name).trim()))?.id;
 const blankLine = () => ({ product_id: undefined, price: 0, quantity: 1, unit_id: undefined });
 const blank = () => ({ series: opts.value.settings?.invoice_series || 'E001', number: opts.value.next_invoice, date: dayjs().format('YYYY-MM-DD'),
-  payment_term_id: defaultTerm(), client_id: undefined, purchase_order: '', items: [blankLine()] });
-const form = reactive({ items: [] });
+  payment_term_id: defaultTerm(), client_id: undefined, purchase_order: '', notes: '', items: [blankLine()], guide_ids: [] });
+const form = reactive({ items: [], guide_ids: [] });
+// The client's guides that can go on this invoice (2026-11-22).
+const cGuides = ref([]);
+const editId = ref(null);
+const editRef = ref('');
+async function loadGuides() {
+  cGuides.value = form.client_id ? ((await http.get('b2b/invoices/guides', { client_id: form.client_id, sale_id: editId.value || undefined })).guides || []) : [];
+}
+function onClient() { form.guide_ids = []; form.items = form.items.filter(i => !i.guide_id); loadGuides(); }
+const guideRef = id => { const g = cGuides.value.find(x => x.id === id); return g ? gref(g.series, g.number) : ''; };
+function toggleGuide(g, on) {
+  form.items = form.items.filter(i => i.guide_id !== g.id && (i.product_id || i.guide_id));
+  if (on) {
+    if (!form.guide_ids.includes(g.id)) form.guide_ids.push(g.id);
+    g.items.forEach(it => form.items.push({ product_id: it.product_id, quantity: Number(it.quantity), price: Number(it.price) || 0, unit_id: it.unit_sale_id, guide_id: g.id }));
+    if (!form.purchase_order && g.purchase_order) form.purchase_order = g.purchase_order;
+  } else {
+    form.guide_ids = form.guide_ids.filter(x => x !== g.id);
+  }
+  if (!form.items.length) form.items.push(blankLine());
+}
+function clearInvoice() { form.items = [blankLine()]; form.guide_ids = []; }
+// Editar: the invoice's data in the form; its lines as they are (Limpiar empties them to rebuild it from a guide).
+function editInvoice() {
+  const x = inv.value;
+  editId.value = x.id;
+  editRef.value = x.Ref;
+  const [series, num] = String(x.Ref || '').split('-');
+  Object.assign(form, { series, number: Number(num) || undefined, date: x.date, payment_term_id: x.payment_term_id || undefined,
+    client_id: x.client_id, purchase_order: x.purchase_order || '', notes: x.notes || '',
+    items: (x.lines || []).map(l => ({ product_id: l.product_id, quantity: Number(l.quantity), price: Number(l.price), unit_id: l.unit_id })),
+    guide_ids: (x.guides || []).map(g => g.id) });
+  mode.value = 'edit';
+  loadGuides();
+}
 const net = computed(() => form.items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0));
 const igv = computed(() => Math.round(net.value * igvRate.value) / 100);
-function newInvoice() { Object.assign(form, blank()); mode.value = 'new'; }
-function addLine() { if (mode.value !== 'new') newInvoice(); else form.items.push(blankLine()); }
+function newInvoice() { Object.assign(form, blank()); editId.value = null; cGuides.value = []; mode.value = 'new'; }
+function addLine() { if (mode.value !== 'new' && mode.value !== 'edit') newInvoice(); else form.items.push(blankLine()); }
 function onProduct(it) {
   const p = (opts.value.products || []).find(x => x.id === it.product_id);
   if (p) { it.price = Number(p.price) || 0; it.unit_id = p.unit_sale_id || it.unit_id; }
@@ -202,8 +268,9 @@ async function saveInvoice() {
   if (!form.client_id || !items.length) { message.warning('Elija el cliente y al menos un producto'); return; }
   saving.value = true;
   try {
-    const r = await http.post('b2b/invoices', { ...form, items });
-    message.success(`Factura ${r.ref} registrada`);
+    const body = { ...form, items: items.map(({ guide_id, ...l }) => l) };
+    const r = mode.value === 'edit' ? await http.put(`b2b/invoices/${editId.value}`, body) : await http.post('b2b/invoices', body);
+    message.success(mode.value === 'edit' ? `Factura ${r.ref} actualizada` : `Factura ${r.ref} registrada`);
     opts.value = await http.get('b2b/options');
     await crud.fetchRows();
     openInvoice(r.sale_id);
@@ -221,6 +288,17 @@ async function cancelInvoice() {
     await openInvoice(inv.value.id);
     crud.fetchRows();
   } catch (e) { message.error(e?.data?.message || 'No se pudo anular la factura.'); }
+}
+async function revertCancel() {
+  try {
+    const r = await http.post(`b2b/invoices/${inv.value.id}/revert-cancel`);
+    let msg = `La Factura ${inv.value.Ref} vuelve a estar vigente.`;
+    if (r.guides?.length) msg += ` Guías: ${r.guides.join(', ')}.`;
+    message.success(msg);
+    if (r.not_returned?.length) message.warning(`Ya facturadas en otra factura, no se devolvieron: ${r.not_returned.join(', ')}.`, 8);
+    await openInvoice(inv.value.id);
+    crud.fetchRows();
+  } catch (e) { message.error(e?.data?.message || 'No se pudo revertir la anulación.'); }
 }
 const printing = ref(false);
 async function printInvoice() {
@@ -247,6 +325,15 @@ useBarTitle('Facturas');
 .side { position: sticky; top: 12px; }
 .panel { min-height: calc(100vh - 170px); border-radius: 2px; }
 .panel :deep(.datatable-toolbar) { padding-left: 0; padding-right: 0; }
+.gl { border: 1px solid rgba(128, 128, 128, 0.22); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; }
+.gl-h { font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+.gl-list { max-height: 170px; overflow: auto; }
+.gl-row { display: flex; align-items: center; gap: 8px; padding: 2px 4px; font-size: 12px; border-radius: 4px; cursor: pointer; }
+.gl-row:hover { background: rgba(128, 128, 128, 0.07); }
+.gl-row.on { background: rgba(37, 99, 235, 0.08); }
+.gl-row .grow { flex: 1; }
+.from-g { font-size: 10.5px; color: #2563eb; }
+.small { font-size: 12px; }
 .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .side-head h3 { margin: 0; font-size: 22px; font-weight: 400; }
 .tight :deep(.ant-form-item) { margin-bottom: 8px; }
@@ -259,6 +346,10 @@ useBarTitle('Facturas');
 .lines .n { text-align: right; font-variant-numeric: tabular-nums; }
 .lines tfoot td { border: 0; padding: 2px 6px; }
 .lines tfoot .tot td { font-weight: 700; }
+/* The form's table never grows past the panel: a long product name is cut inside its select. */
+.edit-lines { table-layout: fixed; }
+.edit-lines td.n { white-space: nowrap; }
+.edit-lines :deep(.ant-select-selection-item) { overflow: hidden; text-overflow: ellipsis; }
 .save { margin-top: 10px; }
 .sub { margin: 10px 0 2px; font-size: 15px; font-weight: 500; }
 .mono { font-family: ui-monospace, Consolas, monospace; }

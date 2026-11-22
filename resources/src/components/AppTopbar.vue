@@ -774,6 +774,9 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   align-items: center;
   gap: 4px;
   flex: none;
+  /* Always pushed to the right: without the brand (side menu open) the bar's space-between left the pin alone
+     in the middle (2026-11-22); this keeps the pin beside the hamburger. */
+  margin-left: auto;
 }
 .tb-slot {
   display: inline-flex;

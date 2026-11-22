@@ -312,10 +312,57 @@ class B2bController extends Controller
             'payment_term_id' => 'nullable|integer', 'purchase_order' => 'nullable|string|max:60', 'notes' => 'nullable|string|max:2000',
             'items' => 'required|array|min:1', 'items.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('company_id', $cid)],
             'items.*.quantity' => 'required|numeric|gt:0', 'items.*.price' => 'required|numeric|min:0', 'items.*.unit_id' => 'nullable|integer',
+            // Products and / or the client's guides (2026-11-22): the guides' lines come in items, the guides get invoiced.
+            'guide_ids' => 'nullable|array', 'guide_ids.*' => 'integer',
         ]);
-        $saleId = B2b::createInvoice($cid, (int) $request->user('api')->id, (int) $d['client_id'], $d['items'], $d);
+        $saleId = DB::transaction(function () use ($cid, $request, $d) {
+            $id = B2b::createInvoice($cid, (int) $request->user('api')->id, (int) $d['client_id'], $d['items'], $d);
+            B2b::attachGuides($cid, $id, (int) $d['client_id'], $d['guide_ids'] ?? []);
+
+            return $id;
+        });
 
         return response()->json(['ok' => true, 'sale_id' => $saleId, 'ref' => DB::table('sales')->where('id', $saleId)->value('Ref')]);
+    }
+
+    /**
+     * PUT b2b/invoices/{id} -- "Editar" (user, 2026-11-22): the invoice is cleared and written again with the lines and guides
+     * sent (same number); its earlier guides go back to "to invoice".
+     */
+    public function updateInvoice(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $d = $request->validate([
+            'date' => 'required|date', 'payment_term_id' => 'nullable|integer', 'purchase_order' => 'nullable|string|max:60', 'notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1', 'items.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')->where('company_id', $cid)],
+            'items.*.quantity' => 'required|numeric|gt:0', 'items.*.price' => 'required|numeric|min:0', 'items.*.unit_id' => 'nullable|integer',
+            'guide_ids' => 'nullable|array', 'guide_ids.*' => 'integer',
+        ]);
+        B2b::rebuildInvoice($cid, $id, $d['items'], $d['guide_ids'] ?? [], $d);
+
+        return response()->json(['ok' => true, 'sale_id' => $id, 'ref' => DB::table('sales')->where('id', $id)->value('Ref')]);
+    }
+
+    /**
+     * GET b2b/invoices/guides?client_id=&sale_id= -- the client's guides an invoice can take: dispatched and not invoiced,
+     * plus the ones already on that invoice (editing); each with its lines and the product's price.
+     */
+    public function invoiceGuides(Request $request)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $client = (int) $request->client_id;
+        $sale = (int) $request->sale_id;
+        $guides = DB::table('b2b_guides')->where('company_id', $cid)->whereNull('deleted_at')->where('client_id', $client)
+            ->where(fn ($q) => $q->where(fn ($w) => $w->where('status', 'dispatched')->whereNull('sale_id'))->when($sale, fn ($w) => $w->orWhere('sale_id', $sale)))
+            ->orderByDesc('issue_date')->orderByDesc('number')->limit(200)->get(['id', 'series', 'number', 'issue_date', 'purchase_order', 'sale_id']);
+        $items = DB::table('b2b_guide_items as i')->leftJoin('products as p', 'p.id', '=', 'i.product_id')
+            ->whereIn('i.guide_id', $guides->pluck('id'))->get(['i.guide_id', 'i.product_id', 'i.quantity', 'p.code', 'p.name', 'p.price', 'p.unit_sale_id'])
+            ->groupBy('guide_id');
+
+        return response()->json(['guides' => $guides->map(fn ($g) => (array) $g + ['on_invoice' => $sale && (int) $g->sale_id === $sale,
+            'items' => ($items[$g->id] ?? collect())->values()])->values()]);
     }
 
     // ------------------------------------------------------------------ collections
@@ -363,8 +410,10 @@ class B2bController extends Controller
             ->get(['p.id', 'p.date', 'p.montant as amount', 'p.notes', 'i.kind', 'i.document', 'i.document_date', 'i.percent', 'i.expected', 'k.name as concept', 'm.name as method']);
         $s->guides = DB::table('b2b_guides')->where('sale_id', $id)->get(['id', 'series', 'number', 'issue_date']);
         $s->lines = DB::table('sale_details as d')->leftJoin('products as p', 'p.id', '=', 'd.product_id')->leftJoin('units as u', 'u.id', '=', 'd.sale_unit_id')
-            ->where('d.sale_id', $id)->orderBy('d.id')->get(['p.code', 'p.name', 'd.quantity', 'd.price', 'd.total', 'u.ShortName as unit', 'u.name as unit_name']);
+            ->where('d.sale_id', $id)->orderBy('d.id')->get(['d.product_id', 'd.sale_unit_id as unit_id', 'p.code', 'p.name', 'd.quantity', 'd.price', 'd.total', 'u.ShortName as unit', 'u.name as unit_name']);
         $s->term = DB::table('b2b_sale_info as b')->join('b2b_payment_terms as t', 't.id', '=', 'b.payment_term_id')->where('b.sale_id', $id)->value('t.name');
+        $s->payment_term_id = DB::table('b2b_sale_info')->where('sale_id', $id)->value('payment_term_id');
+        $s->notes = DB::table('sales')->where('id', $id)->value('notes');
         $s->concepts = DB::table('b2b_concepts')->where('company_id', $cid)->where('active', 1)
             ->where(fn ($q) => $q->whereNull('client_id')->orWhere('client_id', $s->client_id))->orderBy('name')->get(['id', 'name', 'kind', 'percent']);
         foreach ($this->invoiceDocument($cid, $s) as $k => $v) {
@@ -411,11 +460,42 @@ class B2bController extends Controller
             abort_unless($s, 404);
             abort_if($s->statut === 'canceled', 422, __('The invoice is already cancelled.'));
             abort_if((float) $s->paid_amount > 0, 422, __('The invoice has payments: remove them first.'));
+            $guides = DB::table('b2b_guides')->where('company_id', $cid)->where('sale_id', $id)->pluck('id')->all();
             DB::table('sales')->where('id', $id)->update(['statut' => 'canceled', 'updated_at' => now()]);
+            DB::table('b2b_sale_info')->where('sale_id', $id)->update(['canceled_guide_ids' => json_encode($guides), 'updated_at' => now()]);
             DB::table('b2b_guides')->where('company_id', $cid)->where('sale_id', $id)->update(['sale_id' => null, 'status' => 'dispatched', 'updated_at' => now()]);
         });
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * "Revertir anulación" (user, 2026-11-22: an invoice cancelled by mistake): the invoice is valid again with its lines,
+     * number and total, and takes back the guides it had when it was cancelled -- those still free; a guide invoiced
+     * meanwhile on another invoice stays there and is reported.
+     */
+    public function revertCancelInvoice(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $result = DB::transaction(function () use ($cid, $id) {
+            $s = DB::table('sales')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->lockForUpdate()->first();
+            abort_unless($s, 404);
+            abort_unless($s->statut === 'canceled', 422, __('The invoice is not cancelled.'));
+            $ids = json_decode((string) DB::table('b2b_sale_info')->where('sale_id', $id)->value('canceled_guide_ids'), true) ?: [];
+            $guides = DB::table('b2b_guides')->where('company_id', $cid)->whereIn('id', $ids)->whereNull('deleted_at')->lockForUpdate()->get();
+            $free = $guides->filter(fn ($g) => $g->sale_id === null && $g->status === 'dispatched' && (int) $g->client_id === (int) $s->client_id);
+            DB::table('sales')->where('id', $id)->update(['statut' => 'completed', 'updated_at' => now()]);
+            DB::table('b2b_guides')->whereIn('id', $free->pluck('id'))->update(['sale_id' => $id, 'status' => 'invoiced', 'updated_at' => now()]);
+            DB::table('b2b_sale_info')->where('sale_id', $id)->update(['canceled_guide_ids' => null, 'updated_at' => now()]);
+
+            return [
+                'guides' => $free->map(fn ($g) => B2b::ref($g->series, (int) $g->number))->values(),
+                'not_returned' => $guides->reject(fn ($g) => $free->contains('id', $g->id))->map(fn ($g) => B2b::ref($g->series, (int) $g->number))->values(),
+            ];
+        });
+
+        return response()->json(['ok' => true] + $result);
     }
 
     /** The invoice as Hordex printed it, PDF (inline: the page prints it or downloads it). */

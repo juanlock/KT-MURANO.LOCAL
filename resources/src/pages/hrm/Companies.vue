@@ -29,6 +29,13 @@
             <a-tag color="green" style="margin-left: 6px">{{ liveText.tag }}</a-tag>
           </a-tooltip>
         </template>
+        <template v-else-if="column.key === 'live'">
+          <a-tooltip :title="liveText.hint">
+            <a-switch v-if="isSystem" size="small" :checked="!!record.is_live" :loading="liveBusy === record.id" @change="v => toggleLive(record, v)" />
+            <a-tag v-else-if="record.is_live" color="green">{{ liveText.tag }}</a-tag>
+            <span v-else class="muted">—</span>
+          </a-tooltip>
+        </template>
         <template v-else-if="column.key === 'setup'">
           <!-- Required company information still missing (CompanyProfile::REQUIRED). -->
           <a-tooltip v-if="(record.profile_missing || []).length" :title="$t('tx_Missing_b88a5') + record.profile_missing.join(', ')">
@@ -353,6 +360,8 @@ const options = computed(() => crud.payload.value?.options || {});
 const columns = computed(() => [
   { title: tEs('Logo', 'Logo'), key: 'logo', width: 90, align: 'center', exportValue: r => r.logo_url || '' },
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
+  // Production mode at a glance, switched from here by superadmin/AdminSystem (2026-11-22).
+  { title: liveText.value.tag, key: 'live', width: 130, align: 'center', exportValue: r => (r.is_live ? 'Sí' : 'No') },
   { title: locale.value.startsWith('es') ? 'Tipo de compañía' : 'Business type', dataIndex: 'business_type', key: 'business_type', sorter: true,
     exportValue: r => typeLabel(r.business_type) },
   { title: tEs('Service_Setup', 'Setup'), key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
@@ -432,6 +441,27 @@ const emptyForm = () => ({
 const liveText = computed(() => (locale.value.startsWith('es')
   ? { tag: 'En producción', label: 'Compañía en producción', hint: 'Sus datos viven en producción: lo que se haga en una PC de desarrollo nunca se sube para esta compañía.' }
   : { tag: 'In production', label: tEs('tx_Company_in_production_5d4f3', 'Company in production'), hint: tEs('tx_Its_data_lives_in_production_nothing_done_on_a_development_P_4e2dc', 'Its data lives in production: nothing done on a development PC is ever sent up for this company.') }));
+// The production switch in the list (only superadmin/AdminSystem; asks first, it changes how a developer PC treats the company).
+const liveBusy = ref(null);
+function toggleLive(record, value) {
+  const es = locale.value.startsWith('es');
+  Modal.confirm({
+    title: value ? (es ? `¿Poner "${record.name}" en producción?` : `Put "${record.name}" in production?`) : (es ? `¿Quitar "${record.name}" de producción?` : `Take "${record.name}" out of production?`),
+    content: value
+      ? (es ? 'Sus datos de producción prevalecen: lo que se cambie en una PC de desarrollo nunca se subirá para esta compañía.' : 'Its production data wins: what changes on a development PC is never sent up for this company.')
+      : (es ? 'Los cambios de esta compañía en una PC de desarrollo volverán a subir con Pa Llevar.' : 'This company\'s changes on a development PC will go up again with Pa Llevar.'),
+    okText: es ? 'Sí' : 'Yes', cancelText: es ? 'Cancelar' : 'Cancel',
+    async onOk() {
+      liveBusy.value = record.id;
+      try {
+        await http.post(`company/${record.id}/live`, { is_live: value ? 1 : 0 });
+        record.is_live = value;
+      } catch (e) {
+        message.error(e?.data?.message || (es ? 'No se pudo cambiar.' : 'Could not change it.'));
+      } finally { liveBusy.value = null; }
+    },
+  });
+}
 const form = ref(emptyForm());
 const loadingEdit = ref(false);
 const editMissing = ref([]);

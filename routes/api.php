@@ -883,7 +883,10 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/invoice', 'invoice');
         Route::get('/invoices', 'invoices');
         Route::post('/invoices', 'storeInvoice');
+        Route::get('/invoices/guides', 'invoiceGuides');
+        Route::put('/invoices/{id}', 'updateInvoice')->whereNumber('id');
         Route::post('/invoices/{id}/cancel', 'cancelInvoice')->whereNumber('id');
+        Route::post('/invoices/{id}/revert-cancel', 'revertCancelInvoice')->whereNumber('id');
         Route::get('/invoices/{id}/pdf', 'invoicePdf')->whereNumber('id');
         Route::get('/invoices/{id}', 'invoiceDetail')->whereNumber('id');
         Route::post('/invoices/{id}/payments', 'addPayments')->whereNumber('id');
@@ -1007,6 +1010,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::get('get_all_company', "hrm\CompanyController@Get_all_Company");
     Route::post('company/delete/by_selection', "hrm\CompanyController@delete_by_selection");
     Route::post('company/{id}/clear-demo', "hrm\CompanyController@clearDemo");
+Route::post('company/{id}/live', "hrm\CompanyController@setLive")->whereNumber('id');
     Route::get('company/{id}/rename', "hrm\CompanyController@renamePreview")->whereNumber('id');
     Route::post('company/{id}/rename', "hrm\CompanyController@rename")->whereNumber('id');
     Route::post('company/{id}/website', "hrm\CompanyController@website");
