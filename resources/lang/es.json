@@ -349,5 +349,7 @@
     "Only the IT Admin or the SuperAdmin can do this.": "Solo el IT Admin o el SuperAdmin pueden hacer esto.",
     "That email is used by another login in Murano: this login signs in with its username only.": "Ese correo lo usa otro login en Murano: este login entra solo con su usuario.",
     "This email belongs to the system administrator; use another one.": "Ese correo es del administrador del sistema; use otro.",
-    "Sign in on the web login to choose the company.": "Ingrese por el login web."
+    "Sign in on the web login to choose the company.": "Ingrese por el login web.",
+    "No departures were found in the file. Is it the AuraSoft \"Reporte producción por bus\"?": "No se encontraron salidas en el archivo. ¿Es el «Reporte producción por bus» de AuraSoft?",
+    "The file could not be read as Excel.": "El archivo no se pudo leer como Excel."
 }

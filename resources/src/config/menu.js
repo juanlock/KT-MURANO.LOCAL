@@ -323,6 +323,7 @@ export const MIGRATED_ROUTES = {
     '/app/transport/staff': '/transport/staff',
     '/app/transport/today': '/transport/today',
     '/app/transport/daily': '/transport/daily',
+    '/app/transport/aurasoft': '/transport/aurasoft',
     '/app/b2b/dashboard': '/b2b/dashboard',
     '/app/b2b/guides': '/b2b/guides',
     '/app/b2b/collections': '/b2b/collections',
@@ -1051,6 +1052,17 @@ export const MENU = [
             { label: 'Transport_Trips', to: '/app/transport/trips', permissions: ['transport_view', 'transport_manage'] },
             { label: 'Transport_Routes', to: '/app/transport/routes', permissions: ['transport_view', 'transport_manage'] },
             { label: 'Transport_Staff', to: '/app/transport/staff', permissions: ['transport_view', 'transport_manage'] },
+        ],
+    },
+    {
+        // Integración (2026-11-23, Turismo Cautivo): what other systems send in. Producción AuraSoft = the AuraSoft (ex
+        // Jelaf) "Reporte producción por bus" Excel, every file kept with what it brought. Transport module (path prefix).
+        key: 'transport_integration',
+        icon: 'plug',
+        label: 'Transport_Integration',
+        permissions: ['transport_aurasoft_import'],
+        children: [
+            { label: 'Transport_AuraSoft', to: '/app/transport/aurasoft', permissions: ['transport_aurasoft_import'] },
         ],
     },
     {

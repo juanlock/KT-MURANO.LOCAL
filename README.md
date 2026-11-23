@@ -203,6 +203,25 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-23 (Thundera)
+
+- **Turismo -> Integración -> Producción AuraSoft** (AuraSoft = the ticket system once called Jelaf): the Manager uploads
+  AuraSoft's "Reporte producción por bus" Excel (a day, a week or a month). Every file is kept and shows what it brought:
+  each departure new, changed or already there; overlapping date ranges never count a departure twice (the latest file's
+  figures win). Seats by seller, tickets, parcels, excess and production; "Quitar" undoes an import. Manager and IT Admin.
+- **SuperAdmin menu group** with every SuperAdmin-only screen; new **Company status** screen (every company's type,
+  production / demo, logins, last change and record counts).
+- **Manage Menu:** "Solo SuperAdmin" per item (warns which companies use it), name filter, Ordenar A-Z, and a per-company
+  "Menú propio" switch so the SuperAdmin's order never reaches the companies in production.
+- **Project questions:** a PREGUNTAS button (red while questions wait) and a window at sign-in for project members;
+  questions are made from a task or from the project's Preguntas view.
+- **Turismo dashboards** in Power BI style: areas instead of bars, KPI cards with change and trend, waterfall, route
+  bubbles and treemaps. Real pilots and agency staff created.
+- **Hordex:** last prices from the earlier system, invoice states, invoicing from guides, supplier invoices like Facturas
+  (XML import, PENDIENTE at 30 days), "Agregar" buttons, products by Tipo.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-22 (Optimum)
 
 - **Sign in with the username**: staff login, the customer portal and the old token door take the username (unique in all
@@ -292,29 +311,6 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 
 Setup: `php artisan migrate`, `npm run build`.
 
-### 2026-11-19 (Optimum)
-
-- **Projects work like Asana:** each project opens as its own workspace with
-  tabs -- Overview (progress, open / late tasks, milestones, hours vs
-  estimate, billable value, coming up, team), List, Board, **Calendar** (new:
-  task due dates, milestones, project start / end), Milestones, Hours and
-  Report. New tasks from a project stay in it. The menu keeps only Dashboard
-  and Projects; each tab follows the role's permission.
-- **Projects multicompany:** the dashboard, tasks, milestones, hours and
-  reports showed every company's projects; now each company sees its own
-  (AdminSystem all). Creating a project or a task no longer fails (optional
-  employee, priority "Medium" by default, priority / hours / progress saved).
-- **Projects in the selected language:** every screen of the module in
-  Spanish / English.
-- **Settings -> Customize:** the logo's real colours, a bigger custom colour
-  with its hex code, 36 preset colours. **KcolTech's logo** without its dark
-  background.
-- **Turismo:** agencies always in the order of the line (Lima, Trujillo,
-  Chepén, Chiclayo) in every list, filter and chart.
-- **KT-TOOLS** mirrored to Google Drive and OneDrive at the end of Pa Llevar /
-  A Dormir; Wake-up only reads (Excel lock files skipped).
-
-Setup: `php artisan migrate`, `npm run build`.
 ## Session protocols
 
 These are run from Claude Code. The definitions are in `.claude/commands/`.

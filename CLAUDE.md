@@ -531,7 +531,10 @@ the start of each session).
   (`settings.vat_number`, shown as "RUC" on invoices and quotations), domicilio fiscal Cal. Los Insurgentes 221, Santiago de
   Surco, Lima; activity 4922; electronic Factura / Boleta from SUNAT's free portal since 2019 (Murano does not issue to SUNAT). **~80 % of the tickets are sold
   online by Jelaf / PeruBus** (`transport_tickets.channel` agency / jelaf / perubus / phone; such a ticket has no sale:
-  `sale_id` null; `settings.transport_channel_commission` JSON % per channel, unknown yet); Jelaf also sends the passenger list
+  `sale_id` null; `settings.transport_channel_commission` JSON % per channel, unknown yet; **Jelaf is now called AuraSoft** (the client, 2026-11-23): in its
+  "Reporte producción por bus" the column AURA SOFT = sold through AuraSoft itself, and NO REGISTRADO, REDBUS, KUPOS, CARRITOC,
+  KIOSCO = other sellers on it, like PeruBus; all are online sales channels. Its Excel is imported in Integración -> Producción
+  AuraSoft (`/integration/aurasoft`)); Jelaf also sends the passenger list
   per trip -- how its data reaches us is settled with Jelaf (meeting the week of 2026-11-23). The dashboard opens on **Reporte de
   salidas** (Mayte and Julio's first board), then **Mando operativo** (`transport_outlook`, also `/transport/outlook`: upcoming
   departures red / amber / green against variable and full cost, booking curve, marketing focus by week). The demo sells

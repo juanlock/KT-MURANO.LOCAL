@@ -1443,6 +1443,11 @@ export const PERMISSION_GROUPS = [
                 "f": "Daily departures: reopen a day"
             },
             {
+                "v": "transport_aurasoft_import",
+                "l": "Perm_Transport_AuraSoft",
+                "f": "Integration: upload the AuraSoft (Jelaf) production report"
+            },
+            {
                 "v": "transport_agency_view",
                 "l": "Perm_Transport_Agency",
                 "f": "My agency: summary, parcels, complaints and incidents"

@@ -842,6 +842,15 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/history', 'history');
         Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
     });
+    // Integración -> Producción AuraSoft (2026-11-23): the AuraSoft (ex Jelaf) "Reporte producción por bus" files and their rows.
+    Route::prefix('transport/aurasoft')->controller(\App\Http\Controllers\TransportAuraSoftController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::get('/{id}', 'show')->whereNumber('id');
+        Route::get('/{id}/rows', 'rows')->whereNumber('id');
+        Route::get('/{id}/file', 'file')->whereNumber('id');
+        Route::delete('/{id}', 'destroy')->whereNumber('id');
+    });
     // Call center (2026-11-17): leads (+ import), campaigns, the agent's screen, call log, quality, shifts, indicators,
     // billing to the clients and the telephone exchange.
     // Distribución B2B (2026-11-20, Hordex): guides, invoicing guides, collections, board, kardex history, setup.
