@@ -17,9 +17,12 @@ return new class extends Migration
         if (! Schema::hasTable('login_events') || ! Schema::hasColumn('users', 'email_login')) {
             return;
         }
+        // Compared in PHP: production's login_events and users have different collations (a SQL "=" between them fails).
         $used = DB::table('login_events as e')->join('users as u', 'u.id', '=', 'e.user_id')
-            ->where('e.event', 'success')->whereColumn('e.email', 'u.email')->whereNull('u.deleted_at')
-            ->where('u.email_login', 0)->distinct()->get(['u.id', 'u.email', 'u.type']);
+            ->where('e.event', 'success')->whereNull('u.deleted_at')->where('u.email_login', 0)
+            ->select('u.id', 'u.email', 'u.type', 'e.email as typed')->distinct()->get()
+            ->filter(fn ($r) => mb_strtolower(trim((string) $r->typed)) === mb_strtolower(trim((string) $r->email)))
+            ->unique('id')->values();
         foreach ($used as $u) {
             $repeats = DB::table('users')->where('email', $u->email)->whereNull('deleted_at')->where('id', '!=', $u->id)
                 ->where('type', $u->type === 'customer' ? '=' : '!=', 'customer')->exists();
