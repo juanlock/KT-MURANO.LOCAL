@@ -354,9 +354,12 @@ class B2bController extends Controller
         $cid = $this->company($request);
         $client = (int) $request->client_id;
         $sale = (int) $request->sale_id;
-        $guides = DB::table('b2b_guides')->where('company_id', $cid)->whereNull('deleted_at')->where('client_id', $client)
-            ->where(fn ($q) => $q->where(fn ($w) => $w->where('status', 'dispatched')->whereNull('sale_id'))->when($sale, fn ($w) => $w->orWhere('sale_id', $sale)))
-            ->orderByDesc('issue_date')->orderByDesc('number')->limit(200)->get(['id', 'series', 'number', 'issue_date', 'purchase_order', 'sale_id']);
+        // Without a client (2026-11-23, "Desde guía" / FACTURAR from a guide): every guide still to invoice, any client.
+        $guides = DB::table('b2b_guides as g')->leftJoin('clients as c', 'c.id', '=', 'g.client_id')
+            ->where('g.company_id', $cid)->whereNull('g.deleted_at')->when($client, fn ($q) => $q->where('g.client_id', $client))
+            ->where(fn ($q) => $q->where(fn ($w) => $w->where('g.status', 'dispatched')->whereNull('g.sale_id'))->when($sale, fn ($w) => $w->orWhere('g.sale_id', $sale)))
+            ->orderByDesc('g.issue_date')->orderByDesc('g.number')->limit($client ? 200 : 500)
+            ->get(['g.id', 'g.series', 'g.number', 'g.issue_date', 'g.purchase_order', 'g.sale_id', 'g.client_id', 'c.name as client_name']);
         $items = DB::table('b2b_guide_items as i')->leftJoin('products as p', 'p.id', '=', 'i.product_id')
             ->whereIn('i.guide_id', $guides->pluck('id'))->get(['i.guide_id', 'i.product_id', 'i.quantity', 'p.code', 'p.name', 'p.price', 'p.unit_sale_id'])
             ->groupBy('guide_id');
@@ -450,16 +453,27 @@ class B2bController extends Controller
         ];
     }
 
-    /** Hordex's "ANULAR FACTURA": not when paid; its guides go back to "to invoice". */
+    /**
+     * Hordex's "ANULAR FACTURA": its guides go back to "to invoice". With payments (2026-11-23, user: "cambiar el estado
+     * de una factura de vencida a cancelada y/o anulada.. no me deja en ninguna parte"): only with remove_payments=1 --
+     * the screen asks first -- and its collection lines are removed in the same transaction (kept as deleted rows).
+     */
     public function cancelInvoice(Request $request, int $id)
     {
         $this->allow($request, 'b2b_invoice');
         $cid = $this->company($request);
-        DB::transaction(function () use ($cid, $id) {
+        $removePayments = $request->boolean('remove_payments');
+        DB::transaction(function () use ($cid, $id, $removePayments) {
             $s = DB::table('sales')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->lockForUpdate()->first();
             abort_unless($s, 404);
             abort_if($s->statut === 'canceled', 422, __('The invoice is already cancelled.'));
-            abort_if((float) $s->paid_amount > 0, 422, __('The invoice has payments: remove them first.'));
+            abort_if((float) $s->paid_amount > 0 && ! $removePayments, 422, __('The invoice has payments: remove them first.'));
+            if ((float) $s->paid_amount > 0) {
+                $pids = DB::table('payment_sales')->where('sale_id', $id)->whereNull('deleted_at')->pluck('id');
+                DB::table('payment_sales')->whereIn('id', $pids)->update(['deleted_at' => now()]);
+                DB::table('b2b_payment_info')->whereIn('payment_sale_id', $pids)->delete();
+                B2b::refreshSale($id);
+            }
             $guides = DB::table('b2b_guides')->where('company_id', $cid)->where('sale_id', $id)->pluck('id')->all();
             DB::table('sales')->where('id', $id)->update(['statut' => 'canceled', 'updated_at' => now()]);
             DB::table('b2b_sale_info')->where('sale_id', $id)->update(['canceled_guide_ids' => json_encode($guides), 'updated_at' => now()]);
@@ -467,6 +481,55 @@ class B2bController extends Controller
         });
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * "Marcar cancelada" (user, 2026-11-23): a pending / overdue invoice is settled in one step -- its balance becomes one
+     * collection line (bank deposit by default, with its date and document), so the board's "to collect" and the
+     * collections report stay right. Detracciones / deductions still go through Cobranzas line by line.
+     */
+    /**
+     * POST b2b/products/prices {items: [{product_id, price}]} (user, 2026-11-23): after an invoice, the prices the user chose
+     * to keep for the next invoices become the products' sheet price. This company's products only.
+     */
+    public function updateProductPrices(Request $request)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $d = $request->validate(['items' => 'required|array|min:1', 'items.*.product_id' => 'required|integer', 'items.*.price' => 'required|numeric|min:0']);
+        $n = DB::transaction(function () use ($cid, $d) {
+            $n = 0;
+            foreach ($d['items'] as $i) {
+                $n += DB::table('products')->where('company_id', $cid)->where('id', $i['product_id'])->whereNull('deleted_at')
+                    ->update(['price' => round((float) $i['price'], 2), 'updated_at' => now()]);
+            }
+
+            return $n;
+        });
+
+        return response()->json(['ok' => true, 'updated' => $n]);
+    }
+
+    public function settleInvoice(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_invoice');
+        $cid = $this->company($request);
+        $d = $request->validate(['date' => 'required|date', 'kind' => 'nullable|in:deposit,detraction,rebate,deduction',
+            'document' => 'nullable|string|max:60', 'notes' => 'nullable|string|max:255']);
+        $paid = DB::transaction(function () use ($cid, $id, $d, $request) {
+            $s = DB::table('sales')->where('company_id', $cid)->where('id', $id)->whereNull('deleted_at')->lockForUpdate()->first();
+            abort_unless($s, 404);
+            abort_if($s->statut === 'canceled', 422, __('The invoice is cancelled.'));
+            $balance = round((float) $s->GrandTotal - (float) $s->paid_amount, 2);
+            abort_if($balance <= 0.009, 422, __('The invoice is already paid.'));
+            B2b::addPayment($cid, $id, (int) $request->user('api')->id, ['amount' => $balance, 'date' => $d['date'], 'kind' => $d['kind'] ?? 'deposit',
+                'document' => $d['document'] ?? null, 'notes' => $d['notes'] ?? 'Cancelada desde Facturas']);
+            B2b::refreshSale($id);
+
+            return $balance;
+        });
+
+        return response()->json(['ok' => true, 'amount' => $paid]);
     }
 
     /**
@@ -642,6 +705,9 @@ class B2bController extends Controller
         $cid = $this->company($request);
         $q = $this->purchaseQuery($cid)
             ->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('p.Ref', 'like', "%$s%")->orWhere('v.name', 'like', "%$s%")->orWhere('v.short_name', 'like', "%$s%")))
+            // State filter (2026-11-23).
+            ->when(in_array($request->status, ['PENDIENTE', 'CANCELADA', 'ANULADA'], true), fn ($q) => $q->whereRaw(
+                "COALESCE(i.status, CASE WHEN p.payment_statut = 'paid' THEN 'CANCELADA' ELSE 'PENDIENTE' END) = ?", [$request->status]))
             ->select('p.id', 'p.Ref', 'p.date', DB::raw("COALESCE(NULLIF(v.short_name, ''), v.name) as provider"), 'p.GrandTotal',
                 DB::raw("CASE WHEN i.currency = 'USD' THEN '$' ELSE 'S/' END as currency"),
                 DB::raw("COALESCE(i.status, CASE WHEN p.payment_statut = 'paid' THEN 'CANCELADA' ELSE 'PENDIENTE' END) as estado"));
@@ -660,8 +726,12 @@ class B2bController extends Controller
             DB::raw("COALESCE(i.status, CASE WHEN p.payment_statut = 'paid' THEN 'CANCELADA' ELSE 'PENDIENTE' END) as estado")]);
         abort_unless($p, 404);
         $p->lines = DB::table('purchase_details as d')->leftJoin('products as pr', 'pr.id', '=', 'd.product_id')->where('d.purchase_id', $id)->orderBy('d.id')
-            ->get(['pr.code', 'pr.name', 'd.quantity', 'd.cost', 'd.total']);
-        $p->guides = DB::table('b2b_receipts')->where('purchase_id', $id)->whereNull('deleted_at')->pluck('guide')->filter()->values();
+            ->get(['d.product_id', 'pr.code', 'pr.name', 'd.quantity', 'd.cost', 'd.total']);
+        $receipts = DB::table('b2b_receipts')->where('purchase_id', $id)->whereNull('deleted_at')->get(['id', 'guide']);
+        $p->guides = $receipts->pluck('guide')->filter()->values();
+        // For "Editar" (2026-11-23): the linked receipts and their items, so the form keeps them.
+        $p->receipt_ids = $receipts->pluck('id')->values();
+        $p->receipt_items = DB::table('b2b_receipt_items')->whereIn('receipt_id', $p->receipt_ids)->get(['receipt_id', 'product_id']);
 
         return response()->json($p);
     }
@@ -711,8 +781,28 @@ class B2bController extends Controller
      */
     public function storePurchase(Request $request)
     {
+        return $this->savePurchase($request, null);
+    }
+
+    /**
+     * "Editar" a supplier invoice (user, 2026-11-23: "cuando le doy click ... se muestre al costado el detalle y tenga la
+     * opción de editar"): the same form and checks as a new one; its lines are replaced and its receipts re-linked. Its
+     * state is kept (changed with its own buttons). Not an ANULADA one.
+     */
+    public function updatePurchase(Request $request, int $id)
+    {
+        return $this->savePurchase($request, $id);
+    }
+
+    private function savePurchase(Request $request, ?int $editId)
+    {
         $this->allow($request, 'b2b_view');
         $cid = $this->company($request);
+        if ($editId) {
+            $cur = $this->purchaseQuery($cid)->where('p.id', $editId)->first([DB::raw("COALESCE(i.status, 'PENDIENTE') as estado")]);
+            abort_unless($cur, 404);
+            abort_if($cur->estado === 'ANULADA', 422, __('A voided invoice cannot be edited.'));
+        }
         $d = $request->validate([
             'provider_id' => ['required', 'integer', Rule::exists('providers', 'id')->where('company_id', $cid)],
             'kind' => 'required|in:bienes,servicios,adelanto', 'currency' => 'required|in:PEN,USD', 'tc' => 'nullable|required_if:currency,USD|numeric|gt:0',
@@ -724,29 +814,49 @@ class B2bController extends Controller
         ], ['tc.required_if' => __('Type the exchange rate.'), 'f_venc.after_or_equal' => __('The due date cannot be before the issue date.')]);
         $series = strtoupper(trim($d['series']));
         $ref = $series.'-'.str_pad((string) $d['number'], 7, '0', STR_PAD_LEFT);
-        $exists = DB::table('purchases')->where('company_id', $cid)->where('provider_id', $d['provider_id'])->whereNull('deleted_at')->get(['Ref'])
+        $exists = DB::table('purchases')->where('company_id', $cid)->where('provider_id', $d['provider_id'])->whereNull('deleted_at')
+            ->when($editId, fn ($q) => $q->where('id', '!=', $editId))->get(['Ref'])
             ->contains(fn ($p) => preg_match('/^\s*'.preg_quote($series, '/').'\s*-\s*0*'.(int) $d['number'].'\s*$/i', (string) $p->Ref));
         abort_if($exists, 422, __('That invoice of this supplier is already registered.'));
-        $id = DB::transaction(function () use ($cid, $d, $ref, $request) {
+        $id = DB::transaction(function () use ($cid, $d, $ref, $request, $editId) {
             $net = round(collect($d['items'])->sum(fn ($i) => $i['quantity'] * $i['price']), 2);
             $igv = round($net * 0.18, 2);
-            $paid = ! empty($d['f_pago']);
-            $id = DB::table('purchases')->insertGetId([
-                'company_id' => $cid, 'user_id' => $request->user('api')->id, 'Ref' => $ref, 'date' => $d['f_emision'], 'time' => now()->format('H:i:s'),
-                'provider_id' => $d['provider_id'], 'warehouse_id' => B2b::warehouse($cid), 'tax_rate' => 18, 'TaxNet' => $igv, 'discount' => 0, 'shipping' => 0,
-                'GrandTotal' => round($net + $igv, 2), 'paid_amount' => $paid ? round($net + $igv, 2) : 0, 'statut' => 'received',
-                'payment_statut' => $paid ? 'paid' : 'unpaid', 'created_at' => now(), 'updated_at' => now(),
-            ]);
-            DB::table('b2b_purchase_info')->insert(['company_id' => $cid, 'purchase_id' => $id, 'kind' => $d['kind'], 'currency' => $d['currency'],
-                'exchange_rate' => $d['currency'] === 'USD' ? $d['tc'] : null, 'due_date' => $d['f_venc'], 'pay_date' => $d['f_pago'] ?? null,
-                'status' => $paid ? 'CANCELADA' : 'PENDIENTE', 'created_at' => now(), 'updated_at' => now()]);
+            if ($editId) {
+                // Edit: the amounts and data change; the state stays (a paid one keeps the new total as paid).
+                $info = DB::table('b2b_purchase_info')->where('purchase_id', $editId)->first();
+                $paid = ($info->status ?? 'PENDIENTE') === 'CANCELADA';
+                DB::table('purchases')->where('id', $editId)->update([
+                    'Ref' => $ref, 'date' => $d['f_emision'], 'provider_id' => $d['provider_id'], 'TaxNet' => $igv, 'GrandTotal' => round($net + $igv, 2),
+                    'paid_amount' => $paid ? round($net + $igv, 2) : 0, 'updated_at' => now(),
+                ]);
+                DB::table('b2b_purchase_info')->updateOrInsert(['purchase_id' => $editId], ['company_id' => $cid, 'kind' => $d['kind'], 'currency' => $d['currency'],
+                    'exchange_rate' => $d['currency'] === 'USD' ? $d['tc'] : null, 'due_date' => $d['f_venc'],
+                    'pay_date' => $paid ? ($d['f_pago'] ?? $info->pay_date) : null, 'updated_at' => now()]);
+                DB::table('purchase_details')->where('purchase_id', $editId)->delete();
+                DB::table('b2b_receipts')->where('company_id', $cid)->where('purchase_id', $editId)->whereNotIn('id', $d['receipt_ids'] ?? [])
+                    ->update(['purchase_id' => null, 'invoice' => null, 'invoice_date' => null, 'updated_at' => now()]);
+                $id = $editId;
+            } else {
+                // A new supplier invoice starts PENDIENTE (user, 2026-11-23: "lo programa a 30 días"), unless a payment date is given.
+                $paid = ! empty($d['f_pago']);
+                $id = DB::table('purchases')->insertGetId([
+                    'company_id' => $cid, 'user_id' => $request->user('api')->id, 'Ref' => $ref, 'date' => $d['f_emision'], 'time' => now()->format('H:i:s'),
+                    'provider_id' => $d['provider_id'], 'warehouse_id' => B2b::warehouse($cid), 'tax_rate' => 18, 'TaxNet' => $igv, 'discount' => 0, 'shipping' => 0,
+                    'GrandTotal' => round($net + $igv, 2), 'paid_amount' => $paid ? round($net + $igv, 2) : 0, 'statut' => 'received',
+                    'payment_statut' => $paid ? 'paid' : 'unpaid', 'created_at' => now(), 'updated_at' => now(),
+                ]);
+                DB::table('b2b_purchase_info')->insert(['company_id' => $cid, 'purchase_id' => $id, 'kind' => $d['kind'], 'currency' => $d['currency'],
+                    'exchange_rate' => $d['currency'] === 'USD' ? $d['tc'] : null, 'due_date' => $d['f_venc'], 'pay_date' => $d['f_pago'] ?? null,
+                    'status' => $paid ? 'CANCELADA' : 'PENDIENTE', 'created_at' => now(), 'updated_at' => now()]);
+            }
             foreach ($d['items'] as $i) {
                 DB::table('purchase_details')->insert(['purchase_id' => $id, 'product_id' => $i['product_id'], 'cost' => $i['price'], 'quantity' => $i['quantity'],
                     'total' => round($i['quantity'] * $i['price'], 2), 'TaxNet' => 0, 'tax_method' => '2', 'discount' => 0, 'discount_method' => '2',
                     'created_at' => now(), 'updated_at' => now()]);
             }
             if ($d['kind'] === 'bienes' && ! empty($d['receipt_ids'])) {
-                DB::table('b2b_receipts')->where('company_id', $cid)->where('provider_id', $d['provider_id'])->whereIn('id', $d['receipt_ids'])->whereNull('purchase_id')
+                DB::table('b2b_receipts')->where('company_id', $cid)->where('provider_id', $d['provider_id'])->whereIn('id', $d['receipt_ids'])
+                    ->where(fn ($q) => $q->whereNull('purchase_id')->orWhere('purchase_id', $id))
                     ->update(['purchase_id' => $id, 'invoice' => $ref, 'invoice_date' => $d['f_emision'], 'updated_at' => now()]);
             }
 
@@ -771,6 +881,154 @@ class B2bController extends Controller
         });
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * "Cambiar estado" (user, 2026-11-23: "que también sea un botón el cambiar el estado de cancelada (pagada) a pendiente"):
+     * PENDIENTE <-> CANCELADA (paid on a date) and ANULADA, in any direction; ANULADA -> PENDIENTE undoes a void.
+     */
+    public function purchaseStatus(Request $request, int $id)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $d = $request->validate(['status' => 'required|in:PENDIENTE,CANCELADA,ANULADA', 'f_pago' => 'nullable|required_if:status,CANCELADA|date']);
+        $p = $this->purchaseQuery($cid)->where('p.id', $id)->first(['p.GrandTotal']);
+        abort_unless($p, 404);
+        DB::transaction(function () use ($cid, $id, $d, $p) {
+            $paid = $d['status'] === 'CANCELADA';
+            DB::table('purchases')->where('id', $id)->update(['payment_statut' => $paid ? 'paid' : 'unpaid', 'paid_amount' => $paid ? $p->GrandTotal : 0, 'updated_at' => now()]);
+            DB::table('b2b_purchase_info')->updateOrInsert(['purchase_id' => $id], ['company_id' => $cid, 'status' => $d['status'],
+                'pay_date' => $paid ? $d['f_pago'] : null, 'updated_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * "Subir XML" (user, 2026-11-23): a supplier's SUNAT electronic invoice (UBL 2.1 Invoice) fills the form -- the supplier
+     * by RUC, series - number, issue date, due date (the instalment's, else the DueDate), currency, its lines (unit value
+     * without IGV = LineExtensionAmount / quantity) matched to products by code, then by name among what this supplier
+     * sold before, then by name; a receipt of this supplier with the invoice's guide is linked (Vincular). Nothing saved.
+     */
+    public function purchaseFromXml(Request $request)
+    {
+        $this->allow($request, 'b2b_view');
+        $cid = $this->company($request);
+        $request->validate(['file' => 'required|file|max:4096']);
+        $raw = file_get_contents($request->file('file')->getRealPath());
+        if (str_starts_with($raw, "PK")) {
+            // A zip as SUNAT sends it: the first .xml inside.
+            $zip = new \ZipArchive();
+            abort_unless($zip->open($request->file('file')->getRealPath()) === true, 422, __('The file is not a valid XML.'));
+            $raw = null;
+            for ($n = 0; $n < $zip->numFiles; $n++) {
+                if (preg_match('/\.xml$/i', $zip->getNameIndex($n))) {
+                    $raw = $zip->getFromIndex($n);
+                    break;
+                }
+            }
+            $zip->close();
+            abort_unless($raw, 422, __('The file is not a valid XML.'));
+        }
+        $prev = libxml_use_internal_errors(true);
+        $x = simplexml_load_string($raw, 'SimpleXMLElement', LIBXML_NONET);
+        libxml_use_internal_errors($prev);
+        abort_if($x === false, 422, __('The file is not a valid XML.'));
+        abort_unless($x->getName() === 'Invoice', 422, __('It is not a SUNAT invoice (Invoice).'));
+        $x->registerXPathNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+        $x->registerXPathNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+        $one = function ($el, string $path) {
+            $el->registerXPathNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+            $el->registerXPathNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+            $r = $el->xpath($path);
+
+            return $r ? trim((string) $r[0]) : null;
+        };
+        $warnings = [];
+        [$series, $number] = array_pad(explode('-', (string) $one($x, 'cbc:ID'), 2), 2, null);
+        $ruc = $one($x, 'cac:AccountingSupplierParty/cac:Party/cac:PartyIdentification/cbc:ID');
+        $supplierName = $one($x, 'cac:AccountingSupplierParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName');
+        $provider = $ruc ? DB::table('providers')->where('company_id', $cid)->where('tax_number', $ruc)->whereNull('deleted_at')->first(['id', 'name']) : null;
+        if (! $provider) {
+            $warnings[] = __('Supplier not found').": {$supplierName} (RUC {$ruc})";
+        }
+        $issue = $one($x, 'cbc:IssueDate');
+        $dues = array_filter(array_map('strval', $x->xpath('cac:PaymentTerms/cbc:PaymentDueDate') ?: []));
+        $due = $dues ? max($dues) : ($one($x, 'cbc:DueDate') ?: null);
+        $currency = strtoupper((string) $one($x, 'cbc:DocumentCurrencyCode')) === 'USD' ? 'USD' : 'PEN';
+
+        // Products this supplier sold before (their names weigh more), then every product.
+        $bought = $provider ? DB::table('purchase_details as d')->join('purchases as p', 'p.id', '=', 'd.purchase_id')
+            ->where('p.company_id', $cid)->where('p.provider_id', $provider->id)->whereNull('p.deleted_at')->distinct()->pluck('d.product_id')->flip() : collect();
+        $products = DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->get(['id', 'code', 'name', 'type', 'cost', 'price']);
+        $norm = fn ($s) => trim(preg_replace('/\s+/', ' ', preg_replace('/[^A-Z0-9 ]/', ' ',
+            strtr(strtoupper(\Illuminate\Support\Str::ascii((string) $s)), ['C/T' => ' CON TAPA ', 'S/T' => ' SIN TAPA ', 'S/E' => ' ']))));
+        $tokens = fn ($s) => array_values(array_filter(explode(' ', $norm($s))));
+        $items = [];
+        $serviceLines = 0;
+        foreach ($x->xpath('cac:InvoiceLine') ?: [] as $line) {
+            $qty = (float) $one($line, 'cbc:InvoicedQuantity');
+            $ext = (float) $one($line, 'cbc:LineExtensionAmount');
+            $desc = $one($line, 'cac:Item/cbc:Description') ?: '';
+            $code = $one($line, 'cac:Item/cac:SellersItemIdentification/cbc:ID');
+            $price = $qty > 0 ? round($ext / $qty, 6) : (float) $one($line, 'cac:Price/cbc:PriceAmount');
+            $match = $code ? $products->first(fn ($p) => strcasecmp((string) $p->code, $code) === 0) : null;
+            if (! $match) {
+                $want = $tokens($desc);
+                $best = null;
+                $bestScore = 0;
+                foreach ($products as $p) {
+                    $have = $tokens($p->name);
+                    if (! $have || ! $want) {
+                        continue;
+                    }
+                    $common = count(array_intersect($want, $have));
+                    // Every word of the invoice's line must be in the product's name; fewer extra words, bought before, near the last cost = better.
+                    if ($common < count($want)) {
+                        continue;
+                    }
+                    $score = $common / count($have) + (isset($bought[$p->id]) ? 1 : 0)
+                        + ((float) $p->cost > 0 && abs((float) $p->cost - $price) < 0.005 ? 0.5 : 0);
+                    if ($score > $bestScore) {
+                        [$best, $bestScore] = [$p, $score];
+                    }
+                }
+                $match = $best;
+            }
+            if (! $match) {
+                $warnings[] = __('Product not found').": {$desc}";
+            }
+            if ($match && $match->type === 'is_service') {
+                $serviceLines++;
+            }
+            $items[] = ['product_id' => $match->id ?? null, 'desc' => $desc, 'quantity' => $qty, 'price' => $price];
+        }
+
+        // The guide(s) it refers to: a receipt of this supplier with the same guide, not invoiced yet, is linked.
+        $receiptIds = [];
+        $guides = [];
+        foreach ($x->xpath('cac:DespatchDocumentReference/cbc:ID') ?: [] as $g) {
+            $guides[] = $gref = preg_replace('/\s+/', '', (string) $g);
+            if ($provider && preg_match('/^([A-Z0-9]+)-0*(\d+)$/i', $gref, $m)) {
+                $r = DB::table('b2b_receipts')->where('company_id', $cid)->where('provider_id', $provider->id)->whereNull('deleted_at')->whereNull('purchase_id')
+                    ->get(['id', 'guide'])->first(fn ($r) => preg_match('/^\s*'.preg_quote($m[1], '/').'\s*-\s*0*'.(int) $m[2].'\s*$/i', (string) $r->guide));
+                if ($r) {
+                    $receiptIds[] = $r->id;
+                } else {
+                    $warnings[] = __('Guide without a receipt yet').": {$gref}";
+                }
+            }
+        }
+
+        return response()->json([
+            'provider_id' => $provider->id ?? null, 'provider_name' => $supplierName, 'ruc' => $ruc,
+            'series' => $series ? strtoupper(trim($series)) : null, 'number' => $number !== null ? (int) $number : null,
+            'f_emision' => $issue, 'f_venc' => $due, 'currency' => $currency,
+            'kind' => $items && $serviceLines === count($items) ? 'servicios' : 'bienes',
+            'items' => $items, 'receipt_ids' => $receiptIds, 'guides' => $guides,
+            'total' => (float) $one($x, 'cac:LegalMonetaryTotal/cbc:PayableAmount'), 'igv' => (float) $one($x, 'cac:TaxTotal/cbc:TaxAmount'),
+            'warnings' => $warnings,
+        ]);
     }
 
     public function voidPurchase(Request $request, int $id)

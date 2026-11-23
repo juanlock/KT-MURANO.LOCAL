@@ -153,14 +153,34 @@ company. (Entering "as the company admin" from the login chooser is a
 different thing: that is "admin/<company>".)
 **superadmin/AdminSystem vs superadmin/<company>** (user's rule, 2026-10-21):
 superadmin/AdminSystem (company 999 picked) has every menu and form PLUS the
-global ones (effect on the whole install), which show in the side menu in
-yellow with a "Global" tag: Login Page Settings, Update Settings, Currencies,
+global ones (effect on the whole install), in the SuperAdmin menu group (no yellow row or "Global"
+tag since 2026-11-23, user: "ya no tiene sentido"): Login Page Settings, Update Settings, Currencies,
 Backup, System Health, Login Device Management (menu / route `systemOnly`,
 router guard + `isMenuEntryAllowed`), plus Backup archives / Login devices in
 System Settings and the full Companies list with Add / Delete
 (`CompanyController::isSystemContext`). superadmin/<company> works on that
 company only: Companies shows just it, global pages are hidden and refused by
 URL. A new install-wide screen gets `systemOnly: true`.
+**The SuperAdmin menu group (user's rule, 2026-11-23):** every screen only the SuperAdmin can open (`superAdminOnly` /
+`systemOnly`) lives in the top-level group **SuperAdmin** (`menu.js` key `superadmin`, right after Settings; the group
+itself is `superAdminOnly`), never inside Settings or another module: Modules, Historial de cambios, ZATCA (company-level),
+then the AdminSystem-only ones (Company status -- `/settings/company-status`, `CompanyStatusController`: every company's
+type, production / demo, admin login, created, last change, last sign-in and its record counts --, KT-Log, Roles by company, Company manuals, Login page, Login devices, Currencies, Backup,
+System health, Update). Saved company menus were moved by migration 2026_11_23_100000. A new SuperAdmin-only screen goes
+there, with a migration that sets its `menu_positions.parent_key = 'superadmin'` in every company.
+**Manage Menu -> "Solo SuperAdmin" (user's rule, 2026-11-23):** as superadmin/AdminSystem, the shield beside each menu item
+or group makes it visible to the SuperAdmin only, in every company (install-wide list `settings.superadmin_only_menu` of
+999, `MenuPositionController::superAdminOnly`, sent as `auth.user.superadmin_only_menu`; `lib/superAdminMenu.js` marks the
+entries superAdminOnly in `stores/menu.js` and the router refuses their pages). Before restricting, the screen asks the
+server which companies have the item's module on and how many logins can open it (`superadmin-impact`) and warns with that
+detail, company by company. Restricted only in the menu and the router (the API still follows roles and modules).
+Manage Menu as AdminSystem lists every module (like its left menu), so B2B / Call center can be arranged there too.
+**"Menú propio" per company (user's rule, 2026-11-23):** `companies.menu_own` (Companies list switch + Edit -> Website,
+superadmin/AdminSystem only; turned on by itself when a company goes into production; migration 2026_11_23_130000 set it
+for the 6 live companies): Save / Reset / "hide for everyone" made as AdminSystem in Manage Menu skip those companies, so the
+SuperAdmin's order reaches only the others (the demos); the confirmation lists the companies left alone
+(`menu-positions/own-menu`). A company's own Manage Menu, "Orden predeterminado" and the "Solo SuperAdmin" list still apply.
+Manage Menu has a name filter and **Ordenar A-Z** (every group and its items at every level, by the shown name, Dashboard first).
 **A company's menu is its own (user's rule, 2026-10-25):** what admin/<company>
 or superadmin/<company> saves in Manage Menu stays in that company and is
 changed only from there. Only superadmin/AdminSystem reaches every company
@@ -1058,6 +1078,9 @@ the start of each session).
   `lib/useIsPhone.js`; a panel that always shows a "new" form opens on the phone from a "Nuevo" button shown there only.
   Done for the B2B screens (Guías, Facturas, Compras, Clientes / Productos / Proveedores). Hordex's split is 40 % list / 60 %
   record (Clientes).
+  **(user's rule, 2026-11-23)** Such a screen has a blue **"Agregar Nuevo"** button above the list (always, not only on a
+  phone), and opens with the **latest record selected** (the list's first row), its detail and buttons on the right; the
+  new form only appears with "Agregar Nuevo" (on a phone nothing opens until a row is tapped).
 - **Projects: four pillars as stages (user's rule, 2026-11-22):** Requerimiento, Análisis y Diseño, Implementación,
   Puesta en Marcha (`App\Support\ProjectPillars`; tests inside Implementación, support / closing inside Puesta en
   Marcha). A new project is born with them plus objective 1 "Definición del alcance del proyecto ..." and its meeting

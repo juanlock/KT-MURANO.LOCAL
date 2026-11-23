@@ -1828,6 +1828,11 @@ export const PERMISSION_GROUPS = [
                 "f": "KT-Log (work history)"
             },
             {
+                "v": "company_status_view",
+                "l": "Company_Status",
+                "f": "Company status (SuperAdmin)"
+            },
+            {
                 "v": "appearance_settings",
                 "l": "appearance_settings",
                 "f": "Dynamic Appearance"

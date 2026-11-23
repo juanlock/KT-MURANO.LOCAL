@@ -36,6 +36,14 @@
             <span v-else class="muted">—</span>
           </a-tooltip>
         </template>
+        <!-- "Menú propio" (2026-11-23): AdminSystem's menu saves leave this company alone. -->
+        <template v-else-if="column.key === 'menu_own'">
+          <a-tooltip :title="menuOwnText.hint">
+            <a-switch v-if="isSystem" size="small" :checked="!!record.menu_own" :loading="menuOwnBusy === record.id" @change="v => toggleMenuOwn(record, v)" />
+            <a-tag v-else-if="record.menu_own" color="purple">{{ menuOwnText.tag }}</a-tag>
+            <span v-else class="muted">—</span>
+          </a-tooltip>
+        </template>
         <template v-else-if="column.key === 'setup'">
           <!-- Required company information still missing (CompanyProfile::REQUIRED). -->
           <a-tooltip v-if="(record.profile_missing || []).length" :title="$t('tx_Missing_b88a5') + record.profile_missing.join(', ')">
@@ -155,7 +163,10 @@
                 <a-input v-model:value="form.domains" placeholder="example.com" />
               </a-form-item>
               <a-form-item v-if="isSystem" :label="liveText.label" :extra="liveText.hint">
-                <a-switch v-model:checked="form.is_live" />
+                <a-switch v-model:checked="form.is_live" @change="v => { if (v) form.menu_own = true; }" />
+              </a-form-item>
+              <a-form-item v-if="isSystem" :label="menuOwnText.label" :extra="menuOwnText.hint">
+                <a-switch v-model:checked="form.menu_own" />
               </a-form-item>
               <WebsiteChoice v-model:mode="form.website_mode" v-model:url="form.website_url" :current="form.current_website_mode" />
             </template>
@@ -362,6 +373,7 @@ const columns = computed(() => [
   { title: t('Name'), dataIndex: 'name', key: 'name', sorter: true },
   // Production mode at a glance, switched from here by superadmin/AdminSystem (2026-11-22).
   { title: liveText.value.tag, key: 'live', width: 130, align: 'center', exportValue: r => (r.is_live ? 'Sí' : 'No') },
+  { title: menuOwnText.value.tag, key: 'menu_own', width: 120, align: 'center', exportValue: r => (r.menu_own ? 'Sí' : 'No') },
   { title: locale.value.startsWith('es') ? 'Tipo de compañía' : 'Business type', dataIndex: 'business_type', key: 'business_type', sorter: true,
     exportValue: r => typeLabel(r.business_type) },
   { title: tEs('Service_Setup', 'Setup'), key: 'setup', width: 120, exportValue: r => ((r.profile_missing || []).length ? 'Missing: ' + r.profile_missing.join(', ') : 'Complete') },
@@ -434,7 +446,7 @@ function serverErrTabs(e, steps, errTabs, activeTab) {
 const editOpen = ref(false);
 const editFormRef = ref();
 const emptyForm = () => ({
-  id: null, ...emptyProfile(), domains: '', logo_data: '', logo_url: '', is_live: false,
+  id: null, ...emptyProfile(), domains: '', logo_data: '', logo_url: '', is_live: false, menu_own: false,
   website_mode: 'default', website_url: '', current_website_mode: 'default',
 });
 // "In production" (2026-10-26): production owns its data; the dev -> production push never sends it.
@@ -454,13 +466,28 @@ function toggleLive(record, value) {
     async onOk() {
       liveBusy.value = record.id;
       try {
-        await http.post(`company/${record.id}/live`, { is_live: value ? 1 : 0 });
+        const res = await http.post(`company/${record.id}/live`, { is_live: value ? 1 : 0 });
         record.is_live = value;
+        if (res && 'menu_own' in res) record.menu_own = res.menu_own;
       } catch (e) {
         message.error(e?.data?.message || (es ? 'No se pudo cambiar.' : 'Could not change it.'));
       } finally { liveBusy.value = null; }
     },
   });
+}
+// "Menú propio" (2026-11-23): the menu order superadmin/AdminSystem saves in Manage Menu never replaces this company's.
+const menuOwnText = computed(() => (locale.value.startsWith('es')
+  ? { tag: 'Menú propio', label: 'Menú propio (excluir del orden del SuperAdmin)', hint: 'El orden del menú que el SuperAdmin guarda como AdminSystem en Administrar menú no reemplaza el de esta compañía. Activado por defecto en las compañías en producción.' }
+  : { tag: 'Own menu', label: 'Own menu (left out of the SuperAdmin\'s order)', hint: 'The menu order the SuperAdmin saves as AdminSystem in Manage Menu does not replace this company\'s. On by default for the companies in production.' }));
+const menuOwnBusy = ref(null);
+async function toggleMenuOwn(record, value) {
+  menuOwnBusy.value = record.id;
+  try {
+    await http.post(`company/${record.id}/menu-own`, { menu_own: value ? 1 : 0 });
+    record.menu_own = value;
+  } catch (e) {
+    message.error(e?.data?.message || (locale.value.startsWith('es') ? 'No se pudo cambiar.' : 'Could not change it.'));
+  } finally { menuOwnBusy.value = null; }
 }
 const form = ref(emptyForm());
 const loadingEdit = ref(false);
@@ -469,7 +496,7 @@ const companyRules = computed(() => profileRules());
 
 // Edit loads the whole profile (GET company/{id}): companies + settings + helpdesk.
 async function openEdit(record) {
-  form.value = { ...emptyForm(), id: record.id, name: record.name || '', is_live: !!record.is_live, website_mode: record.website_mode || 'default', current_website_mode: record.website_mode || 'default' };
+  form.value = { ...emptyForm(), id: record.id, name: record.name || '', is_live: !!record.is_live, menu_own: !!record.menu_own, website_mode: record.website_mode || 'default', current_website_mode: record.website_mode || 'default' };
   editMissing.value = [];
   editErrTabs.value = [];
   editTab.value = 'company';
@@ -505,9 +532,9 @@ async function submitEdit() {
   if (!(await validateSteps(editFormRef, editSteps.value, editErrTabs, editTab))) return;
   submitting.value = true;
   try {
-    const { id, website_mode, website_url, current_website_mode, domains, logo_data, logo_url, is_live, ...profile } = form.value;
+    const { id, website_mode, website_url, current_website_mode, domains, logo_data, logo_url, is_live, menu_own, ...profile } = form.value;
     await http.put(`company/${id}`, {
-      ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}), ...(isSystem.value ? { is_live } : {}), ...(logo_data ? { logo_data } : {}),
+      ...profilePayload(profile), ...(isSuperAdmin.value ? { domains } : {}), ...(isSystem.value ? { is_live, menu_own } : {}), ...(logo_data ? { logo_data } : {}),
     });
     // Website: re-import when a URL is given, or switch mode when changed.
     if (isSuperAdmin.value && ((website_mode === 'import' && website_url) || website_mode !== current_website_mode)) {

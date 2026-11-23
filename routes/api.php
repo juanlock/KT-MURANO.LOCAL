@@ -772,6 +772,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     // The acting company's own manual PDF, when it has one (book icon, 2026-11-09).
     Route::get('company-manual', [\App\Http\Controllers\CompanyManualsController::class, 'mine']);
     Route::get('roles-matrix', [\App\Http\Controllers\RolesMatrixController::class, 'index']);
+    // SuperAdmin -> Company status (2026-11-23): every company, its status and how much it holds.
+    Route::get('company-status', [\App\Http\Controllers\CompanyStatusController::class, 'index']);
     // Transport (2026-11-01): locations, routes, trips with their crew, active staff.
     Route::prefix('transport')->controller(\App\Http\Controllers\TransportController::class)->group(function () {
         Route::get('/meta', 'meta');
@@ -856,6 +858,10 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/purchases/next-number', 'purchaseNextNumber');
         Route::post('/purchases/{id}/pay', 'payPurchase')->whereNumber('id');
         Route::post('/purchases/{id}/void', 'voidPurchase')->whereNumber('id');
+        // 2026-11-23: edit, change the state, read a supplier's XML invoice.
+        Route::put('/purchases/{id}', 'updatePurchase')->whereNumber('id');
+        Route::post('/purchases/{id}/status', 'purchaseStatus')->whereNumber('id');
+        Route::post('/purchases/xml', 'purchaseFromXml');
         Route::delete('/purchases/{id}', 'deletePurchase')->whereNumber('id');
         Route::get('/masters/{type}', 'masters')->where('type', '[a-z]+');
         Route::post('/masters/{type}', 'saveMaster')->where('type', '[a-z]+');
@@ -889,6 +895,10 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::put('/invoices/{id}', 'updateInvoice')->whereNumber('id');
         Route::post('/invoices/{id}/cancel', 'cancelInvoice')->whereNumber('id');
         Route::post('/invoices/{id}/revert-cancel', 'revertCancelInvoice')->whereNumber('id');
+        // "Marcar cancelada" (2026-11-23): the balance as one collection line.
+        Route::post('/invoices/{id}/settle', 'settleInvoice')->whereNumber('id');
+        // "¿Actualizar el precio para las próximas facturas?" (2026-11-23).
+        Route::post('/products/prices', 'updateProductPrices');
         Route::get('/invoices/{id}/pdf', 'invoicePdf')->whereNumber('id');
         Route::get('/invoices/{id}', 'invoiceDetail')->whereNumber('id');
         Route::post('/invoices/{id}/payments', 'addPayments')->whereNumber('id');
@@ -1013,6 +1023,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::post('company/delete/by_selection', "hrm\CompanyController@delete_by_selection");
     Route::post('company/{id}/clear-demo', "hrm\CompanyController@clearDemo");
 Route::post('company/{id}/live', "hrm\CompanyController@setLive")->whereNumber('id');
+// "Menú propio" (2026-11-23): left out of AdminSystem's Manage Menu saves.
+Route::post('company/{id}/menu-own', "hrm\CompanyController@setMenuOwn")->whereNumber('id');
     Route::get('company/{id}/rename', "hrm\CompanyController@renamePreview")->whereNumber('id');
     Route::post('company/{id}/rename', "hrm\CompanyController@rename")->whereNumber('id');
     Route::post('company/{id}/website', "hrm\CompanyController@website");
@@ -2136,6 +2148,11 @@ Route::get('product-groups', 'ProductsController@listProductGroups');
     Route::get('menu-positions', 'MenuPositionController@index');
     Route::post('menu-positions', 'MenuPositionController@store');
     Route::post('menu-positions/visibility', 'MenuPositionController@visibility');
+    // "Solo SuperAdmin" per menu item (2026-11-23): what restricting it would take away, and the switch itself.
+    Route::get('menu-positions/superadmin-impact', 'MenuPositionController@superAdminImpact');
+    Route::post('menu-positions/superadmin-only', 'MenuPositionController@superAdminOnly');
+    // Companies with their own menu, left out of AdminSystem's saves (2026-11-23).
+    Route::get('menu-positions/own-menu', 'MenuPositionController@ownMenu');
     Route::post('menu-positions/default', 'MenuPositionController@copyDefault');
     Route::delete('menu-positions', 'MenuPositionController@reset');
 

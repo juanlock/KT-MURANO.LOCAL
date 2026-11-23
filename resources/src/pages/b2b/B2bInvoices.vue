@@ -7,8 +7,9 @@
       <a-col :xs="24" :xl="11">
         <a-card size="small" class="side panel">
           <div class="side-head"><h3>Listado de Facturas</h3>
-            <a-button v-if="isPhone" type="primary" size="small" @click="newInvoice(); phoneOpen = true"><PlusOutlined /> Nueva</a-button></div>
-          <DataTable :crud="crud" :columns="columns" :row-click="r => openInvoice(r.id)" compact-toolbar table-key="b2b-invoices">
+            <!-- Above the table, blue, always (user, 2026-11-23). -->
+            <a-button type="primary" size="small" @click="newInvoice(); phoneOpen = true"><PlusOutlined /> Agregar Nuevo</a-button></div>
+          <DataTable :crud="crud" :columns="columns" :row-click="r => openInvoice(r.id)" :selected-key="mode === 'view' ? inv?.id ?? null : null" compact-toolbar table-key="b2b-invoices">
             <template #filters>
               <a-select v-model:value="filters.status" size="small" style="width: 140px" :options="statusOptions" @change="reload" />
               <a-select v-model:value="filters.client_id" size="small" allow-clear show-search option-filter-prop="label" style="width: 220px"
@@ -57,11 +58,29 @@
                 <a-col :span="10"><a-form-item label="Forma de Pago"><a-select v-model:value="form.payment_term_id" allow-clear :options="termOptions" /></a-form-item></a-col>
               </a-row>
               <a-row :gutter="8">
-                <a-col :span="16"><a-form-item label="Cliente"><a-select v-model:value="form.client_id" :disabled="mode === 'edit'" show-search option-filter-prop="label" :options="clientOptions" @change="onClient" /></a-form-item></a-col>
+                <a-col :span="16"><a-form-item label="Cliente"><a-select v-model:value="form.client_id" :disabled="mode === 'edit'" :allow-clear="mode === 'new'" show-search option-filter-prop="label" :options="clientOptions" @change="onClient" /></a-form-item></a-col>
                 <a-col :span="8"><a-form-item label="Orden de compra"><a-input v-model:value="form.purchase_order" /></a-form-item></a-col>
               </a-row>
-              <!-- The client's guides to invoice (2026-11-22): ticking one adds its products; products can be added too. -->
-              <div v-if="form.client_id" class="gl">
+              <!-- The guides to invoice, always in sight (user, 2026-11-23: "agregar nuevo debe permitirme escoger entre las guías
+                   que faltan registrar, así como el edit"). No client yet: every client's pending guides -- ticking one sets its
+                   client. With a client (and in Editar): that client's pending guides plus the ones already on the invoice.
+                   Ticking one adds its products; products can be added too. -->
+              <div v-if="!form.client_id" class="gl">
+                <div class="gl-h">Guías por facturar <span class="muted">({{ pendingGuides.length }}) · marque una para facturarla</span></div>
+                <div v-if="!pendingGuides.length" class="muted small">No hay guías despachadas por facturar.</div>
+                <div class="gl-list">
+                  <label v-for="g in pendingGuides" :key="g.id" class="gl-row">
+                    <a-checkbox :checked="false" @change="e => e.target.checked && fromGuide(g.id)" />
+                    <span class="mono">{{ gref(g.series, g.number) }}</span>
+                    <span class="muted">{{ date(g.issue_date) }}</span>
+                    <span class="gl-client">{{ g.client_name }}</span>
+                    <span v-if="g.purchase_order" class="muted">OC {{ g.purchase_order }}</span>
+                    <span class="grow" />
+                    <span class="muted">{{ g.items.length }} prod.</span>
+                  </label>
+                </div>
+              </div>
+              <div v-else class="gl">
                 <div class="gl-h">Guías del cliente por facturar <span class="muted">({{ cGuides.length }})</span></div>
                 <div v-if="!cGuides.length" class="muted small">No tiene guías despachadas por facturar.</div>
                 <div class="gl-list">
@@ -85,7 +104,7 @@
                       <a-select v-model:value="it.product_id" size="small" show-search option-filter-prop="label" :options="productOptions" :disabled="!!it.guide_id" style="width: 100%" @change="onProduct(it)" />
                       <div v-if="it.guide_id" class="from-g">de la guía {{ guideRef(it.guide_id) }}</div>
                     </td>
-                    <td class="n"><a-input-number v-model:value="it.price" size="small" :min="0" :precision="4" style="width: 100%" /></td>
+                    <td class="n"><a-input-number v-model:value="it.price" size="small" :min="0" :precision="2" style="width: 100%" /></td>
                     <td class="n"><a-input-number v-model:value="it.quantity" size="small" :min="0" :disabled="!!it.guide_id" style="width: 100%" /></td>
                     <td><a-select v-model:value="it.unit_id" size="small" style="width: 100%" :options="unitOptions" /></td>
                     <td class="n">{{ money((it.price || 0) * (it.quantity || 0)) }}</td>
@@ -106,8 +125,14 @@
           <template v-else-if="inv">
             <!-- Buttons where Hordex had "ANULAR FACTURA", plus Imprimir and PDF (client's request, 2026-11-20). -->
             <div class="doc-actions">
-              <a-popconfirm v-if="inv.state !== 'ANULADA' && inv.state !== 'CANCELADA'" :title="`¿Anular la factura ${inv.Ref}? Sus guías quedarán libres para facturar.`"
-                ok-text="Anular" cancel-text="No" @confirm="cancelInvoice">
+              <!-- Change the state by hand (2026-11-23): Pendiente / Vencida -> Cancelada (the balance as one collection) or Anulada. -->
+              <a-button v-if="inv.state === 'PENDIENTE' || inv.state === 'VENCIDA'" size="small" type="primary" ghost @click="openSettle">
+                <CheckOutlined /> MARCAR CANCELADA
+              </a-button>
+              <a-popconfirm v-if="inv.state !== 'ANULADA'" :title="inv.paid_amount > 0
+                  ? `¿Anular la factura ${inv.Ref}? Tiene cobros por ${money(inv.paid_amount)}: se quitarán. Sus guías quedarán libres para facturar.`
+                  : `¿Anular la factura ${inv.Ref}? Sus guías quedarán libres para facturar.`"
+                ok-text="Anular" cancel-text="No" :ok-button-props="{ danger: true }" @confirm="cancelInvoice">
                 <a-button size="small" danger>ANULAR FACTURA</a-button>
               </a-popconfirm>
               <a-popconfirm v-if="inv.state === 'ANULADA'" :title="`¿Revertir la anulación de ${inv.Ref}? La factura vuelve a estar vigente con sus guías.`"
@@ -166,6 +191,21 @@
         </a-card>
       </DetailPanel>
     </a-row>
+
+    <!-- "Marcar cancelada" (2026-11-23): the balance as one collection line. -->
+    <a-modal v-model:open="settle.open" :title="`Marcar cancelada ${inv?.Ref || ''}`" ok-text="Marcar cancelada" cancel-text="Cancelar"
+      :confirm-loading="settle.saving" @ok="saveSettle">
+      <p>Se registra el saldo de <b>{{ money((inv?.GrandTotal || 0) - (inv?.paid_amount || 0)) }}</b> como cobro y la factura queda <b>CANCELADA</b>.
+        Las detracciones y deducciones se registran línea por línea en Cobranzas.</p>
+      <a-form layout="vertical" class="tight">
+        <a-row :gutter="8">
+          <a-col :span="12"><a-form-item label="Fecha de pago"><a-date-picker v-model:value="settle.date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="12"><a-form-item label="Concepto"><a-select v-model:value="settle.kind" :options="settleKinds" /></a-form-item></a-col>
+        </a-row>
+        <a-form-item label="Documento (operación / voucher)"><a-input v-model:value="settle.document" /></a-form-item>
+        <a-form-item label="Nota"><a-input v-model:value="settle.notes" /></a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -183,6 +223,11 @@ import http from '../../lib/http';
 import { useBarTitle } from '../../composables/useBarTitle';
 import DetailPanel from '../../components/DetailPanel.vue';
 import { useIsPhone } from '../../lib/useIsPhone';
+import { askPriceUpdate } from './priceUpdate';
+import { useRoute, useRouter } from 'vue-router';
+
+const route = useRoute();
+const router = useRouter();
 
 const { date, number, money } = useFormat();
 const gref = (s, n) => `${s}-${String(n || 0).padStart(6, '0')}`;
@@ -228,20 +273,49 @@ const editRef = ref('');
 async function loadGuides() {
   cGuides.value = form.client_id ? ((await http.get('b2b/invoices/guides', { client_id: form.client_id, sale_id: editId.value || undefined })).guides || []) : [];
 }
-function onClient() { form.guide_ids = []; form.items = form.items.filter(i => !i.guide_id); loadGuides(); }
+function onClient() { form.guide_ids = []; form.items = form.items.filter(i => !i.guide_id); return loadGuides(); }
+// Every guide still to invoice, any client (the list shown while no client is chosen, 2026-11-23).
+const pendingGuides = ref([]);
+async function loadPendingGuides() {
+  try { pendingGuides.value = (await http.get('b2b/invoices/guides', {})).guides || []; } catch (e) { pendingGuides.value = []; }
+}
+async function fromGuide(id) {
+  const g = pendingGuides.value.find(x => x.id === id);
+  if (!g) return;
+  if (mode.value !== 'new') newInvoice();
+  if (form.client_id !== g.client_id) {
+    form.client_id = g.client_id;
+    form.items = [];
+    await onClient();
+  }
+  const cg = cGuides.value.find(x => x.id === g.id);
+  if (cg && !form.guide_ids.includes(cg.id)) toggleGuide(cg, true);
+  form.items = form.items.filter(i => i.product_id || i.guide_id);
+  if (!form.items.length) form.items.push(blankLine());
+}
 const guideRef = id => { const g = cGuides.value.find(x => x.id === id); return g ? gref(g.series, g.number) : ''; };
 function toggleGuide(g, on) {
   form.items = form.items.filter(i => i.guide_id !== g.id && (i.product_id || i.guide_id));
   if (on) {
     if (!form.guide_ids.includes(g.id)) form.guide_ids.push(g.id);
     g.items.forEach(it => form.items.push({ product_id: it.product_id, quantity: Number(it.quantity), price: Number(it.price) || 0, unit_id: it.unit_sale_id, guide_id: g.id }));
-    if (!form.purchase_order && g.purchase_order) form.purchase_order = g.purchase_order;
   } else {
     form.guide_ids = form.guide_ids.filter(x => x !== g.id);
   }
+  syncOrder();
   if (!form.items.length) form.items.push(blankLine());
 }
-function clearInvoice() { form.items = [blankLine()]; form.guide_ids = []; }
+// The purchase order = the OCs of the guides ticked (2026-11-23: E001-000595 kept the OC of a guide cleared before, while its
+// guide EG07-000377 has another). A typed OC stays while no guide carries one.
+let autoOrder = '';
+function syncOrder() {
+  const ocs = [...new Set(cGuides.value.filter(x => form.guide_ids.includes(x.id)).map(x => String(x.purchase_order || '').trim()).filter(Boolean))];
+  const next = ocs.join(' / ');
+  if (next) form.purchase_order = next;
+  else if (form.purchase_order === autoOrder) form.purchase_order = '';
+  autoOrder = next;
+}
+function clearInvoice() { form.items = [blankLine()]; form.guide_ids = []; form.purchase_order = ''; autoOrder = ''; }
 // Editar: the invoice's data in the form; its lines as they are (Limpiar empties them to rebuild it from a guide).
 function editInvoice() {
   const x = inv.value;
@@ -257,7 +331,7 @@ function editInvoice() {
 }
 const net = computed(() => form.items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0));
 const igv = computed(() => Math.round(net.value * igvRate.value) / 100);
-function newInvoice() { Object.assign(form, blank()); editId.value = null; cGuides.value = []; mode.value = 'new'; }
+function newInvoice() { Object.assign(form, blank()); editId.value = null; cGuides.value = []; autoOrder = ''; mode.value = 'new'; }
 function addLine() { if (mode.value !== 'new' && mode.value !== 'edit') newInvoice(); else form.items.push(blankLine()); }
 function onProduct(it) {
   const p = (opts.value.products || []).find(x => x.id === it.product_id);
@@ -271,8 +345,11 @@ async function saveInvoice() {
     const body = { ...form, items: items.map(({ guide_id, ...l }) => l) };
     const r = mode.value === 'edit' ? await http.put(`b2b/invoices/${editId.value}`, body) : await http.post('b2b/invoices', body);
     message.success(mode.value === 'edit' ? `Factura ${r.ref} actualizada` : `Factura ${r.ref} registrada`);
+    // A price typed different from the product's: offer to keep it for the next invoices (2026-11-23).
+    await askPriceUpdate(items, opts.value.products);
     opts.value = await http.get('b2b/options');
     await crud.fetchRows();
+    loadPendingGuides();
     openInvoice(r.sale_id);
   } catch (e) {
     message.error(e?.data?.message || 'No se pudo guardar la factura');
@@ -280,13 +357,29 @@ async function saveInvoice() {
 }
 
 const inv = ref(null);
-async function openInvoice(id) { inv.value = await http.get(`b2b/invoices/${id}`); mode.value = 'view'; phoneOpen.value = true; }
+async function openInvoice(id, show = true) { inv.value = await http.get(`b2b/invoices/${id}`); mode.value = 'view'; if (show) phoneOpen.value = true; }
+// "Marcar cancelada" (2026-11-23).
+const settleKinds = [{ value: 'deposit', label: 'Depósito bancario' }, { value: 'detraction', label: 'Detracción' }, { value: 'deduction', label: 'Deducción comercial' }];
+const settle = reactive({ open: false, saving: false, date: null, kind: 'deposit', document: '', notes: '' });
+function openSettle() { Object.assign(settle, { open: true, saving: false, date: dayjs().format('YYYY-MM-DD'), kind: 'deposit', document: '', notes: '' }); }
+async function saveSettle() {
+  if (!settle.date) { message.warning('Indique la fecha de pago'); return; }
+  settle.saving = true;
+  try {
+    const r = await http.post(`b2b/invoices/${inv.value.id}/settle`, { date: settle.date, kind: settle.kind, document: settle.document || null, notes: settle.notes || null });
+    message.success(`La Factura ${inv.value.Ref} quedó CANCELADA (${money(r.amount)}).`);
+    settle.open = false;
+    await openInvoice(inv.value.id);
+    crud.fetchRows();
+  } catch (e) { message.error(e?.data?.message || 'No se pudo marcar como cancelada.'); } finally { settle.saving = false; }
+}
 async function cancelInvoice() {
   try {
-    await http.post(`b2b/invoices/${inv.value.id}/cancel`);
+    await http.post(`b2b/invoices/${inv.value.id}/cancel`, inv.value.paid_amount > 0 ? { remove_payments: 1 } : {});
     message.warning(`La Factura ${inv.value.Ref} ha sido anulada.`);
     await openInvoice(inv.value.id);
     crud.fetchRows();
+    loadPendingGuides();
   } catch (e) { message.error(e?.data?.message || 'No se pudo anular la factura.'); }
 }
 async function revertCancel() {
@@ -315,7 +408,17 @@ async function printInvoice() {
 }
 function pdfInvoice() { http.download(`b2b/invoices/${inv.value.id}/pdf`, `${inv.value.Ref}.pdf`); }
 
-onMounted(async () => { opts.value = await http.get('b2b/options'); newInvoice(); crud.fetchRows(); });
+onMounted(async () => {
+  opts.value = await http.get('b2b/options');
+  newInvoice();
+  await crud.fetchRows();
+  await loadPendingGuides();
+  // FACTURAR from Guías (2026-11-23): /b2b/invoices?guide=ID opens the new invoice with that guide.
+  const gid = Number(route.query.guide);
+  if (gid) { await fromGuide(gid); phoneOpen.value = true; router.replace({ query: {} }); }
+  // Otherwise the latest invoice is shown with its buttons (user, 2026-11-23); on a phone it stays closed until a row is tapped.
+  else if (crud.rows.value?.length) await openInvoice(crud.rows.value[0].id, false);
+});
 
 useBarTitle('Facturas');
 </script>
@@ -332,6 +435,7 @@ useBarTitle('Facturas');
 .gl-row:hover { background: rgba(128, 128, 128, 0.07); }
 .gl-row.on { background: rgba(37, 99, 235, 0.08); }
 .gl-row .grow { flex: 1; }
+.gl-client { font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .from-g { font-size: 10.5px; color: #2563eb; }
 .small { font-size: 12px; }
 .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }

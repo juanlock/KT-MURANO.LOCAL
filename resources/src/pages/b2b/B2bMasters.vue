@@ -9,9 +9,10 @@
         <a-card size="small" class="panel">
           <div class="side-head">
             <h3>Listado de {{ cfg.title }}</h3>
-            <a-button v-if="type === 'products'" type="primary" size="small" @click="openNew"><PlusOutlined /> Nuevo</a-button>
+            <!-- Above the table, blue, in the three lists (user, 2026-11-23). -->
+            <a-button type="primary" size="small" @click="openNew"><PlusOutlined /> Agregar Nuevo</a-button>
           </div>
-          <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r)" compact-toolbar :table-key="`b2b-${type}`">
+          <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r)" :selected-key="sel?.id ?? null" compact-toolbar :table-key="`b2b-${type}`">
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'n'">{{ String((crud.page.value - 1) * crud.limit.value + index + 1).padStart(3, '0') }}</template>
               <template v-else-if="column.key === 'stock'"><span class="num" :class="{ neg: Number(record.stock) < 0 }">{{ qty(record.stock) }}</span></template>
@@ -237,6 +238,9 @@ import { PlusOutlined, SaveOutlined, DeleteOutlined, SearchOutlined, ArrowUpOutl
 import { useFormat } from '../../composables/useFormat';
 import { useUiStore } from '../../stores/ui';
 import DetailPanel from '../../components/DetailPanel.vue';
+import { useIsPhone } from '../../lib/useIsPhone';
+
+const isPhone = useIsPhone();
 import { useBarTitle } from '../../composables/useBarTitle';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -282,7 +286,8 @@ const join3 = a => a.map(s => String(s || '').trim()).filter(Boolean).join(' / '
 const terms = ref([]);
 const termOptions = computed(() => sortByLabel(terms.value.map(t => ({ value: t.id, label: t.name }))));
 function pick(r) {
-  sel.value = { ...r, retention_agent: !!Number(r.retention_agent) };
+  // Prices with 2 decimals (user, 2026-11-23: "en todas las tablas reduce los decimales a 2 dígitos").
+  sel.value = { ...r, retention_agent: !!Number(r.retention_agent), ...(r.price !== undefined && r.price !== null ? { price: Number(r.price).toFixed(2) } : {}) };
   phones.value = split3(r.phone);
   contacts.value = split3(r.contact_name);
 }
@@ -369,6 +374,14 @@ async function removeAddress(a) {
 const ui = useUiStore();
 useBarTitle(() => cfg.value.title);
 function openNew() {
+  if (props.type !== 'products') {
+    // A new client / supplier on the card (2026-11-23); the quick "Nuevo ..." line under the list stays too.
+    sel.value = { name: '', tax_number: '', email: '', adresse: '', city: '', notes: '', retention_agent: false };
+    phones.value = ['', '', ''];
+    contacts.value = ['', '', ''];
+    cardFound.value = null;
+    return;
+  }
   sel.value = { code: '', name: '', unit_id: units.value.find(u => /^und$/i.test(u.ShortName || ''))?.id, price: 0, type: 'is_single', note: '',
     category_id: categories.value.find(c => c.code === 'FIN')?.id, pack_size: null };
   recipe.value = [];
@@ -456,7 +469,11 @@ async function load() {
   }
   if (props.type === 'clients') terms.value = crud.payload.value?.terms || terms.value;
 }
-onMounted(load);
+onMounted(async () => {
+  await load();
+  // The first record of the list shown on the right (user, 2026-11-23); on a phone the card opens when a row is tapped.
+  if (!isPhone.value && !sel.value && crud.rows.value?.length) pick(crud.rows.value[0]);
+});
 </script>
 
 <style scoped>

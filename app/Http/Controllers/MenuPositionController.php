@@ -162,16 +162,17 @@ class MenuPositionController extends Controller
                 // Company has no SoftDeletes trait/global scope (deleted_at is
                 // filtered manually elsewhere), so this already includes
                 // soft-deleted rows like 999 with no withTrashed() needed.
-                $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
-                foreach ($otherCompanyIds as $otherId) {
+                // Companies with their own menu ("Menú propio", on for those in production) are left out (2026-11-23).
+                foreach (self::sharedMenuCompanyIds($companyId) as $otherId) {
                     $this->writeCompanyPositions($otherId, $positions);
                 }
             }
         });
 
         return response()->json([
-            'message' => $toAllCompanies ? 'Menu layout saved for every company.' : 'Menu layout saved for this company.',
+            'message' => $toAllCompanies ? 'Menu layout saved for every company without its own menu.' : 'Menu layout saved for this company.',
             'scope' => $toAllCompanies ? 'all' : 'company',
+            'skipped' => $toAllCompanies ? self::ownMenuCompanies()->pluck('name') : [],
         ]);
     }
 
@@ -194,9 +195,107 @@ class MenuPositionController extends Controller
             'hidden' => 'required|boolean',
         ]);
 
-        $updated = MenuPosition::where('item_key', $data['key'])->update(['hidden' => (bool) $data['hidden'], 'updated_at' => now()]);
+        // Not in the companies with their own menu (2026-11-23).
+        $updated = MenuPosition::where('item_key', $data['key'])->whereNotIn('company_id', self::ownMenuCompanies()->pluck('id'))
+            ->update(['hidden' => (bool) $data['hidden'], 'updated_at' => now()]);
 
         return response()->json(['success' => true, 'companies' => $updated]);
+    }
+
+    /**
+     * GET menu-positions/superadmin-impact?modules[]=&permissions[]= (user, 2026-11-23): before a menu item becomes
+     * "SuperAdmin only", what it would take away -- every company (AdminSystem excluded) where the item's module is on,
+     * and how many of its active logins (never the SuperAdmin) have a role with one of the item's permissions.
+     * superadmin/AdminSystem only.
+     */
+    public function superAdminImpact(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($this->appliesToAllCompanies($user, $this->resolveActingCompanyId($request)), 403);
+        // Comma-separated lists (lib/http.js sends query values as strings).
+        $list = fn ($v) => array_values(array_filter(array_map('trim', explode(',', (string) $v)), fn ($x) => $x !== ''));
+        $modules = $list($request->input('modules', ''));
+        $perms = $list($request->input('permissions', ''));
+
+        $tpl = \App\Models\Setting::TEMPLATE_COMPANY_ID;
+        $companies = DB::table('companies')->whereNull('deleted_at')->where('id', '!=', $tpl)->orderBy('name')->get(['id', 'name', 'is_live']);
+        // Logins whose role carries one of the permissions, per company.
+        $users = $perms ? DB::table('users')
+            ->join('permission_role', 'permission_role.role_id', '=', 'users.role_id')
+            ->join('permissions', 'permissions.id', '=', 'permission_role.permission_id')
+            ->whereIn('permissions.name', $perms)->whereNull('users.deleted_at')->where('users.statut', 1)
+            ->where('users.type', '!=', 'SuperAdmin')
+            ->groupBy('users.company_id')->selectRaw('users.company_id, count(distinct users.id) n')->pluck('n', 'company_id') : collect();
+
+        $rows = [];
+        foreach ($companies as $c) {
+            $on = array_values(array_filter($modules, fn ($m) => \App\Support\ModuleFlags::enabled((int) $c->id, $m)));
+            $n = (int) ($users[$c->id] ?? 0);
+            // In use = its module is on there (an item without a switchable module: someone there can open it).
+            if (($modules && $on) || (! $modules && $n)) {
+                $rows[] = ['id' => (int) $c->id, 'name' => $c->name, 'live' => (bool) $c->is_live, 'modules' => $on, 'users' => $n];
+            }
+        }
+
+        return response()->json(['companies' => $rows]);
+    }
+
+    /**
+     * POST menu-positions/superadmin-only {key, on} (user, 2026-11-23): a menu item (or a whole group) seen only by the
+     * SuperAdmin, in every company. The keys live in AdminSystem's settings (`settings.superadmin_only_menu`, JSON list)
+     * and reach every user with get_user_auth (UserController); the menu and the router hide / refuse them. Needs the
+     * apply_to_all confirmation like any AdminSystem change.
+     */
+    public function superAdminOnly(Request $request)
+    {
+        $user = $request->user('api');
+        abort_unless($this->appliesToAllCompanies($user, $this->resolveActingCompanyId($request)), 403, 'Only a SuperAdmin working as AdminSystem can restrict a menu item.');
+        $this->requireAllConfirmed($request, true);
+        $data = $request->validate(['key' => 'required|string|max:191', 'on' => 'required|boolean']);
+
+        $tpl = \App\Models\Setting::TEMPLATE_COMPANY_ID;
+        $keys = self::superAdminOnlyKeys();
+        $keys = $data['on'] ? array_values(array_unique([...$keys, $data['key']])) : array_values(array_diff($keys, [$data['key']]));
+        DB::table('settings')->where('company_id', $tpl)->whereNull('deleted_at')
+            ->update(['superadmin_only_menu' => json_encode($keys), 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'keys' => $keys]);
+    }
+
+    /**
+     * GET menu-positions/own-menu (2026-11-23): the companies AdminSystem's Save / Reset leave alone ("Menú propio"),
+     * and how many it reaches -- for the confirmation. superadmin/AdminSystem only.
+     */
+    public function ownMenu(Request $request)
+    {
+        $companyId = $this->resolveActingCompanyId($request);
+        abort_unless($this->appliesToAllCompanies($request->user('api'), $companyId), 403);
+
+        return response()->json([
+            'own' => self::ownMenuCompanies()->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'live' => (bool) $c->is_live])->values(),
+            'shared' => Company::whereIn('id', self::sharedMenuCompanyIds($companyId))->whereNull('deleted_at')->count(),
+        ]);
+    }
+
+    /** Companies whose menu is their own (companies.menu_own): AdminSystem's saves never touch them. */
+    public static function ownMenuCompanies()
+    {
+        return DB::table('companies')->where('menu_own', 1)->whereNull('deleted_at')->orderBy('name')->get(['id', 'name', 'is_live']);
+    }
+
+    /** Every company AdminSystem's menu save reaches: all but itself and the ones with their own menu. */
+    private static function sharedMenuCompanyIds(int $companyId)
+    {
+        return Company::where('id', '!=', $companyId)->where(fn ($q) => $q->where('menu_own', 0)->orWhereNull('menu_own'))->pluck('id');
+    }
+
+    /** The menu keys only the SuperAdmin sees (install-wide, AdminSystem's settings). */
+    public static function superAdminOnlyKeys(): array
+    {
+        $raw = DB::table('settings')->where('company_id', \App\Models\Setting::TEMPLATE_COMPANY_ID)->whereNull('deleted_at')->value('superadmin_only_menu');
+        $keys = is_string($raw) ? json_decode($raw, true) : null;
+
+        return is_array($keys) ? array_values(array_filter($keys, 'is_string')) : [];
     }
 
     /**
@@ -308,8 +407,7 @@ class MenuPositionController extends Controller
         DB::transaction(function () use ($companyId, $toAllCompanies) {
             MenuPosition::where('company_id', $companyId)->delete();
             if ($toAllCompanies) {
-                $otherCompanyIds = Company::where('id', '!=', $companyId)->pluck('id');
-                foreach ($otherCompanyIds as $otherId) {
+                foreach (self::sharedMenuCompanyIds($companyId) as $otherId) {
                     MenuPosition::where('company_id', $otherId)->delete();
                 }
             }

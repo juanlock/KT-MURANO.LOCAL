@@ -44,6 +44,8 @@ import {
     // user's choice, 2026-11-21) -- chalkboard, briefcase, box, cart, file-invoice-dollar, file-invoice, boxes-stacked,
     // hand-holding-dollar, file-excel.
     Presentation, Briefcase, Boxes, HandCoins, FileSpreadsheet,
+    // Facturas de Proveedores: its own icon (2026-11-23, user: "cámbiale el ícono a otro" -- it shared Facturas' ReceiptText).
+    FileInput,
 } from 'lucide-vue-next';
 
 export const MENU_ITEM_ICONS = {
@@ -227,6 +229,7 @@ export const MENU_ITEM_ICONS = {
     "/app/settings/Backup": DatabaseBackup,
     "/app/settings/system_health": MonitorUp,
     "/app/settings/kt_log": ScrollText,
+    "/app/settings/company_status": Building,
     "/app/settings/webhooks": Cloud,
     "/app/settings/login_devices": Lock,
     "/app/settings/network_security": Lock,
@@ -408,7 +411,7 @@ export const MENU_ITEM_ICONS = {
     "/app/b2b/products": Package,
     "/app/b2b/receipts": ShoppingCart,
     "/app/b2b/invoices": ReceiptText,
-    "/app/b2b/purchases": ReceiptText,
+    "/app/b2b/purchases": FileInput,
     "/app/b2b/guides": FileText,
     "/app/b2b/kardex": Boxes,
     "/app/b2b/collections": HandCoins,

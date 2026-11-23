@@ -49,6 +49,7 @@ export const MIGRATED_ROUTES = {
     '/app/settings/audit_log': '/settings/audit-log',
     '/app/settings/company_manuals': '/settings/company-manuals',
     '/app/settings/roles_matrix': '/settings/roles-matrix',
+    '/app/settings/company_status': '/settings/company-status',
     '/app/settings/sms_templates': '/settings/sms-templates',
     '/app/settings/email_templates': '/settings/email-templates',
     '/app/settings/Backup': '/settings/backup',
@@ -1174,21 +1175,7 @@ export const MENU = [
             // (user's rule: the empty group removed for every company); keys kept.
             { label: 'Users', to: '/app/User_Management/Users', permissions: ['users_view'] },
             { label: 'GroupPermissions', to: '/app/User_Management/permissions', permissions: ['permissions_view'] },
-            // superAdminOnly: install-level admin tooling that must never be
-            // delegable to a company-level Admin's role even if their role
-            // has the permission below -- see isMenuEntryAllowed() and the
-            // matching abort_unless(...type === 'SuperAdmin') server-side.
-            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true, systemOnly: true },
             { label: 'Warehouses', to: '/app/settings/Warehouses', permissions: ['warehouse'] },
-            { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
-            { key: 'zatca', label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
-            // systemOnly: only shows while "AdminSystem" (company_id=999) is
-            // the acting company in the topbar switcher -- this is install-wide
-            // state, not anything scoped to whichever real company happens to
-            // be selected. permissions is kept too (defense in depth); the
-            // page itself and the API hard-restrict actual access to
-            // SuperAdmin only regardless -- see LoginPageSettings.vue.
-            { label: 'Login_Page_Settings', to: '/app/settings/login_page', permissions: ['appearance_settings'], systemOnly: true },
             { label: 'Languages', to: '/app/settings/translations_settings', permissions: ['translations_settings'] },
             { label: 'Payment_Methods', to: '/app/settings/payment_methods', permissions: ['payment_methods'] },
             { label: 'sms_settings', to: '/app/settings/sms_settings', permissions: ['sms_settings'] },
@@ -1197,17 +1184,6 @@ export const MENU = [
             { label: 'email_templates', to: '/app/settings/email_templates', permissions: ['notification_template'] },
             { label: 'Pos_Settings', to: '/app/settings/pos_settings', permissions: ['pos_settings'] },
             { label: 'Payment_Gateway', to: '/app/settings/payment_gateway', permissions: ['payment_gateway'] },
-            { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'], systemOnly: true },
-            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true, systemOnly: true },
-            { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
-            // KT-Log (2026-10-26): the kt_logs work history -- superadmin/AdminSystem only.
-            { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
-            // Change history (2026-11-12): who changed what -- the SuperAdmin only, any company picked.
-            { label: 'Audit_Log', to: '/app/settings/audit_log', permissions: ['audit_log_view'], superAdminOnly: true },
-            // Company manuals (2026-11-01): flyer + text manual per company / business type.
-            { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
-            { label: 'Roles_Matrix', to: '/app/settings/roles_matrix', permissions: ['roles_matrix_view'], superAdminOnly: true, systemOnly: true },
-            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
             // Company-level (not superAdminOnly): a role with network_security manages its own company.
             { label: 'Network_Security', to: '/app/settings/network_security', permissions: ['network_security'] },
             // Login security (2026-10-27): two-step verification, sign-in alerts, locked logins -- per company.
@@ -1218,6 +1194,34 @@ export const MENU = [
             // (System Settings → Defaults → Customers → Loyalty Eligible);
             // honored by the menu store alongside the module filter.
             { label: 'Loyalty_Rewards', to: '/app/loyalty/rewards', permissions: ['loyalty_rewards'], requiresSetting: 'customerLoyaltyEnabled' },
+        ],
+    },
+    // SuperAdmin (user's rule, 2026-11-23): every screen only the SuperAdmin can open, in one group of its own (they
+    // were spread inside Settings). The group itself is superAdminOnly; each item keeps its own gates:
+    // superAdminOnly = install-level tooling never delegable to a company Admin's role (server: abort_unless type
+    // SuperAdmin); systemOnly = only while AdminSystem (999) is the acting company (install-wide state). Placed in every
+    // company's saved menu by migration 2026_11_23_100000. A new SuperAdmin-only screen goes here.
+    {
+        key: 'superadmin',
+        icon: 'shield-check',
+        label: 'SuperAdmin',
+        raw: true,
+        superAdminOnly: true,
+        permissions: [],
+        children: [
+            { label: 'Modules', to: '/app/settings/business_modules', permissions: ['business_modules', 'setting_system'], superAdminOnly: true },
+            { label: 'Audit_Log', to: '/app/settings/audit_log', permissions: ['audit_log_view'], superAdminOnly: true },
+            { key: 'zatca', label: 'Zatca_E_Invoicing', to: '/app/settings/zatca_settings', permissions: ['zatca_settings'], superAdminOnly: true },
+            { label: 'Company_Status', to: '/app/settings/company_status', permissions: ['company_status_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'KT_Log', to: '/app/settings/kt_log', permissions: ['kt_logs_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'Roles_Matrix', to: '/app/settings/roles_matrix', permissions: ['roles_matrix_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'Company_Manuals', to: '/app/settings/company_manuals', permissions: ['company_manuals_view'], superAdminOnly: true, systemOnly: true },
+            { label: 'Login_Page_Settings', to: '/app/settings/login_page', permissions: ['appearance_settings'], systemOnly: true },
+            { label: 'Login_Device_Management', to: '/app/settings/login_devices', permissions: ['login_device_management'], superAdminOnly: true, systemOnly: true },
+            { label: 'Currencies', to: '/app/settings/Currencies', permissions: ['currency'], systemOnly: true },
+            { label: 'Backup', to: '/app/settings/Backup', permissions: ['backup'], superAdminOnly: true, systemOnly: true },
+            { label: 'System_Health', to: '/app/settings/system_health', permissions: ['system_health_view'], systemOnly: true },
+            { label: 'update_settings', to: '/app/settings/update_settings', permissions: ['update_settings'], superAdminOnly: true, systemOnly: true },
         ],
     },
     {

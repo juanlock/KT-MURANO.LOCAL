@@ -243,6 +243,8 @@ class UserController extends BaseController
             'module_flags' => ($settings && $settings->module_flags)
                 ? json_decode($settings->module_flags, true)
                 : null,
+            // Menu items only the SuperAdmin sees (Manage Menu as AdminSystem, 2026-11-23): hidden / refused for the rest.
+            'superadmin_only_menu' => MenuPositionController::superAdminOnlyKeys(),
             // Defaults -> Products: the company's names for "Group Name" / "Name"
             // (null = standard), applied to every form's labels by the SPA's i18n.
             'product_labels' => [

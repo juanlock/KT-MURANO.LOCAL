@@ -326,7 +326,16 @@ class CompanyController extends Controller
         }
         // "In production" (2026-10-26): the dev -> production push never sends its data. AdminSystem only.
         if ($this->isSystemContext($request) && $request->has('is_live')) {
+            $wasLive = (bool) DB::table('companies')->where('id', (int) $id)->value('is_live');
             DB::table('companies')->where('id', (int) $id)->update(['is_live' => $request->boolean('is_live'), 'updated_at' => now()]);
+            // Going into production = its menu becomes its own (2026-11-23), unless the form says otherwise below.
+            if (! $wasLive && $request->boolean('is_live') && ! $request->has('menu_own')) {
+                DB::table('companies')->where('id', (int) $id)->update(['menu_own' => 1]);
+            }
+        }
+        // "Menú propio" (2026-11-23): left out of AdminSystem's menu saves. AdminSystem only.
+        if ($this->isSystemContext($request) && $request->has('menu_own')) {
+            DB::table('companies')->where('id', (int) $id)->update(['menu_own' => $request->boolean('menu_own'), 'updated_at' => now()]);
         }
 
         return response()->json(['success' => true, 'missing' => CompanyProfile::missing((int) $id)]);
@@ -475,9 +484,29 @@ class CompanyController extends Controller
         abort_unless($this->isSuperAdmin($request) && $this->isSystemContext($request), 403,
             __('Only the SuperAdmin with AdminSystem picked can change this.'));
         abort_unless(DB::table('companies')->where('id', (int) $id)->exists(), 404);
+        $wasLive = (bool) DB::table('companies')->where('id', (int) $id)->value('is_live');
         DB::table('companies')->where('id', (int) $id)->update(['is_live' => $request->boolean('is_live'), 'updated_at' => now()]);
+        // A company that goes into production keeps its own menu from then on (2026-11-23).
+        if (! $wasLive && $request->boolean('is_live')) {
+            DB::table('companies')->where('id', (int) $id)->update(['menu_own' => 1]);
+        }
 
-        return response()->json(['success' => true, 'is_live' => $request->boolean('is_live')]);
+        return response()->json(['success' => true, 'is_live' => $request->boolean('is_live'),
+            'menu_own' => (bool) DB::table('companies')->where('id', (int) $id)->value('menu_own')]);
+    }
+
+    /**
+     * POST company/{id}/menu-own {menu_own} -- "Menú propio" from the Companies list (user, 2026-11-23): on = the menu
+     * order superadmin/AdminSystem saves in Manage Menu never replaces this company's own. superadmin/AdminSystem only.
+     */
+    public function setMenuOwn(Request $request, $id)
+    {
+        abort_unless($this->isSuperAdmin($request) && $this->isSystemContext($request), 403,
+            __('Only the SuperAdmin with AdminSystem picked can change this.'));
+        abort_unless(DB::table('companies')->where('id', (int) $id)->exists(), 404);
+        DB::table('companies')->where('id', (int) $id)->update(['menu_own' => $request->boolean('menu_own'), 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'menu_own' => $request->boolean('menu_own')]);
     }
 
     public function clearDemo(Request $request, $id)

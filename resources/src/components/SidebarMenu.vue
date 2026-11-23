@@ -579,53 +579,10 @@ watch(openKeys, (nv, ov) => {
   text-align: center;
 }
 
-/* systemOnly entries (e.g. Login Page Settings) -- install-wide, not scoped
-   to whichever company is currently acting, so they get their own distinct
-   color + a "Global" tag rather than blending in with every other
-   (company-scoped) item. Applied via a plain attribute selector on the raw
-   key Ant reflects as data-menu-id (leafItem() appends a `|system` suffix
-   to the key for exactly this purpose) -- NOT via label content: a-menu's
-   items-array API only accepts a string or VNode for `label`; a function
-   (tried first) gets stringified into literal text instead of invoked as a
-   render callback (see the "Labels are PLAIN STRINGS on purpose" comment
-   above labelNode() -- this is what it's warning about). Explicit colors
-   here win over the ancestor's --sb-text !important rule despite not using
-   !important themselves -- inheritance always loses to any rule that
-   targets the element directly. */
-.sidebar-menu :deep([data-menu-id$="|system"]),
-.sidebar-menu :deep([data-menu-id$="|sa"]) {
-  position: relative;
-  /* light yellow row (user, 2026-11-15: "amarillo claro, no naranja"): the dark gold text read as orange */
-  background: #fef9c3 !important;
-}
-/* Yellow for every global (superadmin/AdminSystem) item -- 2026-10-21: the
-   older dark amber read as red. */
-.sidebar-menu :deep([data-menu-id$="|system"] .ant-menu-title-content),
-.sidebar-menu :deep([data-menu-id$="|sa"] .ant-menu-title-content) {
-  color: #713f12;
-  font-weight: 600;
-}
-.sidebar-menu :deep([data-menu-id$="|system"])::after,
-.sidebar-menu :deep([data-menu-id$="|sa"])::after {
-  content: 'Global';
-  position: absolute;
-  top: 50%;
-  inset-inline-end: 12px;
-  transform: translateY(-50%);
-  padding: 0 6px;
-  border-radius: 4px;
-  background: #fde047;
-  color: #713f12;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  line-height: 16px;
-  pointer-events: none;
-}
-.sidebar-menu :deep([data-menu-id$="|sa"])::after {
-  content: 'SuperAdmin';
-}
+/* The SuperAdmin-only entries (|system / |sa key suffix) used to be marked with a yellow row, dark text and a
+   "Global" / "SuperAdmin" tag while they were spread inside Settings. Since 2026-11-23 they all live in the
+   SuperAdmin group, so they look like any other item (user: "quítale el fondo amarillo y texto de otro color.. ya
+   no tiene sentido"). The key suffixes stay (harmless). */
 
 /* The top bar's menu (side menu collapsed): takes the room between the logo and the icons;
    Ant folds what doesn't fit into "...". Group buttons compact, the current page's group marked. */

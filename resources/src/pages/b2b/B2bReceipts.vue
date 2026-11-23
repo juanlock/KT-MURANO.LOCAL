@@ -7,9 +7,10 @@
         <a-card size="small" class="panel">
           <div class="side-head">
             <h3>Listado de Compras</h3>
-            <a-button v-if="isPhone" type="primary" size="small" @click="newReceipt"><PlusOutlined /> Nueva</a-button>
+            <!-- Above the table, blue, always (user, 2026-11-23). -->
+            <a-button type="primary" size="small" @click="newReceipt"><PlusOutlined /> Agregar Nuevo</a-button>
           </div>
-          <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" compact-toolbar table-key="b2b-receipts">
+          <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" :selected-key="mode === 'view' ? sel?.id ?? null : null" compact-toolbar table-key="b2b-receipts">
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'n'">{{ String((crud.page.value - 1) * crud.limit.value + index + 1).padStart(3, '0') }}</template>
               <template v-else-if="column.key === 'date'">{{ date(record.date) }}</template>
@@ -20,13 +21,17 @@
 
       <!-- Phone: the right side opens as a modal (DetailPanel). -->
       <DetailPanel :open="phoneOpen" :span="24" class="col-half" @close="phoneOpen = false">
-        <a-card size="small" class="panel detail">
+        <!-- One at a time, like Facturas (2026-11-23): the record selected (the latest when the page opens), or the new form. -->
+        <a-card v-if="mode === 'view'" size="small" class="panel detail">
           <template v-if="sel">
             <div class="side-head">
               <h3 class="dt-title">Detalle de Compra {{ sel.provider }} <span class="doc">{{ sel.invoice ? 'Fact.' : sel.guide ? 'G.R.' : '' }} {{ sel.invoice || sel.guide }}</span></h3>
-              <a-popconfirm title="¿Eliminar esta compra? Si sumó stock, se descuenta." ok-text="Eliminar" cancel-text="No" @confirm="remove">
-                <a-button size="small" danger>Eliminar</a-button>
-              </a-popconfirm>
+              <a-space :size="6">
+                <a-popconfirm title="¿Eliminar esta compra? Si sumó stock, se descuenta." ok-text="Eliminar" cancel-text="No" @confirm="remove">
+                  <a-button size="small" danger>Eliminar</a-button>
+                </a-popconfirm>
+                <a-button size="small" @click="newReceipt"><PlusOutlined /> Nueva compra</a-button>
+              </a-space>
             </div>
             <div class="facts">
               <span><span class="lbl2">Fecha :</span> <b>{{ date(sel.date) }}</b></span>
@@ -40,7 +45,7 @@
                 <tr v-for="(it, i) in sel.items" :key="it.id">
                   <td class="nr">{{ String(i + 1).padStart(3, '0') }}</td>
                   <td>{{ it.name }}<br><span class="ref">Ref. {{ it.code }}</span></td>
-                  <td class="n">{{ it.currency === 'USD' ? '$' : 'S/' }} {{ fmt(it.price, 4) }}</td>
+                  <td class="n">{{ it.currency === 'USD' ? '$' : 'S/' }} {{ fmt(it.price) }}</td>
                   <td class="n">{{ fmt(it.quantity) }}</td>
                   <td class="n">{{ fmt((Number(it.price) || 0) * Number(it.quantity)) }}</td>
                 </tr>
@@ -56,7 +61,7 @@
           <div v-else-if="!isPhone" class="hint"><DoubleLeftOutlined /> Haga click en un registro para poder ver su información detallada</div>
         </a-card>
 
-        <a-card v-if="!isPhone || !sel" size="small" class="panel form">
+        <a-card v-else size="small" class="panel form">
           <div class="side-head"><h3>Registrar Nueva Compra</h3></div>
           <div class="f-row r1">
             <label>Fecha de ingreso<a-date-picker v-model:value="f.date" value-format="YYYY-MM-DD" size="small" :disabled-date="d => d && d.isAfter(today)" /></label>
@@ -132,7 +137,8 @@ const columns = [
 ];
 
 const sel = ref(null);
-async function pick(id) { sel.value = await http.get(`b2b/receipts/${id}`); phoneOpen.value = true; }
+const mode = ref('view');
+async function pick(id, show = true) { sel.value = await http.get(`b2b/receipts/${id}`); mode.value = 'view'; if (show) phoneOpen.value = true; }
 const subtotal = computed(() => (sel.value?.items || []).reduce((s, it) => s + (Number(it.price) || 0) * Number(it.quantity), 0));
 async function remove() {
   try {
@@ -165,7 +171,7 @@ async function fillGuide() {
     if (r.next && (!f.guide || f.guide === guideFilled.value)) { f.guide = r.next; guideFilled.value = r.next; }
   } catch (e) { /* only a help */ }
 }
-function newReceipt() { Object.assign(f, blank()); sel.value = null; phoneOpen.value = true; }
+function newReceipt() { Object.assign(f, blank()); mode.value = 'new'; phoneOpen.value = true; }
 
 // The earlier screen's checks, in its words.
 async function save() {
@@ -195,7 +201,12 @@ async function load() {
   products.value = p.products || products.value;
 }
 useBarTitle('Compras');
-onMounted(load);
+onMounted(async () => {
+  await load();
+  // The latest one shown with its buttons (user, 2026-11-23); none yet = the new form.
+  if (crud.rows.value?.length) await pick(crud.rows.value[0].id, false);
+  else mode.value = 'new';
+});
 </script>
 
 <style scoped>

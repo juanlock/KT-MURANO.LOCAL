@@ -61,6 +61,12 @@
           <a-button size="small" @click="expandAll">{{ s('Expand all') }}</a-button>
           <a-button size="small" @click="expandedKeys = []">{{ s('Collapse all') }}</a-button>
           <a-button v-if="isSuperAdmin" size="small" @click="openAddModal(null)">{{ s('+ Add top-level item') }}</a-button>
+          <!-- A-Z (2026-11-23): every group and, inside each one, its items, at every level, by the name shown. -->
+          <a-button size="small" @click="confirmSortAlpha"><SortAscendingOutlined /> {{ s('Sort A-Z') }}</a-button>
+          <!-- Filter (2026-11-23): only the items whose name matches, with the groups that hold them opened. -->
+          <a-input-search v-model:value="filterText" size="small" allow-clear style="width: 240px"
+            :placeholder="s('Filter menus…')" @input="applyFilter" @search="applyFilter" />
+          <span v-if="filterText" class="smm-filter-count">{{ s('{n} found', { n: filterMatches }) }}</span>
         </a-space>
       </div>
 
@@ -96,6 +102,7 @@
             <a-tooltip v-if="dataRef.notMine" :title="s('Other roles of the company see it; yours has no permission for it.')">
               <a-tag class="smm-tag" color="default" :bordered="false">{{ s('not in your menu') }}</a-tag>
             </a-tooltip>
+            <a-tag v-if="saKeys.includes(dataRef.key)" class="smm-tag" color="purple" :bordered="false"><SafetyOutlined /> {{ s('SuperAdmin only') }}</a-tag>
           </span>
           <span class="smm-col-actions" @click.stop>
             <!-- Move without dragging (2026-10-20: drag and drop was hard to use). -->
@@ -130,6 +137,12 @@
                   <EyeInvisibleOutlined v-if="dataRef.hidden" />
                   <EyeOutlined v-else />
                 </template>
+              </a-button>
+            </a-tooltip>
+            <!-- Seen only by the SuperAdmin, in every company (AdminSystem only, 2026-11-23). -->
+            <a-tooltip v-if="appliesToAll" :title="saKeys.includes(dataRef.key) ? s('SuperAdmin only -- click to show it to every role again') : s('Make it visible to the SuperAdmin only')">
+              <a-button type="text" size="small" :loading="saBusy === dataRef.key" :class="{ 'smm-sa-on': saKeys.includes(dataRef.key) }" @click="toggleSuperAdminOnly(dataRef)">
+                <template #icon><SafetyOutlined /></template>
               </a-button>
             </a-tooltip>
             <a-tooltip v-if="isSuperAdmin && dataRef.isCustom" :title="s('Remove this custom item')">
@@ -292,14 +305,14 @@
  * not something to expose here; menu_positions.location was never meant for
  * the online store's own navigation menu either -- that's Store -> Menus).
  */
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, h, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
 import {
   SaveOutlined, UndoOutlined, EyeOutlined, EyeInvisibleOutlined, DeleteOutlined,
   PlusOutlined, EditOutlined, LinkOutlined, FolderOutlined, OrderedListOutlined,
   ArrowUpOutlined, ArrowDownOutlined, DragOutlined,
-  HolderOutlined, LoadingOutlined, CheckCircleOutlined, WarningOutlined,
+  HolderOutlined, LoadingOutlined, CheckCircleOutlined, WarningOutlined, SafetyOutlined, SortAscendingOutlined,
 } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import { looseTranslation } from '../../i18n';
@@ -310,7 +323,7 @@ import { MENU_ITEM_ICONS } from '../../config/menuItemIcons';
 import { nodeId, applyMenuOrder } from '../../lib/menuOrder';
 import { buildTopLevelMenuForEditor, hasNestedPositions } from '../../lib/menuTree';
 import { MENU } from '../../config/menu';
-import { isEntryEnabled } from '../../config/modules';
+import { isEntryEnabled, moduleKeysOfEntry, TOGGLEABLE_MODULES, ALL_MODULES_ON } from '../../config/modules';
 import { spaPathOf } from '../../stores/menu';
 import { useAuthStore } from '../../stores/auth';
 import { useMenuStore } from '../../stores/menu';
@@ -463,7 +476,12 @@ async function loadPositions() {
   }
   // The acting company's module switches: a SuperAdmin reads the company picked
   // in the switcher (same endpoint as Settings -> Modules); an Admin has their own.
-  if (isSuperAdmin.value) {
+  // AdminSystem = every module, like its left menu (2026-11-23: B2B and Call center showed in the menu but could
+  // not be arranged here, being off in 999's own switches).
+  // ALL_MODULES_ON, not null: null still leaves the off-by-default modules (B2B, Call center, Transport...) off.
+  if (appliesToAll.value) {
+    moduleFlags.value = ALL_MODULES_ON;
+  } else if (isSuperAdmin.value) {
     try {
       moduleFlags.value = (await http.get('module_flags'))?.module_flags || null;
     } catch (e) {
@@ -471,9 +489,74 @@ async function loadPositions() {
     }
   }
   treeData.value = buildTree(auth.user && auth.user.sidebar_menu_order, menuPositions.value);
+  if (filterText.value) applyFilter();
 }
 
 onMounted(loadPositions);
+// The company switcher can finish loading (or change) after this page opened: AdminSystem's "every module" and the
+// company's own menu follow it.
+watch(() => companyStore.actingCompanyId, (v, old) => { if (String(v) !== String(old)) loadPositions(); });
+
+/* ------------------------------------------------------ A-Z (2026-11-23) */
+// Every level sorted by the name shown in the current language (accents ignored); the Dashboard stays first.
+function confirmSortAlpha() {
+  Modal.confirm({
+    title: s('Sort A-Z'),
+    content: s('Sort every menu group and, inside each one, its items alphabetically, at every level? The Dashboard stays first.')
+      + (appliesToAll.value ? ' ' + s('Then press Save.') : ''),
+    okText: s('Sort A-Z'),
+    cancelText: s('Cancel'),
+    onOk: sortAlpha,
+  });
+}
+function sortAlpha() {
+  const collator = new Intl.Collator(locale.value || 'es', { sensitivity: 'base', numeric: true });
+  const sortList = (list, top) => {
+    list.sort((a, b) => {
+      if (top) {
+        const da = a.key === 'dashboard' ? 0 : 1;
+        const db = b.key === 'dashboard' ? 0 : 1;
+        if (da !== db) return da - db;
+      }
+      return collator.compare(labelOf(a.entry), labelOf(b.entry));
+    });
+    list.forEach(n => { if (n.children?.length) sortList(n.children, false); });
+  };
+  sortList(treeData.value, true);
+  treeData.value = [...treeData.value];
+  changed();
+  message.success(appliesToAll.value ? s('Sorted. Press Save to apply it.') : s('Sorted.'));
+}
+
+/* ---------------------------------------------------- filter (2026-11-23) */
+// Hides (display: none) the rows that don't match -- nothing is removed, so moving / hiding / saving still works on
+// the whole menu. A group that matches shows all of its items; an item that matches shows the groups above it.
+const filterText = ref('');
+const filterMatches = ref(0);
+const norm = v => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function applyFilter() {
+  const q = norm(filterText.value).trim();
+  let found = 0;
+  const open = [];
+  // Returns true when something in `list` (or below it) matches by its own name.
+  const walk = (list, parentMatched) => {
+    let any = false;
+    list.forEach((n) => {
+      const self = !!q && !n.moduleOff && norm(labelOf(n.entry)).includes(q);
+      if (self) found++;
+      const below = n.children ? walk(n.children, parentMatched || self) : false;
+      n.filterOut = !(!q || self || below || parentMatched);
+      n.style = (n.moduleOff || n.filterOut) ? { display: 'none' } : undefined;
+      if (below) open.push(n.key);
+      if (self || below) any = true;
+    });
+    return any;
+  };
+  walk(treeData.value, false);
+  filterMatches.value = found;
+  if (q) expandedKeys.value = open;
+  treeData.value = [...treeData.value];
+}
 
 function expandAll() {
   const keys = [];
@@ -764,6 +847,71 @@ function toggleHidden(node) {
   changed();
 }
 
+/* ------------------------------------------- "SuperAdmin only" (2026-11-23) */
+// Install-wide list of menu keys only the SuperAdmin sees (MenuPositionController::superAdminOnly).
+const saKeys = ref([...(auth.user?.superadmin_only_menu || [])]);
+const saBusy = ref(null);
+const moduleLabel = k => TOGGLEABLE_MODULES.find(m => m.key === k)?.label || k;
+function permissionsOf(entry) {
+  const out = new Set();
+  const walk = e => { (e.permissions || []).forEach(p => out.add(p)); (e.children || []).forEach(walk); };
+  walk(entry);
+  return [...out];
+}
+async function saveSuperAdminOnly(node, on) {
+  saBusy.value = node.key;
+  try {
+    const res = await http.post('menu-positions/superadmin-only', { key: node.key, on, apply_to_all: 1 });
+    saKeys.value = res.keys || [];
+    if (auth.user) auth.user.superadmin_only_menu = [...saKeys.value];
+    message.success(on ? s('Now only the SuperAdmin sees "{name}".', { name: labelOf(node.entry) }) : s('"{name}" is visible again to the roles that can open it.', { name: labelOf(node.entry) }));
+  } catch (e) {
+    message.error(e?.response?.data?.message || s('Could not save'));
+  } finally {
+    saBusy.value = null;
+  }
+}
+async function toggleSuperAdminOnly(node) {
+  if (saKeys.value.includes(node.key)) return saveSuperAdminOnly(node, false);
+  const name = labelOf(node.entry);
+  const modules = moduleKeysOfEntry(node.entry, spaPathOf);
+  const permissions = permissionsOf(node.entry);
+  let inUse = [];
+  saBusy.value = node.key;
+  try {
+    inUse = (await http.get('menu-positions/superadmin-impact', { modules: modules.join(','), permissions: permissions.join(',') }))?.companies || [];
+  } catch (e) {
+    saBusy.value = null;
+    return message.error(e?.response?.data?.message || s('Could not check where it is used'));
+  }
+  saBusy.value = null;
+  // In use (its module is on somewhere, or someone can open it): the warning with the detail, company by company.
+  const detail = inUse.length
+    ? h('div', [
+      h('p', s('"{name}" belongs to a module in use. If you go on, only the SuperAdmin will see it, in every company:', { name })),
+      modules.length ? h('p', [h('b', s('Modules') + ': '), modules.map(moduleLabel).join(', ')]) : null,
+      h('table', { class: 'smm-impact' }, [
+        h('thead', h('tr', [h('th', s('Company')), h('th', s('Status')), h('th', s('Module on')), h('th', s('Logins that open it'))])),
+        h('tbody', inUse.map(c => h('tr', [
+          h('td', c.name),
+          h('td', c.live ? s('Production') : 'Demo'),
+          h('td', c.modules.length ? c.modules.map(moduleLabel).join(', ') : '—'),
+          h('td', { style: 'text-align:right' }, String(c.users)),
+        ]))),
+      ]),
+    ])
+    : s('"{name}" is not in use in any company. Only the SuperAdmin will see it, in every company.', { name });
+  Modal.confirm({
+    title: inUse.length ? s('Warning: "{name}" is in use', { name }) : s('Make "{name}" SuperAdmin only?', { name }),
+    content: detail,
+    width: inUse.length ? 680 : 460,
+    okText: s('Yes, SuperAdmin only'),
+    okType: inUse.length ? 'danger' : 'primary',
+    cancelText: s('Cancel'),
+    onOk: () => saveSuperAdminOnly(node, true),
+  });
+}
+
 /** Every key currently in the tree, at any depth -- for new-key uniqueness. */
 function collectAllKeys(list) {
   const keys = new Set();
@@ -902,13 +1050,29 @@ function flattenPositions(list, parentKey = null) {
 
 // AdminSystem: Save reaches EVERY company -- ask first (user's rule, 2026-10-25); a
 // company's own menu (its admin's or superadmin/<company>'s) is otherwise never touched.
-const otherCompanies = computed(() => (companyStore.companies || []).filter(c => Number(c.id) !== 999).length);
-function save() {
+// The companies with their own menu ("Menú propio" in Companies, on for those in production) are left out
+// (2026-11-23): the confirmation says how many it reaches and which ones keep their menu.
+async function ownMenuInfo() {
+  try { return await http.get('menu-positions/own-menu'); } catch (e) { return { own: [], shared: null }; }
+}
+function ownMenuNote(info) {
+  if (!info.own?.length) return null;
+  return h('div', { style: 'margin-top:8px' }, [
+    h('b', s('Not touched (own menu):') + ' '),
+    info.own.map(c => c.name + (c.live ? ' (' + s('Production') + ')' : '')).join(', '),
+  ]);
+}
+async function save() {
   if (!appliesToAll.value) return doSave();
+  const info = await ownMenuInfo();
   Modal.confirm({
-    title: s('Apply to every company?'),
-    content: s('You are working as AdminSystem: this menu (order, locations, groups, names and hidden items) will REPLACE the menu of all {n} companies, including the changes each company made to its own menu. Continue?', { n: otherCompanies.value }),
-    okText: s('Yes, apply to all companies'),
+    title: s('Apply to the companies without their own menu?'),
+    width: 560,
+    content: h('div', [
+      h('p', s('You are working as AdminSystem: this menu (order, locations, groups, names and hidden items) will REPLACE the menu of {n} companies (the ones without their own menu, like the demos). Continue?', { n: info.shared ?? '?' })),
+      ownMenuNote(info),
+    ]),
+    okText: s('Yes, apply'),
     cancelText: s('Cancel'),
     okType: 'danger',
     onOk: doSave,
@@ -1005,11 +1169,16 @@ async function copyDefaultOrder() {
   }
 }
 
-function confirmReset() {
+async function confirmReset() {
+  const info = appliesToAll.value ? await ownMenuInfo() : null;
   Modal.confirm({
     title: s('Reset to default'),
+    width: appliesToAll.value ? 560 : undefined,
     content: appliesToAll.value
-      ? s('Restore the original menu structure for EVERY company? Custom items, renames and hidden items at every level are cleared, everywhere.')
+      ? h('div', [
+        h('p', s('Restore the original menu structure for the {n} companies without their own menu (and AdminSystem)? Custom items, renames and hidden items at every level are cleared there.', { n: info.shared ?? '?' })),
+        ownMenuNote(info),
+      ])
       : s('Restore the original menu structure for {name} only? Its custom items, renames and hidden items are cleared.', { name: actingCompanyName.value }),
     okText: s('Reset to default'),
     cancelText: s('Cancel'),
@@ -1152,9 +1321,23 @@ async function reset() {
   opacity: 0.5;
   text-decoration: line-through;
 }
+.smm-sa-on {
+  color: #722ed1 !important;
+}
+.smm-filter-count {
+  font-size: 12px;
+  opacity: 0.7;
+}
 .smm-type-hint {
   margin-top: 6px;
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
 }
+</style>
+
+<!-- The "SuperAdmin only" warning lives in a Modal (outside this component): unscoped. -->
+<style>
+.smm-impact { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.smm-impact th, .smm-impact td { border-bottom: 1px solid rgba(0, 0, 0, .08); padding: 4px 6px; text-align: left; }
+.smm-impact th { font-weight: 600; }
 </style>

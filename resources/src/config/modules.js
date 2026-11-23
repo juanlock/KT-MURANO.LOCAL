@@ -133,6 +133,24 @@ export function isEntryEnabled(flags, entry, pathOf) {
     return !mod || isModuleEnabled(flags, mod);
 }
 
+/**
+ * The switchable modules a menu entry belongs to -- its own key and the page it opens, and those of every item
+ * inside it for a group (Manage Menu -> "Solo SuperAdmin" warns when one of them is in use, 2026-11-23).
+ */
+export function moduleKeysOfEntry(entry, pathOf) {
+    const out = new Set();
+    const walk = e => {
+        const own = MENU_KEY_TO_MODULE[e.key] || e.key;
+        if (own && MODULE_KEYS.has(own)) out.add(own);
+        const path = e.to && pathOf ? pathOf(e.to) : null;
+        const mod = path ? moduleKeyForPath(path) : null;
+        if (mod) out.add(mod);
+        (e.children || []).forEach(walk);
+    };
+    walk(entry);
+    return [...out];
+}
+
 /** Module key owning an SPA path ('/hospital/patients' -> 'hospital'), or null. */
 export function moduleKeyForPath(path) {
     const segs = String(path || '').replace(/^\/+/, '').split('/');

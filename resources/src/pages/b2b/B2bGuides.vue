@@ -8,8 +8,9 @@
         <!-- Two panels side by side, same top and height, like Hordex (user: "las 2 tablas deben empezar en la misma línea"). -->
         <a-card size="small" class="side panel">
         <div class="side-head"><h3>{{ tr('Guide list', 'Listado de guías') }}</h3>
-          <a-button v-if="isPhone" type="primary" size="small" @click="newGuide(); phoneOpen = true"><PlusOutlined /> {{ tr('New', 'Nueva') }}</a-button></div>
-        <DataTable :crud="crud" :columns="columns" :row-click="r => openGuide(r.id)" bulk-select compact-toolbar table-key="b2b-guides">
+          <!-- Above the table, blue, always (user, 2026-11-23). -->
+          <a-button type="primary" size="small" @click="newGuide(); phoneOpen = true"><PlusOutlined /> {{ tr('Add new', 'Agregar Nuevo') }}</a-button></div>
+        <DataTable :crud="crud" :columns="columns" :row-click="r => openGuide(r.id)" :selected-key="mode === 'view' ? guide?.id ?? null : null" bulk-select compact-toolbar table-key="b2b-guides">
           <template #filters>
             <a-select v-model:value="filters.status" size="small" style="width: 150px" :options="statusOptions" @change="reload" />
             <a-select v-model:value="filters.client_id" size="small" allow-clear show-search option-filter-prop="label" style="width: 190px"
@@ -110,6 +111,11 @@
             <div class="side-head">
               <h3 class="mono">{{ ref(guide.series, guide.number) }}</h3>
               <a-space>
+                <!-- FACTURAR (2026-11-23, like the earlier system): the new invoice with this guide. -->
+                <a-button v-if="can('b2b_invoice') && guide.status === 'dispatched' && !guide.sale_id" type="primary" size="small"
+                  @click="router.push({ name: 'b2b-invoices', query: { guide: guide.id } })">
+                  <FileDoneOutlined /> FACTURAR
+                </a-button>
                 <a-button size="small" @click="newGuide"><PlusOutlined /> {{ tr('New guide', 'Nueva guía') }}</a-button>
                 <a-popconfirm v-if="can('b2b_guides') && guide.status === 'dispatched'" :title="tr('Cancel this guide? Its goods go back to the warehouse.', '¿Anular esta guía? La mercadería vuelve al almacén.')" @confirm="cancelGuide">
                   <a-button size="small" danger>{{ tr('Cancel guide', 'Anular') }}</a-button>
@@ -147,7 +153,7 @@
               <tbody>
                 <tr v-for="l in inv.lines" :key="l.product_id">
                   <td>{{ l.name }}</td><td class="n">{{ number(l.quantity, 0) }}</td>
-                  <td class="n"><a-input-number v-model:value="l.price" size="small" :min="0" :precision="4" style="width: 100px" /></td>
+                  <td class="n"><a-input-number v-model:value="l.price" size="small" :min="0" :precision="2" style="width: 100px" /></td>
                   <td class="n">{{ money(l.price * l.quantity) }}</td>
                 </tr>
               </tbody>
@@ -185,6 +191,10 @@ import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 import { useBarTitle } from '../../composables/useBarTitle';
 import DetailPanel from '../../components/DetailPanel.vue';
+import { askPriceUpdate } from './priceUpdate';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 import { useIsPhone } from '../../lib/useIsPhone';
 
 // Phone (2026-11-21): the right side is a modal, opened by a row, "Facturar" or "Nueva".
@@ -304,7 +314,7 @@ async function saveGuide() {
 
 // ---- one guide
 const guide = vref(null);
-async function openGuide(id) { guide.value = await http.get(`b2b/guides/${id}`); mode.value = 'view'; phoneOpen.value = true; }
+async function openGuide(id, show = true) { guide.value = await http.get(`b2b/guides/${id}`); mode.value = 'view'; if (show) phoneOpen.value = true; }
 async function cancelGuide() {
   try { await http.post(`b2b/guides/${guide.value.id}/cancel`); message.success(tr('Guide cancelled', 'Guía anulada')); await openGuide(guide.value.id); crud.fetchRows(); } catch (e) { message.error(e?.data?.message || 'Error'); }
 }
@@ -337,6 +347,8 @@ async function emitInvoice() {
       prices: Object.fromEntries(inv.lines.map(l => [l.product_id, l.price])) });
     message.success(tr(`Invoice ${r.ref} issued`, `Factura ${r.ref} emitida`));
     crud.selectedIds.value = [];
+    // A price typed different from the product's: offer to keep it for the next invoices (2026-11-23).
+    await askPriceUpdate(inv.lines, opts.value.products);
     await loadOptions();
     newGuide();
     phoneOpen.value = false;
@@ -347,7 +359,13 @@ async function emitInvoice() {
 }
 
 async function loadOptions() { opts.value = await http.get('b2b/options'); }
-onMounted(async () => { await loadOptions(); newGuide(); crud.fetchRows(); });
+onMounted(async () => {
+  await loadOptions();
+  newGuide();
+  await crud.fetchRows();
+  // The latest guide shown with its buttons (user, 2026-11-23); on a phone it opens when a row is tapped.
+  if (crud.rows.value?.length) await openGuide(crud.rows.value[0].id, false);
+});
 
 useBarTitle(() => tr('Guides', 'Guías'));
 </script>

@@ -9,6 +9,7 @@ export const spaPathOf = to => {
 };
 import { applyMenuOrder } from '../lib/menuOrder';
 import { buildTopLevelMenu, hasNestedPositions } from '../lib/menuTree';
+import { markSuperAdminOnly } from '../lib/superAdminMenu';
 import { useAuthStore } from './auth';
 import { NOT_IN_CLINIC } from '../pages/hospital/hospitalNav';
 import http from '../lib/http';
@@ -86,7 +87,8 @@ export const useMenuStore = defineStore('menu', {
                 .map(entry => (entry.children
                     ? { ...entry, children: dropDisabled(entry.children) }
                     : entry));
-            return dropDisabled(arranged);
+            // Items marked "Solo SuperAdmin" in Manage Menu (2026-11-23): superAdminOnly, so only the SuperAdmin sees them.
+            return markSuperAdminOnly(dropDisabled(arranged), auth.user?.superadmin_only_menu);
         },
     },
 });

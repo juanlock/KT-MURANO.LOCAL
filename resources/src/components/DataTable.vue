@@ -98,7 +98,7 @@
       :size="dt.density"
       :bordered="dt.bordered"
       :show-sorter-tooltip="false"
-      :row-class-name="dt.striped ? stripedClass : undefined"
+      :row-class-name="rowClass"
       :row-expandable="$slots.expandedRowRender ? rowExpandable : undefined"
       :custom-row="rowClick ? (record) => ({ onClick: (e) => { if (!e.target.closest('a, button, input, .ant-checkbox-wrapper, .ant-select')) rowClick(record); }, style: { cursor: 'pointer' } }) : undefined"
       @change="crud.onChange"
@@ -206,6 +206,8 @@ const props = defineProps({
   rowExpandable: { type: Function, default: undefined },
   // A click anywhere on a row opens its detail (2026-11-20, Hordex: "cuando le das click a cualquier parte de una fila").
   rowClick: { type: Function, default: undefined },
+  // The row whose record is open beside the list (its rowKey value): highlighted (2026-11-23).
+  selectedKey: { type: [Number, String], default: null },
   searchable: { type: Boolean, default: true },
   // Search, filters and buttons in ONE line, small controls (user, 2026-11-15: "más compacto"); pages keep their
   // secondary filters in a "Filtros" popover (KT-Log, Change history).
@@ -258,6 +260,9 @@ const cardVars = computed(() => ({
 }));
 
 const stripedClass = (_record, index) => (index % 2 === 1 ? 'dt-row-striped' : '');
+// The record open on the right of a list + detail screen is marked in the list (2026-11-23: "seleccionado").
+const rowClass = (record, index) => [dt.striped ? stripedClass(record, index) : '',
+  props.selectedKey !== null && props.selectedKey !== undefined && record?.[props.rowKey] === props.selectedKey ? 'dt-row-selected' : ''].filter(Boolean).join(' ');
 
 /* ------------------------------------------------ column visibility */
 const colKey = c => c.key ?? c.dataIndex;
@@ -594,6 +599,10 @@ function sumFor(col) {
 }
 :deep(.dt-row-striped > td) {
   background: rgba(128, 128, 128, 0.045);
+}
+:deep(.dt-row-selected > td) {
+  background: color-mix(in srgb, var(--app-primary, #1677ff) 14%, transparent) !important;
+  font-weight: 600;
 }
 
 /* Header cells: weight/size/case always follow the prefs (defaults match

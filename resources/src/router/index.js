@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { moduleKeyForPath } from '../config/modules';
+import { superAdminOnlyPaths } from '../lib/superAdminMenu';
 import { start as progressStart, done as progressDone } from '../lib/progress';
 import { autoOpenPath, recordVisit, startPageOpened, markStartPageOpened, pageOptions } from '../lib/startPage';
 import { setPageTitle } from '../lib/docTitle';
@@ -986,6 +987,7 @@ const routes = [
             { path: 'settings/system-health', name: 'system-health', component: SystemHealth, meta: { title: 'System Health', permission: 'system_health_view', systemOnly: true } },
             // Company manuals (2026-11-01): each company's flyer and text manual -- superadmin/AdminSystem only.
             { path: 'settings/company-manuals', name: 'company-manuals', component: () => import('../pages/settings/CompanyManuals.vue'), meta: { title: 'Company manuals', permission: 'company_manuals_view', superAdminOnly: true, systemOnly: true } },
+            { path: 'settings/company-status', name: 'company-status', component: () => import('../pages/settings/CompanyStatus.vue'), meta: { title: 'Company status', permission: 'company_status_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/roles-matrix', name: 'roles-matrix', component: () => import('../pages/settings/RolesMatrix.vue'), meta: { title: 'Roles by company', permission: 'roles_matrix_view', superAdminOnly: true, systemOnly: true } },
             { path: 'settings/audit-log', name: 'audit-log', component: () => import('../pages/settings/AuditLog.vue'), meta: { title: 'Change history', permission: 'audit_log_view', superAdminOnly: true } },
             { path: 'settings/kt-log', name: 'kt-log', component: () => import('../pages/settings/KtLog.vue'), meta: { title: 'KT-Log', permission: 'kt_logs_view', superAdminOnly: true, systemOnly: true } },
@@ -1081,6 +1083,11 @@ router.beforeEach(async to => {
     // sidebar's superAdminOnly gate and the same abort_unless(...) check
     // enforced server-side.
     if (to.meta.superAdminOnly && auth.user?.type !== 'SuperAdmin') {
+        return { name: 'not-found' };
+    }
+    // A page inside a menu item marked "Solo SuperAdmin" in Manage Menu (2026-11-23): refused by URL too.
+    if (auth.user?.type !== 'SuperAdmin' && auth.user?.superadmin_only_menu?.length
+        && superAdminOnlyPaths(auth.user.superadmin_only_menu).has(to.path)) {
         return { name: 'not-found' };
     }
     // Global pages (user's rule, 2026-10-21): only "superadmin/AdminSystem" --

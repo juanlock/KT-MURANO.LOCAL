@@ -1,4 +1,12 @@
 {
+    "The invoice is already cancelled.": "La factura ya está anulada.",
+    "The invoice has payments: remove them first.": "La factura tiene cobros: quítelos primero.",
+    "The invoice is cancelled.": "La factura está anulada.",
+    "The invoice is already paid.": "La factura ya está cancelada (pagada).",
+    "A voided invoice cannot be edited.": "Una factura anulada no se puede editar.",
+    "Supplier not found": "Proveedor no encontrado",
+    "Guide without a receipt yet": "Guía sin recepción registrada todavía",
+    "It is not a SUNAT invoice (Invoice).": "No es una factura electrónica SUNAT (Invoice).",
     "Definition of the project scope": "Definición del alcance del proyecto",
     "Agree with the client what the project includes and gather the information to plan it.": "Acordar con el cliente qué incluye el proyecto y reunir la información para planificarlo.",
     "Meeting with the client to define the project scope": "Reunión con el cliente para definir el alcance del proyecto",
