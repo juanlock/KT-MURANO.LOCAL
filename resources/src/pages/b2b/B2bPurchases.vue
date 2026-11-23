@@ -9,7 +9,7 @@
           <div class="side-head">
             <h3>Listado de Facturas de Proveedores</h3>
             <!-- Above the table, blue, always (user, 2026-11-23). -->
-            <a-button type="primary" size="small" @click="newPurchase(); phoneOpen = true"><PlusOutlined /> Agregar Nuevo</a-button>
+            <a-button type="primary" size="small" @click="newPurchase(); phoneOpen = true"><PlusOutlined /> Agregar Factura de Proveedor</a-button>
           </div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => openPurchase(r.id)" :selected-key="mode === 'view' ? sel?.id ?? null : null" compact-toolbar table-key="b2b-purchases">
             <template #filters>
@@ -121,7 +121,6 @@
               <a-popconfirm title="¿Borrar esta factura? Sus guías vuelven a quedar por facturar." ok-text="Borrar" cancel-text="No" :ok-button-props="{ danger: true }" @confirm="removePurchase">
                 <a-button size="small"><DeleteOutlined /> Borrar</a-button>
               </a-popconfirm>
-              <a-button size="small" @click="newPurchase"><PlusOutlined /> Nueva factura</a-button>
             </div>
             <div class="fx">
               <div class="fx-box"><div class="fx-t">{{ /^E/i.test(sel.Ref) ? 'FACTURA ELECTRONICA' : 'FACTURA' }}</div><div class="fx-n">Nº {{ sel.Ref }}</div></div>
@@ -213,10 +212,20 @@ const columns = [
 
 const opts = ref({});
 const providerOptions = computed(() => sortByLabel((opts.value.providers || []).map(p => ({ value: p.id, label: p.name }))));
-// "Agregar Item": services for a SERVICIOS invoice, goods (inputs, packing...) otherwise -- as there.
-const itemOptions = computed(() => sortByLabel((opts.value.products || [])
-  .filter(p => (f.kind === 'servicios') === (p.type === 'is_service'))
-  .map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))));
+// "Agregar Item": services for a SERVICIOS invoice, goods (inputs, packing...) otherwise -- as there; grouped by the
+// product's Tipo, groups and products in alphabetical order (user, 2026-11-23). A line already chosen (e.g. from the
+// XML) stays in the list even when it is of the other kind, so it never shows as an empty id.
+const itemOptions = computed(() => {
+  const chosen = new Set(f.items.map(i => i.product_id).filter(Boolean));
+  const groups = {};
+  (opts.value.products || [])
+    .filter(p => chosen.has(p.id) || (f.kind === 'servicios') === (p.type === 'is_service'))
+    .forEach((p) => {
+      const g = p.cat_name || 'Otros';
+      (groups[g] ||= []).push({ value: p.id, label: `${p.code} - ${p.name}` });
+    });
+  return Object.keys(groups).sort((a, b) => a.localeCompare(b, 'es')).map(g => ({ label: g, options: sortByLabel(groups[g]) }));
+});
 
 // ---- one invoice
 const mode = ref('new');
@@ -289,7 +298,14 @@ async function loadNext() {
   } catch (e) { /* only a help */ }
 }
 function onProvider() { f.items = f.items.filter(i => !i.receipt_id); f.receipt_ids = []; linkedGuides.value = ''; if (mode.value === 'new') { f.series = ''; f.number = null; } loadNext(); }
-function onKind() { f.items = []; f.receipt_ids = []; linkedGuides.value = ''; }
+// Changing the Tipo keeps the lines (2026-11-23: it wiped the lines read from the XML); only BIENES can keep linked
+// receipts, so for another Tipo the links go and their lines stay as plain lines.
+function onKind() {
+  if (f.kind === 'bienes') return;
+  f.items = f.items.map(({ receipt_id, guide, ...rest }) => rest);
+  f.receipt_ids = [];
+  linkedGuides.value = '';
+}
 function addItem() { f.items.push({ product_id: undefined, quantity: 1, price: null }); }
 function removeItem(i) {
   const it = f.items[i];

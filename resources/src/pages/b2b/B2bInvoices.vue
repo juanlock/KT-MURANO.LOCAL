@@ -8,7 +8,7 @@
         <a-card size="small" class="side panel">
           <div class="side-head"><h3>Listado de Facturas</h3>
             <!-- Above the table, blue, always (user, 2026-11-23). -->
-            <a-button type="primary" size="small" @click="newInvoice(); phoneOpen = true"><PlusOutlined /> Agregar Nuevo</a-button></div>
+            <a-button type="primary" size="small" @click="newInvoice(); phoneOpen = true"><PlusOutlined /> Agregar Factura</a-button></div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => openInvoice(r.id)" :selected-key="mode === 'view' ? inv?.id ?? null : null" compact-toolbar table-key="b2b-invoices">
             <template #filters>
               <a-select v-model:value="filters.status" size="small" style="width: 140px" :options="statusOptions" @change="reload" />
@@ -144,7 +144,6 @@
               <a-tooltip :title="inv.paid_amount > 0 ? 'Tiene pagos: quítelos primero para editarla' : 'Limpiar la factura y rearmarla con guías o productos'">
                 <a-button v-if="inv.state !== 'ANULADA'" size="small" :disabled="inv.paid_amount > 0" @click="editInvoice"><EditOutlined /> Editar</a-button>
               </a-tooltip>
-              <a-button size="small" @click="newInvoice"><PlusOutlined /> Nueva factura</a-button>
             </div>
             <!-- Hordex's invoice document (parciales/detalleFactura): number box on the right, state under it. -->
             <div class="doc">

@@ -9,7 +9,7 @@
         <a-card size="small" class="side panel">
         <div class="side-head"><h3>{{ tr('Guide list', 'Listado de guías') }}</h3>
           <!-- Above the table, blue, always (user, 2026-11-23). -->
-          <a-button type="primary" size="small" @click="newGuide(); phoneOpen = true"><PlusOutlined /> {{ tr('Add new', 'Agregar Nuevo') }}</a-button></div>
+          <a-button type="primary" size="small" @click="newGuide(); phoneOpen = true"><PlusOutlined /> {{ tr('Add guide', 'Agregar Guía') }}</a-button></div>
         <DataTable :crud="crud" :columns="columns" :row-click="r => openGuide(r.id)" :selected-key="mode === 'view' ? guide?.id ?? null : null" bulk-select compact-toolbar table-key="b2b-guides">
           <template #filters>
             <a-select v-model:value="filters.status" size="small" style="width: 150px" :options="statusOptions" @change="reload" />
@@ -116,7 +116,6 @@
                   @click="router.push({ name: 'b2b-invoices', query: { guide: guide.id } })">
                   <FileDoneOutlined /> FACTURAR
                 </a-button>
-                <a-button size="small" @click="newGuide"><PlusOutlined /> {{ tr('New guide', 'Nueva guía') }}</a-button>
                 <a-popconfirm v-if="can('b2b_guides') && guide.status === 'dispatched'" :title="tr('Cancel this guide? Its goods go back to the warehouse.', '¿Anular esta guía? La mercadería vuelve al almacén.')" @confirm="cancelGuide">
                   <a-button size="small" danger>{{ tr('Cancel guide', 'Anular') }}</a-button>
                 </a-popconfirm>

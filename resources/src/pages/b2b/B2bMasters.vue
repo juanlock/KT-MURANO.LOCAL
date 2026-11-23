@@ -10,9 +10,13 @@
           <div class="side-head">
             <h3>Listado de {{ cfg.title }}</h3>
             <!-- Above the table, blue, in the three lists (user, 2026-11-23). -->
-            <a-button type="primary" size="small" @click="openNew"><PlusOutlined /> Agregar Nuevo</a-button>
+            <a-button type="primary" size="small" @click="openNew"><PlusOutlined /> Agregar {{ cfg.one }}</a-button>
           </div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r)" :selected-key="sel?.id ?? null" compact-toolbar :table-key="`b2b-${type}`">
+            <template v-if="type === 'products'" #filters>
+              <a-select v-model:value="typeFilter" size="small" allow-clear style="width: 150px" placeholder="Todos los tipos"
+                :options="sortByLabel(categoryOptions)" @change="crud.reload" />
+            </template>
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'n'">{{ String((crud.page.value - 1) * crud.limit.value + index + 1).padStart(3, '0') }}</template>
               <template v-else-if="column.key === 'stock'"><span class="num" :class="{ neg: Number(record.stock) < 0 }">{{ qty(record.stock) }}</span></template>
@@ -255,7 +259,10 @@ const CFG = {
 };
 const cfg = computed(() => CFG[props.type]);
 const qty = v => Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
-const crud = useCrudTable(`b2b/masters/${props.type}`, { rowsKey: 'rows', sortField: 'name', sortType: 'asc', limit: 33 });
+// Productos: filter by Tipo (user, 2026-11-23).
+const typeFilter = ref(undefined);
+const crud = useCrudTable(`b2b/masters/${props.type}`, { rowsKey: 'rows', sortField: 'name', sortType: 'asc', limit: 33,
+  params: () => ({ category_id: props.type === 'products' ? typeFilter.value : undefined }) });
 const columns = props.type === 'products'
   ? [
       // Compact so every column fits the 40 % list (2026-11-21); the name takes the rest and is cut with "…".

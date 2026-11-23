@@ -8,7 +8,7 @@
           <div class="side-head">
             <h3>Listado de Compras</h3>
             <!-- Above the table, blue, always (user, 2026-11-23). -->
-            <a-button type="primary" size="small" @click="newReceipt"><PlusOutlined /> Agregar Nuevo</a-button>
+            <a-button type="primary" size="small" @click="newReceipt"><PlusOutlined /> Agregar Compra</a-button>
           </div>
           <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" :selected-key="mode === 'view' ? sel?.id ?? null : null" compact-toolbar table-key="b2b-receipts">
             <template #bodyCell="{ column, record, index }">
@@ -30,7 +30,6 @@
                 <a-popconfirm title="¿Eliminar esta compra? Si sumó stock, se descuenta." ok-text="Eliminar" cancel-text="No" @confirm="remove">
                   <a-button size="small" danger>Eliminar</a-button>
                 </a-popconfirm>
-                <a-button size="small" @click="newReceipt"><PlusOutlined /> Nueva compra</a-button>
               </a-space>
             </div>
             <div class="facts">

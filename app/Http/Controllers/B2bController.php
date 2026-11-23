@@ -67,8 +67,10 @@ class B2bController extends Controller
             'next_invoice' => B2b::nextInvoiceNumber($cid, $s['invoice_series']),
             'clients' => DB::table('clients')->where('company_id', $cid)->whereNull('deleted_at')->where('name', '!=', 'Walk-in Customer')
                 ->orderBy('name')->get(['id', 'name', 'tax_number']),
-            'products' => DB::table('products')->where('company_id', $cid)->whereNull('deleted_at')->orderBy('name')
-                ->get(['id', 'code', 'name', 'price', 'type', 'unit_sale_id']),
+            // With their Tipo (category), so a product list can be grouped by it (2026-11-23).
+            'products' => DB::table('products as p')->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
+                ->where('p.company_id', $cid)->whereNull('p.deleted_at')->orderBy('p.name')
+                ->get(['p.id', 'p.code', 'p.name', 'p.price', 'p.type', 'p.unit_sale_id', 'c.code as cat_code', 'c.name as cat_name']),
             'units' => DB::table('units')->where(fn ($w) => $w->where('company_id', $cid)->orWhereNull('company_id'))->whereNull('deleted_at')
                 ->orderBy('ShortName')->get(['id', 'name', 'ShortName']),
             'carriers' => DB::table('b2b_carriers')->where('company_id', $cid)->whereNull('deleted_at')->where('active', 1)->orderBy('name')->get(),
@@ -1435,7 +1437,9 @@ class B2bController extends Controller
         $cid = $this->company($request);
         abort_unless(in_array($type, self::MASTERS, true), 404);
         $q = $this->masterQuery($type, $cid)->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('p.name', 'like', "%$s%")
-            ->orWhere($type === 'products' ? 'p.code' : 'p.tax_number', 'like', "%$s%")));
+            ->orWhere($type === 'products' ? 'p.code' : 'p.tax_number', 'like', "%$s%")))
+            // Products by Tipo (the company's category, 2026-11-23).
+            ->when($type === 'products' && $request->filled('category_id'), fn ($q) => $q->where('p.category_id', (int) $request->category_id));
         $sortable = $type === 'products' ? ['code' => 'p.code', 'name' => 'p.name'] : ['tax_number' => 'p.tax_number', 'name' => 'p.name'];
         $request->merge(['SortType' => $request->SortType ?: 'asc']);
         [$rows, $total] = $this->page($q, $request, $sortable, 'p.name');
