@@ -17,7 +17,7 @@ class Task extends Model
         // them — the board's priority chips and the delivery report's estimate
         // column depend on these.
         'priority', 'estimated_hour', 'task_progress', 'summary', 'note',
-        'milestone_id', 'objective_id', 'requirement', 'reason', 'is_meeting', 'meeting_at', 'meeting_medium', 'meeting_link', // the project's stage / objective the task belongs to (2026-11-21)
+        'milestone_id', 'objective_id', 'objective_order', 'requirement', 'reason', 'is_meeting', 'meeting_at', 'meeting_medium', 'meeting_link', 'meeting_points', // the project's stage / objective the task belongs to (2026-11-21)
     ];
 
     protected $casts = [

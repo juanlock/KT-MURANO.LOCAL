@@ -629,7 +629,7 @@ Route::get('set-locale', 'LocaleSyncController@setGuestLocale')->middleware('thr
 // Laravel 12 compatibility: define auth routes explicitly (laravel/ui optional)
 Route::get('login', 'Auth\LoginController@showLoginForm')->name('login');
 // 5 attempts per minute per IP — blocks credential-stuffing / brute force.
-Route::post('login', 'Auth\LoginController@login')->middleware('throttle:5,1');
+Route::post('login', 'Auth\LoginController@login')->middleware('throttle:10,1'); // room for the 7 tries before the lock (2026-11-22)
 Route::post('logout', 'Auth\LoginController@logout')->name('logout');
 // Login security (2026-10-27): the steps after the right password -- two-step code, new password.
 Route::get('login/verify', 'Auth\LoginStepsController@showVerify')->name('login.verify');

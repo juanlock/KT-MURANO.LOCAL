@@ -272,7 +272,7 @@ Waiting for the user's answer -- bring these up, don't decide them alone (remove
    agency's ticket and parcel amounts (S/) to its supervisor -- never profit or costs -- and **keeps showing them until the owner answers on
    2026-11-15** (user, 2026-11-11). The question is DUE-1 in the questionnaire (tab DUE, radio: yes / no amounts / at the meeting). The
    questionnaire's tabs carry who answers them: DUE owner, GER management, SUP agency supervisor, FLO fleet. DUE-3 asks his email for his own
-   owner login. The Manager login (turismo-manager@kcoltech.com) is named **Julio Velarde** (the owner) for the presentation (migration
+   owner login. The Manager login (turismo-manager@kcoltech.com) is named **Julio Valladares** (the owner) for the presentation (migration
    2026_11_11_150000).
 9. **Demo calibrated on Thundera, 2026-11-12 (user):** eight months of history since 2026-11-18 (`TransportDemoDay::HISTORY_DAYS = 243`; 182 before, 60 at first;
    the demo buses on the road leave a GPS trail every 2 min, `TransportDemoDay::gps`, `transport:demo-gps` every 10 min) and each trip
@@ -397,12 +397,20 @@ the start of each session).
   across companies, never attach to the Walk-in customer; ask before merging.
   Only exception (2026-10-05): Zelle deposit emails carry just the payer's name,
   so there the same exact name in the same company = same customer.
-  **Customers of each company are fully independent (user's rule, 2026-11-16: "esas compañías no se conocen"):** the same
-  name and email can be a customer -- and a customer portal login -- in several companies. A customer login's email is
-  unique only among that company's customer logins (`PortalAdminController::enable`, `LinkedUserService::uniqueEmail`);
-  staff / supplier / agent logins stay unique install-wide. The portal sign-in tries the password on every customer login
-  with that email; when it opens several, it asks which company (`POST portal/login/company`, only the companies that
-  email + password already open). Never tell one company about another's customer.
+  **Sign in with the USERNAME; every company's logins are isolated (user's rules, 2026-11-22, replacing 2026-11-16's
+  email + company chooser):** companies never know each other (two barbershops, two landscapers are competitors), so an
+  email can repeat freely -- staff, customer, online store, any type, in any company; only a SuperAdmin's email is unique
+  install-wide (`App\Support\LoginEmails`). The **username** (`users.username`, unique in all of Murano, no spaces / @)
+  signs in at `/login`, `api/getAccessToken` and the customer portal (`App\Support\LoginLookup::find($typed, 'staff' |
+  'customer')`); no screen ever lists companies. **Sign in with the email** only where the company's IT Admin or the
+  SuperAdmin turned it on (`users.email_login`, Company logins -> Usuario -> "con correo", `POST
+  company-logins/{id}/email-login`) and the email doesn't repeat behind the same door in all of Murano
+  (`LoginLookup::emailIsFree`). On by default: info@rubagardenlandscape.com, info@neweraunisexsalon.com,
+  hordex@qnet.com.pe (Hordex's admin), info@kcoltech.com; the SuperAdmin juanlock@hotmail.com always. Standard / demo
+  logins `{slug}-{role}@kcoltech.com` sign in as `{slug}-{role}` (`App\Support\StandardUsernames`: User `creating` hook
+  + after every migrate). Forgot password takes the username or email; the reset link resets every staff login of that
+  mailbox. Credentials sent (project members, WhatsApp, email) give the username. The old "+xxxxxx" email aliases were
+  removed (migration 2026_11_22_200000). Never tell one company about another's customer.
 - **Online booking (/book, 2026-10-07):** only the name is required (email and
   phone optional; an email given must be valid). No email to the customer when
   they book -- only the company's admins get "new online booking"; the customer
@@ -478,7 +486,7 @@ the start of each session).
 - **"Control de Calidad" is a standard role of every company (user's rule, 2026-11-18): complaints are handled by quality
   control, never by the owner.** Its home is the complaints board (`/transport/quality`, `TransportQuality.vue`; forms_view) and
   it opens the forms; access login `{slug}-calidad@kcoltech.com` (access password), part of every demo. **Done only for Turismo
-  Cautivo** (migration 2026_11_18_150000: role, turismo-calidad@, Daniel = administracion@transportescautivo.com moved to it).
+  Cautivo** (migration 2026_11_18_150000: role, turismo-calidad@, Daniel = login `operaciones`, email administracion@transportescautivo.com (his current one) moved to it).
   **Pending: apply it to every company** (CompanyRoles / CompanyLogins + the demos; a non-transport company needs a complaints
   page of its own -- the board today reads the transport complaints form).
   **At Turismo Cautivo it is merged into "Operaciones" (user's rule, 2026-11-18):** Daniel is the head of operations, so the agency
@@ -623,7 +631,7 @@ the start of each session).
   (`PortalAuthController` + steps in `portal/views/Login.vue`) and
   the old `api/getAccessToken` (it refuses while a step is pending). A new door
   must use it too.
-  **Lockout:** 5 wrong passwords in an hour lock that login for **1 hour**, from
+  **Lockout:** 7 wrong passwords in an hour (5 until 2026-11-22) lock that login for **1 hour**, from
   any IP (the per-IP throttle stays); the person and the company's admins get an
   email; unlock in Settings -> Login security or Users (tag "Locked until"), a
   password reset also unlocks. **Standard password:** whoever signs in with one
@@ -646,9 +654,9 @@ the start of each session).
   **Authorization per place (2026-11-20, Hordex's Miguel Barrera):** `users.two_factor_ip` = the emailed code is asked
   from every IP where that login never confirmed one (`LoginSecurity::rememberedDevice` reads `login_events` code_ok by
   IP, whatever the browser); its known IPs sign in with the password only. No screen yet (set by script).
-  **The same email can be a staff login and another company's customer portal login** (Hordex's hordex@qnet.com.pe =
-  Miguel Barrera, Manager of Hordex, and Miguel Barreda, KcolTech's customer, user 248): staff `/login` ignores customer
-  logins -- a script that looks a user up by email must filter by company and type.
+  **An email can belong to several logins** (Hordex's hordex@qnet.com.pe = Miguel Barrera, Manager of Hordex, and Miguel
+  Barreda, KcolTech's customer, user 248): a script that looks a user up by email must filter by company and type, or use
+  the username.
 - **Hostinger allows 20 new MySQL connections per second (its support, 2026-11-04):** over it = `[2002] Operation
   not permitted`. The log showed web requests (no `artisan` trace, no failed scheduled task): each request opens a
   connection, so one user's page with many API calls can exceed it. `App\Support\RetryingMySqlConnector` waits and

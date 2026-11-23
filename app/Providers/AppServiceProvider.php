@@ -59,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
             if (($e->method ?? 'up') === 'up') {
                 try {
                     \App\Support\SuperAdminAccess::sync();
+                    \App\Support\StandardUsernames::sync(); // standard logins sign in as {slug}-{role} (2026-11-22)
                 } catch (\Throwable $ex) {
                     // never break a migrate run
                 }

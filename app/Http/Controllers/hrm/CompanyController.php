@@ -113,7 +113,8 @@ class CompanyController extends Controller
         $data = $request->validate(CompanyProfile::rules() + [
             'admin_firstname' => ['required', 'string', 'max:100'],
             'admin_lastname' => ['nullable', 'string', 'max:100'],
-            'admin_email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            // A new company has no logins yet: only a SuperAdmin's email is refused (2026-11-22).
+            'admin_email' => ['required', 'email', 'max:190', \App\Support\LoginEmails::rule(0)],
             // Empty = the standard password of new companies (CompanyLogins, 2026-10-25).
             'admin_password' => ['nullable', 'string', 'min:8'],
             // Old names (Owner / Admin / Admin-ALL / Admin Compañía) are taken as IT Admin (CompanyRoles).
@@ -123,7 +124,7 @@ class CompanyController extends Controller
             'helpdesk_lastname' => ['nullable', 'string', 'max:100'],
             // (helpdesk_email = the company's support mailbox, in the profile;
             // helpdesk_login_email = this agent's own login)
-            'helpdesk_login_email' => ['nullable', 'email', 'max:190', 'different:admin_email', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'helpdesk_login_email' => ['nullable', 'email', 'max:190', 'different:admin_email', \App\Support\LoginEmails::rule(0)],
             'helpdesk_password' => ['nullable', 'string', 'min:8'],
             'demo_data' => ['nullable', 'boolean'],
             // Website: import the company's existing site (original design)

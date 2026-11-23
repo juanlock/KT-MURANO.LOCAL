@@ -23,41 +23,27 @@ class AuthController extends BaseController
         // Login security (2026-10-27): this old token door obeys the same rules as /login --
         // locked logins refused, wrong passwords counted, and no token while a two-step
         // code or a new password is pending (those are done on the web login).
-        $logins = \App\Models\User::where('email', (string) $request->email)->where('type', '!=', 'customer')->whereNull('deleted_at')->get();
-        foreach ($logins as $login) {
-            if ($until = \App\Support\LoginSecurity::lockedUntil($login)) {
-                \App\Support\LoginSecurity::event($login, $request->email, 'api', 'blocked', $request, 'locked');
+        // Sign in with the username, or an email enabled for it (App\Support\LoginLookup, user's rule 2026-11-22).
+        $candidate = \App\Support\LoginLookup::find((string) $request->email, 'staff');
+        if ($candidate && ($until = \App\Support\LoginSecurity::lockedUntil($candidate))) {
+            \App\Support\LoginSecurity::event($candidate, $request->email, 'api', 'blocked', $request, 'locked');
 
-                return response()->json(['message' => \App\Support\LoginSecurity::lockedMessage($until), 'status' => false], 423);
-            }
+            return response()->json(['message' => \App\Support\LoginSecurity::lockedMessage($until), 'status' => false], 423);
         }
-        if (! Auth::guard('web')->validate($credentials)) {
-            \App\Support\LoginSecurity::recordFailure($logins, (string) $request->email, $request, 'api');
+        if (! $candidate || ! $candidate->password || ! \Illuminate\Support\Facades\Hash::check((string) $request->password, $candidate->password)) {
+            \App\Support\LoginSecurity::recordFailure($candidate ? [$candidate] : [], (string) $request->email, $request, 'api');
 
             return response()->json(['message' => __('Incorrect Login'), 'status' => false]);
         }
-        $candidate = Auth::guard('web')->getLastAttempted();
+
         \App\Support\LoginSecurity::clearFailures($candidate);
         if (\App\Support\LoginSecurity::pendingSteps($candidate, $request, (string) $request->password)) {
             return response()->json(['message' => __('Sign in on the web login to finish the security steps.'), 'status' => false], 403);
         }
-
-        if (Auth::attempt($credentials)) {
-            $userStatus = Auth::User()->statut;
-            if ($userStatus === 0) {
-                return response()->json([
-                    'message' => __('This user not active'),
-                    'status' => 'NotActive',
-                ]);
-            }
-
-        } else {
-            return response()->json([
-                'message' => __('Incorrect Login'),
-                'status' => false,
-            ]);
+        if ((int) $candidate->statut === 0) {
+            return response()->json(['message' => __('This user not active'), 'status' => 'NotActive']);
         }
-
+        Auth::login($candidate);
         $user = auth()->user();
         $tokenResult = $user->createToken('Access Token');
         $token = $tokenResult->token;

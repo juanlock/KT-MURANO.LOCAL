@@ -14,7 +14,6 @@
             <span class="legend-av"><span class="av" /> {{ ownName }}</span><span class="legend-av"><span class="av client" /> {{ clientName }}</span>
             <span class="sum">{{ doneCount }}/{{ objectives.length }} {{ tr('met', 'cumplidos') }}</span>
             <template v-if="!readonly">
-            <a-button size="small" class="mr" @click="openEntity(null)"><TeamOutlined /> {{ tr('New entity', 'Nueva entidad') }}</a-button>
             <a-button type="primary" size="small" @click="openNew(null)"><PlusOutlined /> {{ tr('New objective', 'Nuevo objetivo') }}</a-button>
             </template>
           </template>
@@ -23,7 +22,7 @@
           <!-- The four pillars as the main grouping, each with its colour (user, 2026-11-22); an objective shows in every
                pillar where it has tasks, with those tasks; its entity (Jelaf, Operaciones...) is a tag. -->
           <div v-for="g in groups" :key="g.key" class="grp" :class="g.cls">
-          <div class="grp-head">
+          <div class="grp-head" :class="{ 'obj-drop': objDrag.overGroup === g.key && objDrag.id }" @dragover.prevent="objDragOverGroup(g)" @drop.prevent="objDropOnGroup(g)">
             <FlagOutlined class="grp-ic" />
             <span class="grp-name">{{ g.name }}</span>
             <span v-if="g.description" class="grp-desc">{{ g.description }}</span>
@@ -31,7 +30,12 @@
           </div>
           <div v-if="!g.items.length" class="grp-empty">{{ tr('No objectives in this pillar yet.', 'Sin objetivos en este pilar todavía.') }}</div>
           <div v-for="{ o, ts, key } in g.items" :key="key" class="obj" :class="{ met: o.done }">
-            <div class="obj-head" @click="toggle(key)">
+            <div
+              class="obj-head" :class="{ dragging: objDrag.id === o.id, 'drop-before': objDrag.over === o.id && objDrag.id !== o.id }"
+              :draggable="canReorder" @click="toggle(key)"
+              @dragstart.self="objDragStart($event, o)" @dragover.prevent="objDragOver(o)" @drop.prevent="objDrop(g, o)" @dragend="objDrag.id = null; objDrag.over = null; objDrag.overGroup = null"
+            >
+              <HolderOutlined v-if="canReorder" class="grip" :title="tr('Drag to reorder or move to another pillar', 'Arrastra para ordenar o llevar a otro pilar')" @click.stop />
               <component :is="open[key] ? DownOutlined : RightOutlined" class="caret" />
               <span class="num" :class="{ met: o.done }"><CheckOutlined v-if="o.done" /><template v-else>{{ numberOf[o.id] }}</template></span>
               <div class="obj-main">
@@ -47,7 +51,13 @@
             </div>
             <div v-if="open[key]" class="obj-tasks">
               <template v-for="t in ts" :key="t.id">
-                <div class="otask" :class="{ mine: mine.includes(t.id) }" @click="$emit('open-task', t.id)">
+                <div
+                  class="otask" :class="{ mine: mine.includes(t.id), dragging: drag.id === t.id, 'drop-before': drag.over === t.id && drag.id !== t.id }"
+                  :draggable="canReorder" @click="$emit('open-task', t.id)"
+                  @dragstart="onDragStart($event, o, t)" @dragover.prevent="onDragOver(o, t)" @drop.prevent="onDrop(o, ts, t)" @dragend="drag.id = null; drag.over = null"
+                >
+                  <!-- The project manager drags tasks into their order inside the objective (2026-11-22). -->
+                  <HolderOutlined v-if="canReorder" class="grip" :title="tr('Drag to reorder', 'Arrastra para ordenar')" />
                   <a-tag :color="projectStatusColor(t.status)" class="t-tag">{{ projectStatusLabel(t.status) }}</a-tag>
                   <span class="t-title">{{ t.title }}</span>
                   <!-- Stage and assigned as columns; assigned as avatars: our staff / the client's in two colours (2026-11-22). -->
@@ -59,6 +69,9 @@
                     <span v-if="!t.people || !t.people.length" class="muted-dash">—</span>
                   </span>
                   <span class="t-date">{{ t.end_date ? date(t.end_date) : '' }}</span>
+                  <a-tooltip v-if="canReorder" :title="tr('Edit text, dates and who has it', 'Editar texto, fechas y asignados')">
+                    <a-button type="text" size="small" @click.stop="qOpen(t)"><template #icon><EditOutlined /></template></a-button>
+                  </a-tooltip>
                   <a-tooltip v-if="!readonly" :title="tr('Untie from this objective', 'Desvincular de este objetivo')">
                     <a-button type="text" size="small" @click.stop="unlink(o, t)"><template #icon><DisconnectOutlined /></template></a-button>
                   </a-tooltip>
@@ -142,6 +155,23 @@
         <a-form-item :label="tr('Who they are', 'Quién es')" style="margin-bottom: 0"><a-input v-model:value="entForm.description" :placeholder="tr('e.g. online ticket sales provider', 'p. ej. proveedora de venta de pasajes en línea')" /></a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- The project manager edits a task right here: text, dates, who has it (user, 2026-11-22). -->
+    <a-modal
+      :open="q.open" :title="tr('Edit task', 'Editar tarea')" :width="560" :confirm-loading="q.busy"
+      :ok-text="tr('Save', 'Guardar')" :cancel-text="$t('Cancel')" @ok="qSave" @cancel="q.open = false"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="tr('Task', 'Tarea')"><a-textarea v-model:value="q.title" :auto-size="{ minRows: 2, maxRows: 5 }" /></a-form-item>
+        <a-row :gutter="10">
+          <a-col :span="12"><a-form-item :label="tr('Starts', 'Inicio')"><a-date-picker v-model:value="q.start_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="12"><a-form-item :label="tr('Due', 'Vence')"><a-date-picker v-model:value="q.end_date" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
+        </a-row>
+        <a-form-item :label="tr('Assigned', 'Asignada')" style="margin-bottom: 0">
+          <a-select v-model:value="q.assigned_to" mode="multiple" option-filter-prop="label" :options="teamOptions" :placeholder="tr('Nobody', 'Nadie')" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </a-spin>
 </template>
 
@@ -155,7 +185,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { Modal, message } from 'ant-design-vue';
 import {
   AimOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CheckOutlined, InfoCircleOutlined,
-  FlagOutlined, UserOutlined, DisconnectOutlined, TeamOutlined, RightOutlined, DownOutlined,
+  FlagOutlined, UserOutlined, DisconnectOutlined, TeamOutlined, RightOutlined, DownOutlined, HolderOutlined,
 } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { useTr } from '../../lib/useTr';
@@ -235,6 +265,96 @@ const looseTaskOptions = computed(() => sortByLabel((props.data.tasks || []).fil
 const linkPick = reactive({});
 const linkShow = reactive({});
 const moreOpen = reactive({});
+// Quick edit of a task by the project manager (2026-11-22): PUT projects/{id}/tasks/{tid}/quick.
+const teamOptions = computed(() => sortByLabel((meta.value.members || []).map(m => ({ value: m.id, label: `${m.name}${m.role ? ' · ' + m.role : ''}` }))));
+const q = reactive({ open: false, busy: false, id: null, title: '', start_date: null, end_date: null, assigned_to: [] });
+function qOpen(t) {
+  Object.assign(q, { open: true, busy: false, id: t.id, title: t.title, start_date: t.start_date ? String(t.start_date).slice(0, 10) : null,
+    end_date: t.end_date ? String(t.end_date).slice(0, 10) : null, assigned_to: (t.people || []).map(p => p.id) });
+}
+async function qSave() {
+  if (!q.title.trim()) return message.warning(tr('Write the task.', 'Escribe la tarea.'));
+  if (!q.start_date || !q.end_date) return message.warning(tr('Give both dates.', 'Indica las dos fechas.'));
+  if (q.end_date < q.start_date) return message.warning(tr('The due date cannot be before the start.', 'La fecha de fin no puede ser anterior a la de inicio.'));
+  q.busy = true;
+  try {
+    await http.put(`projects/${props.projectId}/tasks/${q.id}/quick`, { title: q.title.trim(), start_date: q.start_date, end_date: q.end_date, assigned_to: q.assigned_to });
+    message.success(tr('Task saved.', 'Tarea guardada.'));
+    q.open = false;
+    await load();
+    emit('changed');
+  } catch (e) {
+    const errs = e?.data?.errors ? Object.values(e.data.errors).flat() : [];
+    message.error(errs[0] || e?.data?.message || tr('Could not save.', 'No se pudo guardar.'));
+  } finally { q.busy = false; }
+}
+// Drag and drop of the objectives (2026-11-22): order, and into another pillar. PUT projects/{id}/objectives-order.
+const objDrag = reactive({ id: null, over: null, overGroup: null });
+function objDragStart(e, o) {
+  if (!canReorder.value) return;
+  objDrag.id = o.id;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'o' + o.id); } catch (err) { /* old browsers */ }
+}
+function objDragOver(o) { if (objDrag.id) { objDrag.over = o.id; objDrag.overGroup = null; } }
+function objDragOverGroup(g) { if (objDrag.id) { objDrag.overGroup = g.key; objDrag.over = null; } }
+async function saveObjectiveOrder(order, pillar) {
+  const moved = objDrag.id;
+  objDrag.id = null; objDrag.over = null; objDrag.overGroup = null;
+  try {
+    await http.put(`projects/${props.projectId}/objectives-order`, { ids: order, moved_id: moved, pillar });
+    await load();
+    emit('changed');
+  } catch (e) {
+    message.error(e?.data?.message || tr('Could not save the order.', 'No se pudo guardar el orden.'));
+    load();
+  }
+}
+function flatOrder() { return groups.value.flatMap(g => g.items.map(({ o }) => o.id)); }
+function objDrop(g, target) {
+  const from = objDrag.id;
+  if (!from || from === target.id) { objDrag.id = null; return; }
+  const order = flatOrder().filter(id => id !== from);
+  order.splice(order.indexOf(target.id), 0, from);
+  saveObjectiveOrder(order, PILLARS.some(p => p.name === g.key) ? g.key : null);
+}
+function objDropOnGroup(g) {
+  const from = objDrag.id;
+  if (!from || !PILLARS.some(p => p.name === g.key)) { objDrag.id = null; return; }
+  // Dropped on a pillar's title: at the end of that pillar.
+  const order = [];
+  groups.value.forEach(x => { x.items.forEach(({ o }) => { if (o.id !== from) order.push(o.id); }); if (x.key === g.key) order.push(from); });
+  saveObjectiveOrder(order, g.key);
+}
+// Drag and drop of tasks inside one objective -- project manager / editors only (server: can_reorder).
+const canReorder = computed(() => !!info.value.can_reorder);
+const drag = reactive({ id: null, oid: null, over: null });
+function onDragStart(e, o, t) {
+  if (!canReorder.value) return;
+  drag.id = t.id; drag.oid = o.id;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(t.id)); } catch (err) { /* old browsers */ }
+}
+function onDragOver(o, t) { if (drag.id && drag.oid === o.id) drag.over = t.id; }
+async function onDrop(o, ts, target) {
+  const from = drag.id;
+  drag.id = null; drag.over = null;
+  if (!from || drag.oid !== o.id || from === target.id) return;
+  const list = [...ts];
+  const moved = list.find(x => x.id === from);
+  list.splice(list.indexOf(moved), 1);
+  list.splice(list.indexOf(target), 0, moved);
+  o.tasks.splice(0, o.tasks.length, ...list); // shown at once
+  try {
+    const r = await http.put(`projects/${props.projectId}/objectives/${o.id}/order`, { task_ids: list.map(x => x.id), moved_id: from });
+    // Its new dates: the next business day after the task now before it (2026-11-22).
+    if (r?.moved) {
+      Object.assign(moved, { start_date: r.moved.start_date, end_date: r.moved.end_date });
+      message.success(tr('Order saved; the task now runs ', 'Orden guardado; la tarea ahora va del ') + date(r.moved.start_date) + tr(' to ', ' al ') + date(r.moved.end_date) + '.');
+    }
+  } catch (e) {
+    message.error(e?.data?.message || tr('Could not save the order.', 'No se pudo guardar el orden.'));
+    load();
+  }
+}
 
 async function load() {
   loading.value = !objectives.value.length;
@@ -381,6 +501,13 @@ onMounted(load);
 .obj-tasks { padding: 0 10px 8px 44px; }
 .otask { display: flex; align-items: center; gap: 8px; padding: 4px; border-top: 1px dashed rgba(128, 128, 128, 0.18); cursor: pointer; font-size: 13px; }
 .otask.mine { background: rgba(250, 204, 21, 0.14); border-radius: 4px; }
+/* Drag to reorder (project manager): the grip, the row being dragged, where it will land. */
+.grip { cursor: grab; opacity: 0.45; font-size: 13px; }
+.otask:hover .grip { opacity: 0.9; }
+.otask.dragging, .obj-head.dragging { opacity: 0.4; }
+.obj-head.drop-before { box-shadow: inset 0 3px 0 #6d28d9; }
+.grp-head.obj-drop { outline: 2px dashed #6d28d9; outline-offset: 2px; border-radius: 6px; }
+.otask.drop-before { box-shadow: inset 0 2px 0 #6d28d9; }
 .otask:hover { background: rgba(128, 128, 128, 0.06); }
 .t-tag { margin: 0; min-width: 84px; text-align: center; }
 .t-title { flex: 1; min-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

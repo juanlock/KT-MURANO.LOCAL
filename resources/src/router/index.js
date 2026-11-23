@@ -756,7 +756,8 @@ const routes = [
             { path: 'projects/:id(\\d+)', name: 'project-detail', component: ProjectDetail, meta: { title: 'Project', permission: 'projects' } },
       // A member's own projects, whatever company (2026-11-22): no permission, the server checks the membership.
       { path: 'mis-proyectos', name: 'my-projects', component: MyProjects, meta: { title: 'Mis proyectos' } },
-      { path: 'mis-proyectos/:id(\\d+)', name: 'my-project', component: MyProjects, meta: { title: 'Mis proyectos' } },
+      // A member opens the whole project, like its manager, read only (2026-11-22): ProjectDetail in member mode.
+      { path: 'mis-proyectos/:id(\\d+)', name: 'my-project', component: ProjectDetail, props: { member: true }, meta: { title: 'Mis proyectos' } },
             { path: 'projects/:id/edit', name: 'project-edit', component: ProjectForm, meta: { title: 'Edit Project', permission: 'projects' } },
             { path: 'tasks', name: 'tasks', component: Tasks, meta: { title: 'Tasks', permission: 'tasks' } },
             { path: 'tasks/create', name: 'task-create', component: TaskForm, meta: { title: 'Add Task', permission: 'tasks' } },

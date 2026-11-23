@@ -85,7 +85,7 @@ return new class extends Migration
         $uid = (int) DB::table('users')->where('email', $email)->value('id');
         if (! $uid) {
             $username = DB::table('users')->where('username', 'turismo-director')->exists() ? 'turismo-director-'.$cid : 'turismo-director';
-            $uid = (int) DB::table('users')->insertGetId(['company_id' => $cid, 'firstname' => 'Julio', 'lastname' => 'Velarde', 'username' => $username,
+            $uid = (int) DB::table('users')->insertGetId(['company_id' => $cid, 'firstname' => 'Julio', 'lastname' => 'Valladares', 'username' => $username,
                 'email' => $email, 'password' => Hash::make(CompanyLogins::ACCESS_PASSWORD), 'phone' => '', 'role_id' => $director, 'type' => 'admin',
                 'statut' => 1, 'is_all_warehouses' => 1, 'record_view' => 1, 'created_at' => now(), 'updated_at' => now()]);
         }

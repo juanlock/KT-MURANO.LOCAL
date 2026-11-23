@@ -32,15 +32,22 @@ class ForgotPasswordController extends BaseController
      */
     public function sendResetLinkEmail(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $request->validate(['email' => 'required|string|max:190']);
 
         // Set mail configuration from database before sending email
         $this->Set_config_mail();
 
-        $status = Password::sendResetLink($request->only('email'));
+        // The USERNAME (user's rule, 2026-11-22): one person may have a different password in each company, so the link
+        // is for that one login only; it goes to the login's email. Never says which companies hold that email.
+        $typed = trim((string) $request->input('email'));
+        $user = \App\Models\User::whereNull('deleted_at')->where('type', '!=', 'customer')->where('username', $typed)->first();
+        if (! $user || ! filter_var((string) $user->email, FILTER_VALIDATE_EMAIL)) {
+            return back()->withErrors(['email' => __(Password::INVALID_USER)]);
+        }
+        $broker = Password::broker();
+        $user->sendPasswordResetNotification($broker->createToken($user));
+        $status = Password::RESET_LINK_SENT;
 
-        return $status === Password::RESET_LINK_SENT
-            ? back()->with(['status' => __($status)])
-            : back()->withErrors(['email' => __($status)]);
+        return back()->with(['status' => __($status)]);
     }
 }

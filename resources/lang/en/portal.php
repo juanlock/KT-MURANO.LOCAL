@@ -536,6 +536,8 @@ return [
     'sec_resend' => 'Send a new code',
     'sec_resent' => 'We sent you a new code.',
     'sec_back' => 'Back',
+    'login_username' => 'Username',
+    'login_username_hint' => 'Your username (or your email, if your company enabled it)',
     'sec_company_title' => 'Which company do you want to enter?',
     'sec_company_lead' => 'Your email is a customer of several companies. Pick one.',
     'sec_password_title' => 'Choose a new password',

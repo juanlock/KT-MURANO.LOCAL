@@ -85,7 +85,7 @@ Route::group([
 Route::get('/products_clean_names', 'ProductsController@cleanNames');
 
 // Old Murano token door (the SPA doesn't use it): throttled + LoginSecurity (2026-10-27).
-Route::post('getAccessToken', 'AuthController@getAccessToken')->middleware('throttle:5,1');
+Route::post('getAccessToken', 'AuthController@getAccessToken')->middleware('throttle:10,1');
 
 Route::get('/get-logo-setting', function () {
     $setting = \App\Models\Setting::first();
@@ -424,6 +424,8 @@ Route::post('company-logins/{id}/password', [\App\Http\Controllers\CompanyLogins
 // Sign-in link by WhatsApp (2026-11-12): make a new one / remove it.
 Route::post('company-logins/{id}/link', [\App\Http\Controllers\CompanyLoginsController::class, 'makeLink'])->whereNumber('id')->middleware('throttle:30,1');
 Route::delete('company-logins/{id}/link', [\App\Http\Controllers\CompanyLoginsController::class, 'removeLink'])->whereNumber('id')->middleware('throttle:30,1');
+Route::post('company-logins/{id}/email-login', [\App\Http\Controllers\CompanyLoginsController::class, 'setEmailLogin'])->whereNumber('id')->middleware('throttle:30,1');
+Route::post('company-logins/{id}/username', [\App\Http\Controllers\CompanyLoginsController::class, 'setUsername'])->whereNumber('id')->middleware('throttle:30,1');
 Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class, 'whoami']);
 
     // Product Q&A ("Ask About This Item") — admin answers
@@ -1662,6 +1664,7 @@ Route::get('hospital/patients/{patientId}/wristband', 'HospitalDeskController@wr
     Route::post('projects/{id}/apply-template', 'ProjectTeamController@applyTemplate')->whereNumber('id');
     Route::post('projects/{id}/save-template', 'ProjectTeamController@saveTemplate')->whereNumber('id');
     Route::get('projects/{id}/objectives', 'ProjectTeamController@objectives')->whereNumber('id');
+    Route::get('projects/{id}/hours', 'ProjectTeamController@hours')->whereNumber('id');
     // The member's own screen and the project's configuration / credentials (2026-11-22).
     Route::get('my/projects', 'ProjectTeamController@myProjects');
     Route::get('my/projects/{id}', 'ProjectTeamController@myProject')->whereNumber('id');
@@ -1681,6 +1684,9 @@ Route::get('hospital/patients/{patientId}/wristband', 'HospitalDeskController@wr
     Route::put('projects/{id}/objectives/{oid}', 'ProjectTeamController@updateObjective')->whereNumber('id')->whereNumber('oid');
     Route::delete('projects/{id}/objectives/{oid}', 'ProjectTeamController@deleteObjective')->whereNumber('id')->whereNumber('oid');
     Route::post('projects/{id}/objectives/{oid}/tasks', 'ProjectTeamController@linkObjectiveTask')->whereNumber('id')->whereNumber('oid');
+    Route::put('projects/{id}/objectives/{oid}/order', 'ProjectTeamController@reorderObjectiveTasks')->whereNumber('id')->whereNumber('oid');
+    Route::put('projects/{id}/tasks/{tid}/quick', 'ProjectTeamController@quickTask')->whereNumber('id')->whereNumber('tid');
+    Route::put('projects/{id}/objectives-order', 'ProjectTeamController@reorderObjectives')->whereNumber('id');
 
     Route::resource('projects', 'ProjectController');
 

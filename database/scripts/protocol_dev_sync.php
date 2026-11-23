@@ -45,7 +45,7 @@ if ($mode === 'save') {
     if (empty($sync['pulled_at'])) { echo "dev sync: this PC has no morning copy recorded -- nothing saved.\n"; return; }
     $rec = [
         'pc' => $pc, 'at' => now()->format('Y-m-d H:i:s'), 'backup' => basename(dirname($zip)).'/'.basename($zip),
-        'sync' => ['pulled_at' => $sync['pulled_at'], 'dev_max_ids' => $sync['dev_max_ids'] ?? []],
+        'sync' => ['pulled_at' => $sync['pulled_at'], 'dev_max_ids' => $sync['dev_max_ids'] ?? [], 'dev_sync_ids' => $sync['dev_sync_ids'] ?? []],
         'pushed_to_prod' => (bool) ($pushedToProd ?? false), 'includes' => $applied,
     ];
     file_put_contents("$dir/$pc.json", json_encode($rec, JSON_PRETTY_PRINT));
@@ -100,10 +100,24 @@ foreach ($cands as $ver) {
     $apply = ! $dryRun; $sourceConn = 'devsync'; $targetConn = config('database.default'); $sourceSync = $ver['sync'];
     $onlyCompanies = $ver['pushed_to_prod'] ? $devSyncLive : null;
     $since = null;
+    unset($plan, $pushApplied);
     ob_start();
     require __DIR__.'/protocol_prod_push.php';
     echo preg_replace('/^/m', '  ', rtrim(ob_get_clean()))."\n";
     unset($since, $onlyCompanies);
+    // The ids inserted here go in this PC's morning record (dev_sync_ids, 2026-11-22): they come after its dev_max_ids,
+    // often below it and back-dated, and must still count as dev's in this PC's next save / push.
+    if (! empty($pushApplied) && ! empty($plan)) {
+        $lsFile = BackupPaths::lastSync();
+        $ls = json_decode((string) @file_get_contents($lsFile), true) ?: [];
+        if (! empty($ls['pulled_at'])) {
+            foreach ($plan as $t => $x) {
+                if (! empty($x['pivot']) || ! $x['ins']) continue;
+                $ls['dev_sync_ids'][$t] = array_values(array_unique(array_merge($ls['dev_sync_ids'][$t] ?? [], array_map('intval', array_column($x['ins'], 'id')))));
+            }
+            file_put_contents($lsFile, json_encode($ls));
+        }
+    }
 
     // A company's menu (Manage Menu, 2026-11-20): saving it deletes and re-inserts every row with new ids, so it can't
     // go row by row -- a company whose menu changed on that PC after its morning copy gets that PC's whole menu.

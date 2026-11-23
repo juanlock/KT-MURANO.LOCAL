@@ -37,10 +37,10 @@
           @csrf
           <input type="hidden" name="token" value="{{ $token }}" />
 
-          <label class="kt-label" for="email">{{ $L('Email address', 'Correo electrónico') }}</label>
+          <label class="kt-label" for="email">{{ $L('Username', 'Usuario') }}</label>
           <div class="kt-field">
             <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <input id="email" type="email" name="email" class="kt-input" value="{{ old('email', request('email')) }}" placeholder="{{ $L('Email address', 'Correo electrónico') }}" required autocomplete="email" />
+            <input id="email" type="text" name="email" class="kt-input" value="{{ old('email', request('email')) }}" placeholder="{{ $L('Username', 'Usuario') }}" required autocomplete="username" {{ request('email') ? 'readonly' : '' }} />
           </div>
 
           <label class="kt-label" for="password">{{ $L('New password', 'Nueva contraseña') }}</label>

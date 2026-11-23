@@ -29,13 +29,38 @@
       </div>
     </div>
 
+    <!-- Inside a project: the hours by objective and task (user, 2026-11-22), the project's total on top. -->
+    <div v-if="projectId && hrs" class="hrs">
+      <div class="hrs-total">
+        <span>{{ tr('Project total', 'Total del proyecto') }}</span>
+        <b>{{ number(hrs.total, 2) }} h</b>
+        <span v-if="hrs.estimated" class="muted">{{ tr('estimated', 'estimadas') }} {{ number(hrs.estimated, 2) }} h</span>
+      </div>
+      <div v-for="o in hrsGroups" :key="o.key" class="hrs-obj">
+        <div class="hrs-row obj" @click="openObj[o.key] = !openObj[o.key]">
+          <component :is="openObj[o.key] ? DownOutlined : RightOutlined" class="caret" />
+          <span class="hrs-name">{{ o.title }}</span>
+          <span class="hrs-bar"><span :style="{ width: barPct(o.hours) }" /></span>
+          <span class="hrs-h">{{ number(o.hours, 2) }} h</span>
+        </div>
+        <template v-if="openObj[o.key]">
+          <div v-for="t in o.tasks" :key="t.id" class="hrs-row task" :class="{ zero: !t.hours }">
+            <span class="hrs-name">{{ t.title }}</span>
+            <span class="muted hrs-est">{{ t.estimated ? tr('est.', 'est.') + ' ' + number(t.estimated, 1) + ' h' : '' }}</span>
+            <span class="hrs-h">{{ number(t.hours, 2) }} h</span>
+          </div>
+          <div v-if="!o.tasks.length" class="hrs-row task zero"><span class="hrs-name">{{ tr('No tasks', 'Sin tareas') }}</span></div>
+        </template>
+      </div>
+    </div>
+
     <a-card size="small" style="margin-bottom: 16px">
       <div class="toolbar">
         <a-input-search
           v-model:value="crud.search.value" :placeholder="tr('Search description…', 'Buscar descripción…')"
           allow-clear class="tb-search" @search="crud.reload"
         />
-        <a-button v-if="projectId" type="primary" @click="openForm(null)">
+        <a-button v-if="projectId && !readonly" type="primary" @click="openForm(null)">
           <template #icon><PlusOutlined /></template>
           {{ tr('Log time', 'Registrar horas') }}
         </a-button>
@@ -84,7 +109,7 @@
           <span v-if="record.employee_name">{{ record.employee_name }}</span>
           <span v-else class="muted">—</span>
         </template>
-        <template v-else-if="column.key === 'actions'">
+        <template v-else-if="column.key === 'actions' && !readonly">
           <a-space :size="0">
             <a-tooltip :title="$t('Edit')">
               <a-button type="text" size="small" @click="openForm(record)">
@@ -180,9 +205,9 @@ import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
  * hours x rate on save, and non-billable time is always worth zero. That figure
  * feeds invoices, so it is never accepted from the client.
  */
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined, RightOutlined } from '@ant-design/icons-vue';
 import PageHeader from '../../components/PageHeader.vue';
 import DataTable from '../../components/DataTable.vue';
 import { useCrudTable } from '../../composables/useCrudTable';
@@ -192,7 +217,8 @@ import { t } from '../../i18n';
 import { useTr } from '../../lib/useTr';
 
 // Inside a project (ProjectDetail's "Horas" tab): that project only, no project filter / picker.
-const props = defineProps({ projectId: { type: [Number, String], default: null } });
+// readonly: the project manager seen as a member (2026-11-22) reads the hours, doesn't change them here.
+const props = defineProps({ projectId: { type: [Number, String], default: null }, readonly: { type: Boolean, default: false } });
 const emit = defineEmits(['changed']);
 
 const tr = useTr();
@@ -215,6 +241,25 @@ const crud = useCrudTable('project_time_logs', {
 });
 
 const totals = computed(() => crud.payload.value?.totals || {});
+
+// Hours by objective and task (2026-11-22): logs typed here plus the hours recorded with an activity.
+const hrs = ref(null);
+const openObj = reactive({});
+async function loadHours() {
+  if (!props.projectId) return;
+  try { hrs.value = await http.get(`projects/${props.projectId}/hours`); } catch (e) { hrs.value = null; }
+}
+const hrsGroups = computed(() => {
+  if (!hrs.value) return [];
+  const g = hrs.value.objectives.map(o => ({ key: o.id, title: `#${o.position} ${o.title}`, hours: o.hours, tasks: o.tasks }));
+  const w = hrs.value.without_objective;
+  if (w && w.tasks.length) g.push({ key: 'none', title: tr('Tasks without objective', 'Tareas sin objetivo'), hours: w.hours, tasks: w.tasks });
+  if (hrs.value.without_task) g.push({ key: 'notask', title: tr('Hours without a task', 'Horas sin tarea'), hours: hrs.value.without_task, tasks: [] });
+  return g;
+});
+// Every reload of the list (save, delete, refresh) brings the breakdown up to date.
+watch(() => crud.payload.value, loadHours);
+function barPct(h) { const max = Math.max(...hrsGroups.value.map(o => o.hours), 0); return max ? `${Math.round((h * 100) / max)}%` : '0%'; }
 
 function onProjectChange() {
   crud.reload();
@@ -309,7 +354,7 @@ async function submit() {
 onMounted(async () => {
   crud.fetchRows();
   try {
-    meta.value = await http.get('projects/meta');
+    meta.value = await http.get('projects/meta', props.projectId ? { project_id: props.projectId } : {});
   } catch (e) { /* selects stay empty */ }
 });
 </script>
@@ -367,6 +412,20 @@ onMounted(async () => {
 .tb-range {
   width: 230px;
 }
+.hrs { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
+.hrs-total { display: flex; align-items: baseline; gap: 10px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid rgba(128, 128, 128, 0.15); }
+.hrs-total b { font-size: 18px; }
+.hrs-row { display: flex; align-items: center; gap: 10px; padding: 3px 4px; border-radius: 6px; }
+.hrs-row.obj { cursor: pointer; font-weight: 600; }
+.hrs-row.obj:hover { background: rgba(128, 128, 128, 0.07); }
+.hrs-row.task { padding-left: 28px; }
+.hrs-row.zero { opacity: 0.5; }
+.hrs-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrs-bar { width: 140px; height: 6px; border-radius: 3px; background: rgba(128, 128, 128, 0.15); overflow: hidden; }
+.hrs-bar span { display: block; height: 100%; background: #6d28d9; }
+.hrs-h { width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+.hrs-est { font-size: 11.5px; }
+.caret { font-size: 10px; opacity: 0.6; }
 .cell-sub {
   font-size: 11.5px;
   opacity: 0.55;

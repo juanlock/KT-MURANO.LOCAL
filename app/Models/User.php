@@ -17,6 +17,24 @@ class User extends Authenticatable
      *
      * @var array
      */
+    /**
+     * Password resets go by the USERNAME (user's rule, 2026-11-22: the same email can be several logins, each with its own
+     * password): the token is kept under the username and the link carries it; the email is only where the link is sent.
+     */
+    public function getEmailForPasswordReset()
+    {
+        return (string) $this->username;
+    }
+    /** A standard login ({slug}-{role}@kcoltech.com) signs in with that name (App\Support\StandardUsernames, 2026-11-22). */
+    protected static function booted(): void
+    {
+        static::creating(function (User $u) {
+            $want = \App\Support\StandardUsernames::forEmail($u->email);
+            if ($want && $u->username !== $want && ! static::query()->where('username', $want)->exists()) {
+                $u->username = $want;
+            }
+        });
+    }
     protected $fillable = [
         'firstname', 'lastname', 'username', 'email', 'password', 'phone', 'statut', 'avatar', 'role_id', 'type', 'is_all_warehouses', 'record_view', 'company_id',
         // Client Portal (merged from portal_clients; see App\Models\PortalClient)

@@ -202,6 +202,19 @@ class UserController extends BaseController
             'company' => $settings->CompanyName ?? '',
             // The acting company's country {name, iso2, calling_code}: country fields and phone codes start with it (2026-11-21).
             'company_country' => \App\Support\Countries::ofCompany((int) $this->resolveActingCompanyId($request)),
+            // Projects (user, 2026-11-22): a login that is a member of / has tasks in any project -- its company's or
+            // another's -- gets the "Proyectos" header button (Mis proyectos).
+            'my_projects' => (function () {
+                $emp = \Illuminate\Support\Facades\DB::table('employees')->where('user_id', Auth::id())->whereNull('deleted_at')->pluck('id');
+                if ($emp->isEmpty()) {
+                    return 0;
+                }
+
+                return \Illuminate\Support\Facades\DB::table('projects')->whereNull('deleted_at')
+                    ->where(fn ($q) => $q->whereIn('id', \Illuminate\Support\Facades\DB::table('employee_project')->whereIn('employee_id', $emp)->select('project_id'))
+                        ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('employee_task as et')->join('tasks as t', 't.id', '=', 'et.task_id')
+                            ->whereIn('et.employee_id', $emp)->whereNull('t.deleted_at')->select('t.project_id')))->count();
+            })(),
             'date_format' => $settings->date_format ?? 'YYYY-MM-DD',
             'price_format' => $settings->price_format ?? null,
             // Monetary precision (3 when 3-decimal pricing is enabled, else 2) â€” read by the SPA at boot
@@ -352,7 +365,9 @@ class UserController extends BaseController
         $this->validate($request, [
             // Soft-deleted users don't hold on to their email. Users -> Add makes admin logins only: a customer portal login with
             // the same email doesn't count (user's rule, 2026-11-16 / 2026-11-20: Hordex's Miguel = KcolTech's customer).
-            'email' => ['required', Rule::unique('users')->whereNull('deleted_at')->where(fn ($q) => $q->where('type', '!=', 'customer'))],
+            // Sign in with the USERNAME (2026-11-22): unique in all of Murano; the email may repeat (only a SuperAdmin's is unique).
+            'username' => ['required', 'string', 'max:190', 'regex:/^[^\s@]+$/u', Rule::unique('users', 'username')],
+            'email' => ['required', \App\Support\LoginEmails::rule($request->input('type') === 'SuperAdmin' ? null : (int) $companyId)],
         ], [
             'email.unique' => 'This Email already taken.',
         ]);
@@ -722,17 +737,12 @@ class UserController extends BaseController
         $this->validate($request, [
             // Soft-deleted users don't hold on to their email -- otherwise a
             // deleted user sharing this email blocks every save of this one.
-            // Customer logins are unique only among that company's customers; staff / supplier / agent logins install-wide
-            // among themselves (a customer login of another company with the same email doesn't count; 2026-11-20).
+            // Each company's logins are its own (2026-11-22): free among that company's logins of the same group (staff or
+            // customer); a SuperAdmin's email in the whole install (App\Support\LoginEmails).
             // Editing without changing the email never asks (user, 2026-11-20: "debe salir cuando se crea, no cuando se edita").
-            'email' => ['required', 'email', strcasecmp((string) $request->email, (string) User::where('id', $id)->value('email')) === 0 ? 'nullable' : Rule::unique('users')->ignore($id)->whereNull('deleted_at')->where(function ($q) use ($id) {
-                $target = User::where('id', $id)->first(['type', 'company_id']);
-                if ($target && $target->type === 'customer') {
-                    $q->where(fn ($w) => $w->where('type', '!=', 'customer')->orWhere('company_id', $target->company_id));
-                } else {
-                    $q->where('type', '!=', 'customer');
-                }
-            })],
+            'email' => ['required', 'email', strcasecmp((string) $request->email, (string) User::where('id', $id)->value('email')) === 0 ? 'nullable' : \App\Support\LoginEmails::rule(($t = User::where('id', $id)->first(['type', 'company_id'])) && $t->type === 'SuperAdmin' ? null : (int) optional($t)->company_id, (int) $id, optional($t)->type === 'customer')],
+            // The username signs in (2026-11-22): unique in all of Murano; a new one without spaces or @.
+            'username' => ['sometimes', 'required', 'string', 'max:190', strcmp((string) $request->username, (string) User::where('id', $id)->value('username')) === 0 ? 'nullable' : 'regex:/^[^\s@]+$/u', Rule::unique('users', 'username')->ignore($id)],
             // Roles are per-company copies: only this user's company's own.
             'role' => ['required', Rule::exists('roles', 'id')->where('company_id', $targetCompanyId)->whereNull('deleted_at')],
             'pin' => 'nullable|digits_between:4,8',
@@ -909,10 +919,10 @@ class UserController extends BaseController
         $this->validate($request, [
             'firstname' => 'required',
             'lastname' => 'required',
-            'username' => 'required',
+            'username' => ['required', 'string', 'max:190', Rule::unique('users', 'username')->ignore(Auth::user()->id)],
             // Unchanged email = no check; a new one must be free among staff logins (customer logins don't count; 2026-11-20).
             'email' => ['required', 'email', strcasecmp((string) $request->email, (string) Auth::user()->email) === 0 ? 'nullable'
-                : Rule::unique('users')->ignore(Auth::user()->id)->whereNull('deleted_at')->where(fn ($q) => $q->where('type', '!=', 'customer'))],
+                : \App\Support\LoginEmails::rule(Auth::user()->type === 'SuperAdmin' ? null : (int) Auth::user()->company_id, (int) Auth::user()->id, Auth::user()->type === 'customer')],
             'phone' => 'required',
         ]
         );

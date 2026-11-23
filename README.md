@@ -203,7 +203,27 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
-### 2026-11-22 (Optimum) — not in production yet
+### 2026-11-22 (Optimum)
+
+- **Sign in with the username**: staff login, the customer portal and the old token door take the username (unique in all
+  of Murano); an email can now repeat across companies, which never know each other. Signing in with the email is a
+  per-login switch ("con correo") the company's IT Admin or the SuperAdmin turns on, only when that email doesn't repeat;
+  it is on for the main admins and for whoever already signed in with a unique email. Standard logins sign in as
+  `{company}-{role}`. Forgot password asks for the username and resets only that login. 7 wrong passwords lock a login.
+- **Company logins**: Username column (copy, rename with validation, "con correo" switch), email visible, password.
+- **Projects for every team member**: a violet "Proyectos" button next to POS for anyone with a project or a task in one,
+  from any company. Members open the project on Objectives and see every main tab read only; they work only on their own
+  tasks. List, Members, Documents and Hours are for the project manager.
+- **Objectives**: the project manager drags tasks (the moved one starts the next business day after the one before it)
+  and objectives (also into another pillar), and edits a task's text, dates and assignees right there. Meeting tasks list
+  their points with the answer beside each; the activity log records hours, added up by project, objective and task in
+  the Hours tab. Members carry their entity (Jelaf, Operaciones...), managed in Members.
+- **Hordex invoices**: new invoice with the client's guides and / or products, Edit (clear and rebuild from a guide),
+  Revert a cancellation; the "En producción" switch in Companies.
+- **Turismo Cautivo**: Forms at the top of its menu; the questionnaire moved to KcolTech; the owner is Julio Valladares.
+- Setup: `php artisan migrate` and `npm run build`.
+
+### 2026-11-22 (Optimum, earlier)
 
 - **Projects rebuilt around the four pillars**: every project's stages are Requerimiento, Análisis y Diseño,
   Implementación and Puesta en Marcha; a new project is born with them plus objective 1 "Definición del alcance" and its
@@ -293,57 +313,6 @@ Setup: `php artisan migrate`, `npm run build`.
   Chepén, Chiclayo) in every list, filter and chart.
 - **KT-TOOLS** mirrored to Google Drive and OneDrive at the end of Pa Llevar /
   A Dormir; Wake-up only reads (Excel lock files skipped).
-
-Setup: `php artisan migrate`, `npm run build`.
-### 2026-11-18 (Thundera)
-
-- **Turismo, "Cómo funciona" (presentation):** Manual → Su empresa → "Cómo
-  funciona (presentación)": who takes part (sales, operation and maintenance
-  around the live-data panel), the services table (tickets and parcels: sold,
-  run, quality checked), operation and maintenance; full screen with the
-  arrow keys.
-- **Quality control (Control de Calidad):** a new role whose home is the
-  complaints board (its own page, without the owner's money) and the forms;
-  Turismo has it (its access login and Daniel). Every company will get it.
-- **Turismo demo:** eight months of history, and the demo buses on the road
-  leave a GPS trail on the control board.
-- **Business summary on a 1366x768 laptop:** the agency table no longer
-  overlaps and the chart fits the screen.
-- **Admins and the SuperAdmin are never signed out for inactivity.**
-- **Call center demo (Alo Mundo):** the real leads show 6 rows at most and
-  can't be copied; the floor indicators have colours.
-- **Backups never hold up the work:** the backup before writing to production
-  is made on the server in seconds; bringing it to Drive waits for the next
-  Pa Llevar / A Dormir.
-- **Turismo after the presentation:** Daniel's role is now **Operaciones**
-  (agency supervisor + fleet supervisor + quality control in one); new roles
-  **Administración y Contabilidad** (Mayte) and **Agente de agencia** (the one
-  person of Chepén / Trujillo); one pilot per trip (a copilot only over 12 h),
-  no hostesses, no snacks; each ticket has its sales channel (agency, Jelaf,
-  PeruBus, phone); the dashboard opens on the departures report, then the new
-  **Mando operativo** (upcoming departures red / amber / green against their
-  costs, and which week marketing should push; also in the menu).
-- **KcolTech:** its 41 services show up on quotations and sales again; the
-  quotation PDF looks like the invoice (no product code line); a sale prefix
-  typed with its dash (PP-) keeps its series, and today's two invoices were
-  renumbered PP-0529 / PP-0530.
-
-Setup: `php artisan migrate`, `npm run build`.
-
-**Later the same night (not in production yet):**
-- **Turismo, "Mi parada":** the home screen of the one person of a
-  pass-through agency (Chepén, Trujillo): the next buses with their expected
-  time and GPS, who gets off and on (a no-show frees the seat for the rest of
-  the trip), last-minute passengers sold on the agent's open cash register
-  (no sale without it), parcels loaded / unloaded, "bus arrived" and "bus
-  dispatched".
-- **KT-TOOLS:** each company's material lives in `KT-TOOLS/files/<company>`;
-  the sync moves an old root folder (turismo, ARCE, kcoltech) there by itself.
-- **KT-TOOLS in two clouds, like git:** Pa Llevar / A Dormir end by making
-  Google Drive and OneDrive exactly equal to the PC's KT-TOOLS (what was
-  deleted on the PC is deleted there too); Wake-up only reads them and makes
-  the PC equal to the newest complete push. OneDrive is found from the PC's
-  OneDrive folder (`D:\NetLock\OneDrive\...` on Thundera and Optimum).
 
 Setup: `php artisan migrate`, `npm run build`.
 ## Session protocols

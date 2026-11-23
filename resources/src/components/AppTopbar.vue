@@ -55,6 +55,15 @@
         </a-button>
       </span>
 
+      <!-- Projects (user, 2026-11-22): beside POS, for a login with a project or a task in one -- its own company's or
+           another's (projects are their own module; a team can mix companies). Opens Mis proyectos. -->
+      <span v-if="auth.user && auth.user.my_projects > 0" class="tb-slot" :style="{ order: auth.headerOrder('pos') }">
+        <a-button class="pos-btn proj-btn" @click="$router.push('/mis-proyectos')">
+          <template #icon><ProjectOutlined /></template>
+          <span class="hide-sm">{{ trx('Projects', 'Proyectos') }}</span>
+        </a-button>
+      </span>
+
       <!-- Portfolio tablet catalogs (2026-10-25): like POS, opens the menu / models on the tablet. -->
       <span v-if="catalogs.length && auth.headerIcon('catalog') && (auth.can('portfolio_manage') || auth.can('Pos_view'))" class="tb-slot" :style="{ order: auth.headerOrder('catalog') }">
         <a-button v-if="catalogs.length === 1" class="pos-btn cat-btn" @click="openCatalog(catalogs[0])">
@@ -358,7 +367,7 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled, FolderOpenOutlined,
+  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled, FolderOpenOutlined, ProjectOutlined,
 } from '@ant-design/icons-vue';
 import { useTr } from '../lib/useTr';
 import { useIsPhone } from '../lib/useIsPhone';
@@ -728,6 +737,9 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
   padding-inline: 14px;
   margin-right: 4px;
 }
+/* Projects beside POS (2026-11-22): violet, so it never reads as a second POS. */
+.proj-btn { background: #6d28d9; border-color: #6d28d9; color: #fff; }
+.proj-btn:hover { background: #5b21b6 !important; border-color: #5b21b6 !important; color: #fff !important; }
 
 /* Company logo + name beside the toggle when the side menu is hidden / collapsed
    (margin-right: auto keeps it on the left, the actions on the right). */

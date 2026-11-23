@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="bar">
+      <template v-if="!readonly">
       <a-button type="primary" @click="openStage(null)">
         <template #icon><PlusOutlined /></template>
         {{ tr('New stage', 'Nueva etapa') }}
@@ -13,6 +14,7 @@
         <template #icon><SaveOutlined /></template>
         {{ tr('Save as template', 'Guardar como plantilla') }}
       </a-button>
+      </template>
       <span class="grow" />
       <a-button size="small" type="link" @click="toggleAll">
         {{ allOpen ? tr('Collapse all', 'Contraer todo') : tr('Expand all', 'Expandir todo') }}
@@ -32,7 +34,7 @@
           <CalendarOutlined /> {{ s.from ? date(s.from) : '—' }} → {{ s.due_date ? date(s.due_date) : '—' }}
         </span>
         <span class="prog"><a-progress :percent="s.pct" size="small" :stroke-color="progressColor(s.pct)" /></span>
-        <span class="acts" @click.stop>
+        <span v-if="!readonly" class="acts" @click.stop>
           <a-tooltip :title="tr('Add task to this stage', 'Agregar tarea a esta etapa')">
             <a-button type="text" size="small" @click="newTask(s.id)"><template #icon><PlusOutlined /></template></a-button>
           </a-tooltip>
@@ -181,6 +183,7 @@ import { useUiStore } from '../../stores/ui';
 const props = defineProps({
   projectId: { type: Number, required: true },
   data: { type: Object, default: () => ({}) },
+  readonly: { type: Boolean, default: false }, // a project member (2026-11-22): sees, doesn't change
 });
 const emit = defineEmits(['changed', 'open-task', 'new-task']);
 const tr = useTr();

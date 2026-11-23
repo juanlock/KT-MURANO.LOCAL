@@ -42,7 +42,7 @@ class LinkedUserService
             ?? Role::where('company_id', $companyId)->where('name', 'Customer')->whereNull('deleted_at')->value('id');
 
         $username = self::uniqueUsername($displayName ?: $type);
-        $finalEmail = self::uniqueEmail($email, $username, $type === 'customer' ? $companyId : null);
+        $finalEmail = self::uniqueEmail($email, $username, $companyId, $type === 'customer');
         [$firstname, $lastname] = self::splitName($displayName);
 
         $user = User::create([
@@ -279,24 +279,21 @@ class LinkedUserService
     }
 
     /**
-     * $customerCompanyId: a customer login only has to be free among that
-     * company's customer logins -- customers of each company are independent
-     * (user's rule, 2026-11-16), the portal asks which company when one email
-     * + password opens several. Other types stay unique install-wide.
+     * Each company's logins are its own (user's rule, 2026-11-22, extending 2026-11-16's customers-only rule: "personal,
+     * customer, customer online y cualquier tipo de usuario de una empresa es aislado"): an email only has to be free
+     * among that company's logins; only a SuperAdmin's email is unique install-wide. Staff /login and the portal ask
+     * which company when one email + password opens several.
      */
-    private static function uniqueEmail(?string $email, string $usernameFallback, ?int $customerCompanyId = null): string
+    public static function uniqueEmail(?string $email, string $usernameFallback, ?int $companyId = null, bool $customer = false): string
     {
         $email = trim((string) $email);
         if ($email === '') {
             $email = strtolower($usernameFallback).'@placeholder.murano.local';
         }
-        $taken = User::where('email', $email)->whereNull('deleted_at')
-            ->when($customerCompanyId, fn ($q) => $q->where('type', 'customer')->where('company_id', $customerCompanyId))
-            ->exists();
-        if (! $taken) {
+        if (! \App\Support\LoginEmails::taken($email, $companyId, null, $customer)) {
             return $email;
         }
-        // Real collision (a genuine email already used by some other user) --
+        // Real collision (the same email already a login of this company, or a SuperAdmin's) --
         // disambiguate rather than fail the whole create.
         $at = strpos($email, '@');
         $local = $at !== false ? substr($email, 0, $at) : $email;
@@ -304,7 +301,6 @@ class LinkedUserService
 
         return $local.'+'.Str::random(6).$domain;
     }
-
     private static function splitName(string $name): array
     {
         $parts = preg_split('/\s+/', trim($name), 2);

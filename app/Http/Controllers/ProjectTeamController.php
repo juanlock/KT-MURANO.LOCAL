@@ -97,12 +97,14 @@ class ProjectTeamController extends Controller
 
         return DB::table('employee_project as ep')->join('employees as e', 'e.id', '=', 'ep.employee_id')
             ->leftJoin('companies as c', 'c.id', '=', 'e.company_id')
+            ->leftJoin('project_entities as pe', fn ($j) => $j->on('pe.id', '=', 'ep.entity_id')->whereNull('pe.deleted_at'))
             ->where('ep.project_id', $projectId)
             ->orderByDesc('ep.is_manager')->orderBy('e.firstname')
-            ->get(['e.id', 'e.firstname', 'e.lastname', 'e.username', 'e.email', 'e.company_id', 'c.name as company_name', 'ep.role', 'ep.is_manager'])
+            ->get(['e.id', 'e.firstname', 'e.lastname', 'e.username', 'e.email', 'e.company_id', 'c.name as company_name', 'ep.role', 'ep.is_manager', 'ep.entity_id', 'pe.name as entity_name'])
             ->map(fn ($e) => [
                 'id' => (int) $e->id, 'name' => self::name($e), 'email' => $e->email, 'company_id' => (int) $e->company_id,
                 'company_name' => $e->company_name, 'role' => $e->role, 'is_manager' => (bool) $e->is_manager,
+                'entity_id' => $e->entity_id ? (int) $e->entity_id : null, 'entity_name' => $e->entity_name,
                 'side' => $project && (int) $e->company_id === (int) $project->company_id ? 'own' : 'client',
             ])->values();
     }
@@ -127,6 +129,8 @@ class ProjectTeamController extends Controller
 
         return response()->json([
             'members' => $this->membersWithLogins($request, $project), // with each one's user and standard password (2026-11-22)
+            // The project's entities (Jelaf, Operaciones...): managed here and given to each member (2026-11-22).
+            'entities' => DB::table('project_entities')->where('project_id', $project->id)->whereNull('deleted_at')->orderBy('position')->orderBy('id')->get(['id', 'name', 'description']),
             'candidates' => $candidates,
             'roles' => $roles,
             'company' => ['id' => $project->company_id, 'name' => DB::table('companies')->where('id', $project->company_id)->value('name')],
@@ -182,6 +186,12 @@ class ProjectTeamController extends Controller
         DB::transaction(function () use ($request, $q, $project, $employee) {
             if ($request->has('role')) {
                 (clone $q)->update(['role' => $request->role ?: null]);
+            }
+            // The member's entity (2026-11-22): one of this project's.
+            if ($request->has('entity_id')) {
+                $eid = (int) $request->entity_id;
+                $ok = $eid && DB::table('project_entities')->where('id', $eid)->where('project_id', $project->id)->whereNull('deleted_at')->exists();
+                (clone $q)->update(['entity_id' => $ok ? $eid : null]);
             }
             if ($request->has('is_manager')) {
                 if ($request->boolean('is_manager')) {
@@ -375,7 +385,7 @@ class ProjectTeamController extends Controller
         $rows = DB::table('employee_project as ep')->join('projects as p', 'p.id', '=', 'ep.project_id')
             ->leftJoin('companies as c', 'c.id', '=', 'p.company_id')
             ->whereIn('ep.employee_id', $emp ?: [0])->whereNull('p.deleted_at')
-            ->get(['p.id', 'p.title', 'p.status', 'p.start_date', 'p.end_date', 'c.name as company_name', 'ep.role', 'ep.is_manager'])->unique('id');
+            ->get(['p.id', 'p.title', 'p.status', 'p.start_date', 'p.end_date', 'c.name as company_name', 'ep.role', 'ep.is_manager', 'ep.entity_id', 'pe.name as entity_name'])->unique('id');
 
         return response()->json(['projects' => $rows->map(function ($p) use ($emp) {
             $mine = DB::table('employee_task as et')->join('tasks as t', 't.id', '=', 'et.task_id')
@@ -413,6 +423,8 @@ class ProjectTeamController extends Controller
                 'end_date' => $t->end_date, 'progress' => (int) $t->task_progress, 'stage' => $stages[$t->milestone_id] ?? null,
                 'objective_id' => $t->objective_id])->values(),
             'can_edit' => $this->isEditor($request, $project),
+            // The project manager among my employee records (2026-11-22): only they see List, Members, Documents, Hours.
+            'is_manager' => $mine && DB::table('employee_project')->where('project_id', $project->id)->whereIn('employee_id', $mine)->where('is_manager', 1)->exists(),
         ]);
     }
 
@@ -453,7 +465,11 @@ class ProjectTeamController extends Controller
         return null;
     }
 
-    /** May the signed-in person see this member's login data? The SuperAdmin, or an editor for their own company's staff. */
+    /**
+     * May the signed-in person see this member's login data? The SuperAdmin; the IT Admin of the project's company, who is
+     * like a SuperAdmin inside it (user, 2026-11-22: "déjale ver sus passwords para poder probar"), for every member, the
+     * client company's too; any other editor for their own company's staff.
+     */
     private function canSeeLogin(Request $request, Project $project, int $memberCompanyId): bool
     {
         $u = $request->user('api');
@@ -461,6 +477,10 @@ class ProjectTeamController extends Controller
             return false;
         }
         if ($u->type === 'SuperAdmin') {
+            return true;
+        }
+        if ((int) $u->company_id === (int) $project->company_id && DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')
+            ->where('ru.user_id', $u->id)->whereIn('r.name', array_merge([\App\Support\CompanyRoles::ADMIN], \App\Support\CompanyRoles::OLD_ADMIN_NAMES))->exists()) {
             return true;
         }
 
@@ -472,12 +492,14 @@ class ProjectTeamController extends Controller
     {
         $emps = DB::table('employees')->whereIn('id', DB::table('employee_project')->where('project_id', $project->id)->pluck('employee_id'))
             ->pluck('user_id', 'id');
-        $users = DB::table('users')->whereIn('id', $emps->filter()->values())->get(['id', 'email', 'username', 'type', 'statut', 'password'])->keyBy('id');
+        $users = DB::table('users')->whereIn('id', $emps->filter()->values())->get(['id', 'email', 'email_login', 'username', 'type', 'statut', 'password'])->keyBy('id');
 
         return self::members($project->id)->map(function ($m) use ($request, $project, $emps, $users) {
             $u = $users[$emps[$m['id']] ?? 0] ?? null;
             $see = $this->canSeeLogin($request, $project, (int) $m['company_id']);
-            $m['login'] = $u && $see ? ($u->email ?: $u->username) : null;
+            // The username signs in (2026-11-22); the email is shown beside it.
+            $m['login'] = $u && $see ? $u->username : null;
+            $m['login_email'] = $u && $see ? $u->email : null;
             $m['has_login'] = (bool) $u;
             $m['login_active'] = $u ? (int) $u->statut === 1 : false;
             $m['password'] = $u && $see ? self::standardPassword($u) : null;
@@ -544,7 +566,7 @@ class ProjectTeamController extends Controller
             "Te damos acceso al proyecto \"{$project->title}\" en Murano.",
             '',
             'Entra aquí: '.$base.'/next/mis-proyectos/'.$project->id,
-            'Usuario: '.$u->email,
+            'Usuario: '.$u->username.((int) ($u->email_login ?? 0) === 1 ? ' (o tu correo '.$u->email.')' : ''),
             $pw ? 'Contraseña: '.$pw.' (te pedirá cambiarla al entrar)' : 'Contraseña: la tuya. Si no la recuerdas, usa "¿Olvidaste tu contraseña?" en la página de ingreso.',
             '',
             'Ahí verás tus tareas, podrás registrar lo que avances y subir documentos.',
@@ -589,10 +611,11 @@ class ProjectTeamController extends Controller
         $task = $this->taskInScope($request, $taskId);
         $rows = DB::table('task_activities as a')->leftJoin('users as u', 'u.id', '=', 'a.user_id')
             ->where('a.task_id', $task->id)->whereNull('a.deleted_at')->orderByDesc('a.created_at')->orderByDesc('a.id')
-            ->get(['a.id', 'a.note', 'a.progress', 'a.created_at', 'a.user_id', 'u.firstname', 'u.lastname', 'u.username']);
+            ->get(['a.id', 'a.note', 'a.progress', 'a.hours', 'a.created_at', 'a.user_id', 'u.firstname', 'u.lastname', 'u.username']);
 
         return response()->json(['activities' => $rows->map(fn ($r) => [
             'id' => $r->id, 'note' => $r->note, 'progress' => $r->progress === null ? null : (int) $r->progress, 'created_at' => $r->created_at,
+            'hours' => $r->hours === null ? null : (float) $r->hours,
             'user' => trim(($r->firstname ?? '').' '.($r->lastname ?? '')) ?: $r->username,
             'mine' => (int) $r->user_id === (int) optional($request->user('api'))->id,
         ])->values(), 'progress' => (int) $task->task_progress, 'status' => $task->status]);
@@ -606,11 +629,20 @@ class ProjectTeamController extends Controller
     {
         $task = $this->taskInScope($request, $taskId);
         abort_unless($this->canWorkOnTask($request, $task), 403, __('Only the people assigned to this task can record on it.'));
-        $request->validate(['note' => 'required|string|max:5000', 'progress' => 'nullable|integer|min:0|max:100']);
+        $request->validate(['note' => 'required|string|max:5000', 'progress' => 'nullable|integer|min:0|max:100', 'hours' => 'nullable|numeric|min:0|max:24']);
         DB::transaction(function () use ($task, $request) {
+            // The hours go to the project's time logs too (2026-11-22), so the Hours tab adds them up; not billable.
+            $hours = $request->filled('hours') && (float) $request->hours > 0 ? round((float) $request->hours, 2) : null;
+            $uid = optional($request->user('api'))->id;
+            $logId = $hours ? DB::table('project_time_logs')->insertGetId([
+                'project_id' => $task->project_id, 'task_id' => $task->id,
+                'employee_id' => DB::table('employees')->where('user_id', $uid)->whereNull('deleted_at')->value('id'),
+                'log_date' => now()->toDateString(), 'hours' => $hours, 'billable' => 0, 'hourly_rate' => null, 'amount' => 0,
+                'description' => mb_substr(trim(strip_tags($request->note)), 0, 255), 'created_by' => $uid, 'created_at' => now(), 'updated_at' => now(),
+            ]) : null;
             DB::table('task_activities')->insert([
                 'company_id' => $task->company_id, 'project_id' => $task->project_id, 'task_id' => $task->id,
-                'user_id' => optional($request->user('api'))->id, 'note' => $request->note,
+                'user_id' => $uid, 'note' => $request->note, 'hours' => $hours, 'time_log_id' => $logId,
                 'progress' => $request->filled('progress') ? (int) $request->progress : null, 'created_at' => now(), 'updated_at' => now(),
             ]);
             if ($request->filled('progress')) {
@@ -631,21 +663,201 @@ class ProjectTeamController extends Controller
         $this->taskInScope($request, $a->task_id);
         $me = optional($request->user('api'));
         abort_unless((int) $a->user_id === (int) $me->id || $request->user('api')->can('update', Project::class), 403);
-        DB::table('task_activities')->where('id', $a->id)->update(['deleted_at' => now()]);
+        DB::transaction(function () use ($a) {
+            DB::table('task_activities')->where('id', $a->id)->update(['deleted_at' => now()]);
+            if ($a->time_log_id ?? null) {
+                DB::table('project_time_logs')->where('id', $a->time_log_id)->update(['deleted_at' => now()]);
+            }
+        });
 
         return response()->json(['success' => true]);
     }
 
+    /**
+     * GET projects/{id}/hours -- the project's hours (user, 2026-11-22: "total por el proyecto, por objetivo y por tareas"):
+     * the time logs (typed in Hours or recorded with an activity) added up by objective and task, beside each task's
+     * estimate.
+     */
+    public function hours(Request $request, $id)
+    {
+        $project = $this->project($request, $id);
+        $logged = DB::table('project_time_logs')->where('project_id', $project->id)->whereNull('deleted_at')
+            ->selectRaw('task_id, SUM(hours) as hours, COUNT(*) as n')->groupBy('task_id')->get()->keyBy(fn ($r) => (int) $r->task_id);
+        $tasks = Task::whereNull('deleted_at')->where('project_id', $project->id)
+            ->get(['id', 'title', 'status', 'objective_id', 'estimated_hour'])->keyBy('id');
+        $objs = DB::table('project_objectives')->where('project_id', $project->id)->whereNull('deleted_at')->orderBy('position')->orderBy('id')->get();
+        $row = fn ($t) => ['id' => $t->id, 'title' => $t->title, 'status' => $t->status,
+            'hours' => round((float) ($logged[$t->id]->hours ?? 0), 2), 'entries' => (int) ($logged[$t->id]->n ?? 0),
+            'estimated' => $t->estimated_hour === null ? null : (float) $t->estimated_hour];
+        $group = function ($ts) use ($row) {
+            $rows = $ts->map($row)->sortByDesc('hours')->values();
+
+            return ['hours' => round($rows->sum('hours'), 2), 'estimated' => round($rows->sum(fn ($r) => $r['estimated'] ?? 0), 2), 'tasks' => $rows];
+        };
+        $objectives = $objs->map(fn ($o) => ['id' => $o->id, 'title' => $o->title, 'pillar' => $o->pillar ?? null, 'position' => (int) $o->position]
+            + $group($tasks->where('objective_id', $o->id)))->values();
+        $loose = $group($tasks->filter(fn ($t) => ! $t->objective_id || ! $objs->contains('id', $t->objective_id)));
+        $noTask = round((float) ($logged[0]->hours ?? 0), 2); // logged on the project without a task
+
+        return response()->json([
+            'total' => round($logged->sum('hours'), 2),
+            'estimated' => round($tasks->sum(fn ($t) => (float) $t->estimated_hour), 2),
+            'objectives' => $objectives, 'without_objective' => $loose, 'without_task' => $noTask,
+        ]);
+    }
+
     // ---------------------------------------------------------------- description and objectives
+
+    /** May this login reorder the tasks inside the objectives? The project's editors and its project manager (2026-11-22). */
+    private function canReorder(Request $request, Project $project): bool
+    {
+        if ($this->isEditor($request, $project)) {
+            return true;
+        }
+        $mine = $this->myEmployeeIds($request, (int) $project->id);
+
+        return $mine && DB::table('employee_project')->where('project_id', $project->id)->whereIn('employee_id', $mine)->where('is_manager', 1)->exists();
+    }
+
+    /**
+     * PUT projects/{id}/objectives/{oid}/order {task_ids: [...]} -- the tasks of one objective in the order the project
+     * manager dragged them (user, 2026-11-22). Only that objective's tasks are touched; one transaction.
+     */
+    public function reorderObjectiveTasks(Request $request, $id, $oid)
+    {
+        $project = $this->project($request, $id);
+        abort_unless($this->canReorder($request, $project), 403, __('Only the project manager can change the order.'));
+        abort_unless(DB::table('project_objectives')->where('id', (int) $oid)->where('project_id', $project->id)->whereNull('deleted_at')->exists(), 404);
+        $ids = collect((array) $request->input('task_ids'))->map(fn ($v) => (int) $v)->filter()->unique()->values();
+        $valid = Task::whereNull('deleted_at')->where('project_id', $project->id)->where('objective_id', (int) $oid)->whereIn('id', $ids)->pluck('id')->all();
+        $moved = (int) $request->input('moved_id');
+        $dates = null;
+        DB::transaction(function () use ($ids, $valid, $moved, &$dates) {
+            $n = 0;
+            foreach ($ids as $tid) {
+                if (in_array($tid, $valid, true)) {
+                    Task::whereKey($tid)->update(['objective_order' => ++$n]);
+                }
+            }
+            // The moved task starts the next business day after the task now before it, keeping its length in business
+            // days (user, 2026-11-22). First in the list = after nothing: its dates stay. A finished task keeps its dates.
+            $order = $ids->filter(fn ($t) => in_array($t, $valid, true))->values();
+            $pos = $order->search($moved);
+            if ($moved && $pos !== false && $pos > 0) {
+                $task = Task::find($moved);
+                $prev = Task::find($order[$pos - 1]);
+                if ($task && $prev && $prev->end_date && ! in_array($task->status, ['completed', 'cancelled'], true)) {
+                    $len = $task->start_date && $task->end_date ? self::businessDaysBetween($task->start_date, $task->end_date) : 0;
+                    $start = self::nextBusinessDay(\Carbon\Carbon::parse($prev->end_date));
+                    $end = self::addBusinessDays($start->copy(), $len);
+                    Task::whereKey($task->id)->update(['start_date' => $start->toDateString(), 'end_date' => $end->toDateString()]);
+                    $dates = ['id' => $task->id, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString()];
+                }
+            }
+        });
+
+        return response()->json(['success' => true, 'moved' => $dates]);
+    }
+
+    /**
+     * PUT projects/{id}/objectives-order {ids: [...], moved_id, pillar} -- the objectives in the order the project manager
+     * dragged them (user, 2026-11-22); dropped in another pillar, the moved one takes that pillar. Positions 1..n follow
+     * the list (the numbering on screen). One transaction.
+     */
+    public function reorderObjectives(Request $request, $id)
+    {
+        $project = $this->project($request, $id);
+        abort_unless($this->canReorder($request, $project), 403, __('Only the project manager can change the order.'));
+        $ids = collect((array) $request->input('ids'))->map(fn ($v) => (int) $v)->filter()->unique()->values();
+        $valid = DB::table('project_objectives')->where('project_id', $project->id)->whereNull('deleted_at')->whereIn('id', $ids)->pluck('id')->map(fn ($v) => (int) $v)->all();
+        $pillar = $request->input('pillar');
+        $pillar = in_array($pillar, \App\Support\ProjectPillars::ALL, true) ? $pillar : null;
+        $moved = (int) $request->input('moved_id');
+        DB::transaction(function () use ($ids, $valid, $pillar, $moved) {
+            $n = 0;
+            foreach ($ids as $oid) {
+                if (in_array($oid, $valid, true)) {
+                    DB::table('project_objectives')->where('id', $oid)->update(['position' => ++$n, 'updated_at' => now()]);
+                }
+            }
+            if ($moved && $pillar && in_array($moved, $valid, true)) {
+                DB::table('project_objectives')->where('id', $moved)->update(['pillar' => $pillar]);
+            }
+        });
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Business days = Monday to Friday. */
+    private static function nextBusinessDay(\Carbon\Carbon $d): \Carbon\Carbon
+    {
+        do {
+            $d->addDay();
+        } while ($d->isWeekend());
+
+        return $d;
+    }
+
+    private static function addBusinessDays(\Carbon\Carbon $d, int $n): \Carbon\Carbon
+    {
+        while ($n-- > 0) {
+            self::nextBusinessDay($d);
+        }
+
+        return $d;
+    }
+
+    /** Business days from $a to $b, not counting $a (0 = a one-day task). */
+    private static function businessDaysBetween($a, $b): int
+    {
+        $d = \Carbon\Carbon::parse($a);
+        $end = \Carbon\Carbon::parse($b);
+        $n = 0;
+        while ($d->lt($end)) {
+            $d->addDay();
+            if (! $d->isWeekend()) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * PUT projects/{id}/tasks/{tid}/quick {title, start_date, end_date, assigned_to[]} -- the project manager edits a task
+     * from the Objectives list (user, 2026-11-22): its text, dates and who has it. One transaction. Assignees: the project's
+     * members only.
+     */
+    public function quickTask(Request $request, $id, $tid)
+    {
+        $project = $this->project($request, $id);
+        abort_unless($this->canReorder($request, $project), 403, __('Only the project manager can change this.'));
+        $task = Task::whereNull('deleted_at')->where('project_id', $project->id)->findOrFail((int) $tid);
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'assigned_to' => 'array',
+            'assigned_to.*' => 'integer',
+        ]);
+        $members = DB::table('employee_project')->where('project_id', $project->id)->pluck('employee_id')->map(fn ($v) => (int) $v)->all();
+        $who = collect($data['assigned_to'] ?? [])->map(fn ($v) => (int) $v)->filter(fn ($v) => in_array($v, $members, true))->unique()->values()->all();
+        DB::transaction(function () use ($task, $data, $who) {
+            Task::whereKey($task->id)->update(['title' => $data['title'], 'start_date' => $data['start_date'], 'end_date' => $data['end_date']]);
+            $task->assignedEmployees()->sync($who);
+        });
+
+        return response()->json(['success' => true]);
+    }
 
     /** GET projects/{id}/objectives -- the project's description and its objectives with their tasks. */
     public function objectives(Request $request, $id)
     {
         $project = $this->project($request, $id);
         $objs = DB::table('project_objectives')->where('project_id', $project->id)->whereNull('deleted_at')->orderBy('position')->orderBy('id')->get();
-        // In date order inside each objective (user, 2026-11-22).
+        // Inside each objective: the order the project manager dragged (objective_order), else by date (user, 2026-11-22).
         $tasks = Task::whereNull('deleted_at')->where('project_id', $project->id)->whereNotNull('objective_id')
-            ->orderBy('start_date')->orderBy('end_date')->orderBy('id')->get(['id', 'title', 'status', 'start_date', 'end_date', 'objective_id', 'milestone_id', 'task_progress', 'requirement', 'reason', 'description']);
+            ->orderByRaw('objective_order IS NULL')->orderBy('objective_order')->orderBy('start_date')->orderBy('end_date')->orderBy('id')->get(['id', 'title', 'status', 'start_date', 'end_date', 'objective_id', 'milestone_id', 'task_progress', 'requirement', 'reason', 'description']);
         $people = DB::table('employee_task as et')->join('employees as e', 'e.id', '=', 'et.employee_id')->whereIn('et.task_id', $tasks->pluck('id'))
             ->get(['et.task_id', 'e.id', 'e.firstname', 'e.lastname', 'e.username', 'e.company_id'])->groupBy('task_id');
         $who = $people->map(fn ($r) => $r->map(fn ($e) => self::name($e))->implode(', '));
@@ -660,6 +872,7 @@ class ProjectTeamController extends Controller
         $stages = ProjectMilestone::where('project_id', $project->id)->pluck('title', 'id');
 
         return response()->json([
+            'can_reorder' => $this->canReorder($request, $project),
             'description' => $project->description,
             'entities' => DB::table('project_entities')->where('project_id', $project->id)->whereNull('deleted_at')->orderBy('position')->orderBy('id')
                 ->get(['id', 'name', 'description', 'position']),
@@ -672,7 +885,7 @@ class ProjectTeamController extends Controller
                     'id' => $o->id, 'entity_id' => $o->entity_id, 'pillar' => $o->pillar ?? null, 'title' => $o->title, 'description' => $o->description, 'position' => (int) $o->position,
                     'progress' => $counted->count() ? (int) round($done * 100 / $counted->count()) : 0,
                     'done' => $counted->count() && $done === $counted->count(),
-                    'tasks' => $ts->map(fn ($t) => ['id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'end_date' => $t->end_date,
+                    'tasks' => $ts->map(fn ($t) => ['id' => $t->id, 'title' => $t->title, 'status' => $t->status, 'start_date' => $t->start_date, 'end_date' => $t->end_date,
                         'stage' => $stages[$t->milestone_id] ?? null, 'assignees' => (string) ($who[$t->id] ?? ''), 'people' => $avatars[$t->id] ?? [],
                         'requirement' => $t->requirement ?? $t->description, 'reason' => $t->reason])->values(),
                 ];
@@ -801,6 +1014,7 @@ class ProjectTeamController extends Controller
         $project = $this->project($request, $id, 'update');
         DB::transaction(function () use ($project, $eid) {
             DB::table('project_objectives')->where('project_id', $project->id)->where('entity_id', (int) $eid)->update(['entity_id' => null]);
+            DB::table('employee_project')->where('project_id', $project->id)->where('entity_id', (int) $eid)->update(['entity_id' => null]);
             DB::table('project_entities')->where('id', (int) $eid)->where('project_id', $project->id)->update(['deleted_at' => now()]);
         });
 

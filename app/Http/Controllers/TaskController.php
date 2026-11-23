@@ -82,7 +82,11 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'view', Task::class);
+        // A member of the project reads its task list (2026-11-22, App\Support\ProjectMembers): that project only.
+        $memberOf = \App\Support\ProjectMembers::memberProject($request);
+        if (! $memberOf) {
+            $this->authorizeForUser($request->user('api'), 'view', Task::class);
+        }
         // How many items do you want to display.
         $perPage = $request->limit;
         $pageStart = \Request::get('page', 1);
@@ -107,7 +111,8 @@ class TaskController extends Controller
             3 => 'end_date',
             4 => 'company_id',
         ];
-        $tasks = $this->onlyScopedProjects(Task::with('company', 'project')->where('deleted_at', '=', null), $request);
+        $tasks = $memberOf ? Task::with('company', 'project')->where('deleted_at', '=', null)->where('project_id', $memberOf)
+            : $this->onlyScopedProjects(Task::with('company', 'project')->where('deleted_at', '=', null), $request);
 
         // Multiple Filter
         $Filtred = $helpers->filter($tasks, $columns, $param, $request)
@@ -236,6 +241,8 @@ class TaskController extends Controller
                 'meeting_medium' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_medium'], 0, 30) ?: null : null,
                 'meeting_link' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_link'], 0, 1000) ?: null : null,
             ] : []),
+            // Points / questions of a meeting, each with its answer (2026-11-22); only when the form sends them.
+            ...($request->has('meeting_points') ? ['meeting_points' => $this->meetingPoints($request)] : []),
             'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
@@ -303,6 +310,16 @@ class TaskController extends Controller
 
     }
 
+    /** The meeting's points as JSON [{q, a}]: empty rows dropped, at most 60, each text trimmed and capped. */
+    private function meetingPoints(Request $request): ?string
+    {
+        $rows = collect((array) $request->input('meeting_points', []))
+            ->map(fn ($p) => ['q' => mb_substr(trim((string) ($p['q'] ?? '')), 0, 1000), 'a' => mb_substr(trim((string) ($p['a'] ?? '')), 0, 4000)])
+            ->filter(fn ($p) => $p['q'] !== '' || $p['a'] !== '')->take(60)->values();
+
+        return $rows->isEmpty() ? null : json_encode($rows, JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * Update the specified resource in storage.
      *
@@ -341,6 +358,8 @@ class TaskController extends Controller
                 'meeting_medium' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_medium'], 0, 30) ?: null : null,
                 'meeting_link' => $request->boolean('is_meeting') ? mb_substr((string) $request['meeting_link'], 0, 1000) ?: null : null,
             ] : []),
+            // Points / questions of a meeting, each with its answer (2026-11-22); only when the form sends them.
+            ...($request->has('meeting_points') ? ['meeting_points' => $this->meetingPoints($request)] : []),
             'priority' => $request['priority'] ?: 'medium', // NOT NULL column: a task without one never saved (2026-11-19)
             'estimated_hour' => $request['estimated_hour'],
             'task_progress' => $request['task_progress'] ?: 0,
@@ -383,9 +402,13 @@ class TaskController extends Controller
      */
     public function tasks_kanban(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'view', Task::class);
+        // A member of the project reads its board (2026-11-22, App\Support\ProjectMembers): that project only.
+        $memberOf = \App\Support\ProjectMembers::memberProject($request);
+        if (! $memberOf) {
+            $this->authorizeForUser($request->user('api'), 'view', Task::class);
+        }
 
-        $tasks = $this->onlyScopedProjects(Task::with('project')->where('deleted_at', '=', null), $request)
+        $tasks = ($memberOf ? Task::with('project')->where('deleted_at', '=', null)->where('project_id', $memberOf) : $this->onlyScopedProjects(Task::with('project')->where('deleted_at', '=', null), $request))
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('priority'), fn ($q) => $q->where('priority', $request->priority))
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'LIKE', "%{$request->search}%"))

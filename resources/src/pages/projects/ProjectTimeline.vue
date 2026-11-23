@@ -2,7 +2,12 @@
   <div class="tl">
     <!-- Template picker (the user's Smartsheet project timeline templates, 2026-11-20) + the view's own controls. -->
     <div class="bar">
-      <a-segmented v-model:value="view" :options="viewOptions" />
+      <!-- Each view with its own colour and icon, so they are told apart at a glance (user, 2026-11-22). -->
+      <a-segmented v-model:value="view" :options="viewOptions" class="views">
+        <template #label="{ value: v, payload }">
+          <span class="vt" :class="{ on: v === view }" :style="{ '--vc': payload.color }"><component :is="payload.icon" /> {{ payload.text }}</span>
+        </template>
+      </a-segmented>
       <template v-if="view === 'gantt'">
         <a-segmented v-model:value="scale" size="small" :options="scaleOptions" />
         <a-select v-model:value="windowMonths" size="small" style="width: 150px" :options="windowOptions" />
@@ -185,6 +190,7 @@ import { ref, computed, watch } from 'vue';
 import dayjs from 'dayjs';
 import {
   LeftOutlined, RightOutlined, PrinterOutlined, InfoCircleOutlined, CheckCircleFilled, ClockCircleOutlined,
+  UnorderedListOutlined, BarsOutlined, FlagOutlined, ApartmentOutlined,
 } from '@ant-design/icons-vue';
 import { useFormat } from '../../composables/useFormat';
 import { useTr } from '../../lib/useTr';
@@ -210,12 +216,12 @@ const colorBy = ref('phase');
 const offset = ref(0);
 
 const viewOptions = computed(() => [
-  { value: 'simple', label: tr('Simple', 'Simple') },
-  { value: 'gantt', label: tr('Gantt', 'Gantt') },
-  { value: 'milestones', label: tr('Stage ends', 'Fin de etapas') },
-  { value: 'phases', label: tr('Stages', 'Etapas') },
+  { value: 'simple', payload: { text: tr('Simple', 'Simple'), icon: UnorderedListOutlined, color: '#2563eb' } },
+  { value: 'gantt', payload: { text: tr('Gantt', 'Gantt'), icon: BarsOutlined, color: '#7c3aed' } },
+  { value: 'milestones', payload: { text: tr('Stage ends', 'Fin de etapas'), icon: FlagOutlined, color: '#ea580c' } },
+  { value: 'phases', payload: { text: tr('Stages', 'Etapas'), icon: ApartmentOutlined, color: '#059669' } },
 ]);
-const viewLabel = computed(() => viewOptions.value.find(o => o.value === view.value)?.label);
+const viewLabel = computed(() => viewOptions.value.find(o => o.value === view.value)?.payload.text);
 const scaleOptions = computed(() => [{ value: 'week', label: tr('Weeks', 'Semanas') }, { value: 'month', label: tr('Months', 'Meses') }]);
 const windowOptions = computed(() => [
   { value: 0, label: tr('Whole project', 'Todo el proyecto') },
@@ -370,6 +376,12 @@ function print() {
 </script>
 
 <style scoped>
+/* The view picker: each view its colour; the chosen one filled (2026-11-22). */
+.views { padding: 3px; }
+.vt { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 6px; color: var(--vc); font-weight: 600; }
+.vt.on { background: var(--vc); color: #fff; }
+.views :deep(.ant-segmented-item) { padding: 0; }
+.views :deep(.ant-segmented-item-label) { padding: 0 2px; min-height: 0; line-height: 28px; }
 .bar {
   display: flex;
   flex-wrap: wrap;

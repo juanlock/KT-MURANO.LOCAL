@@ -8,6 +8,7 @@ use App\Support\LoginSecurity;
 use App\Support\WebLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class LoginController extends Controller
 {
@@ -72,33 +73,36 @@ class LoginController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'max:190'], // the field keeps its name: it takes the username (or an enabled email)
             'password' => ['required', 'string'],
         ]);
 
         $remember = (bool) $request->input('remember', false);
-        $email = (string) $request->input('email');
+        $typed = trim((string) $request->input('email'));
+        $password = (string) $request->input('password');
 
-        // Login security (2026-10-27, App\Support\LoginSecurity): a locked login is
-        // refused before its password is even checked; wrong passwords count
-        // towards the lock (5 in an hour = locked for an hour, from any IP).
-        $logins = \App\Models\User::where('email', $email)->where('type', '!=', 'customer')->whereNull('deleted_at')->get();
-        foreach ($logins as $login) {
-            if ($until = LoginSecurity::lockedUntil($login)) {
-                LoginSecurity::event($login, $email, 'web', 'blocked', $request, 'locked');
+        // Sign in with the USERNAME (user's rule, 2026-11-22): unique in all of Murano, while an email can repeat across
+        // companies that never know each other. The email works only where its IT Admin / the SuperAdmin enabled it and it
+        // doesn't repeat (App\Support\LoginLookup). Login security (2026-10-27): a locked login is refused before its
+        // password is checked; wrong passwords count towards the lock (5 in an hour = locked for an hour).
+        $user = \App\Support\LoginLookup::find($typed, 'staff');
+        if ($user && ($until = LoginSecurity::lockedUntil($user))) {
+            LoginSecurity::event($user, $typed, 'web', 'blocked', $request, 'locked');
 
-                return $this->failed($request, LoginSecurity::lockedMessage($until));
-            }
+            return $this->failed($request, LoginSecurity::lockedMessage($until));
         }
-        $guard = Auth::guard('web');
-        if (! $guard->validate($this->credentials($request))) {
-            $locked = LoginSecurity::recordFailure($logins, $email, $request, 'web');
+        if (! $user || ! $user->password || ! Hash::check($password, $user->password) || (int) $user->statut !== 1) {
+            $locked = LoginSecurity::recordFailure($user ? [$user] : [], $typed, $request, 'web');
 
             return $this->failed($request, $locked ? LoginSecurity::lockedMessage($locked) : 'These credentials do not match our records.');
         }
-        $user = $guard->getLastAttempted();
         LoginSecurity::clearFailures($user);
 
+        return $this->afterPassword($request, $user, $password, $remember);
+    }
+    /** The password was right for this login: network security, its pending steps, else in. */
+    private function afterPassword(Request $request, \App\Models\User $user, string $password, bool $remember)
+    {
         // Network security (2026-10-16): a restricted user outside the
         // company's networks, on a computer not approved yet, is refused and
         // this computer is sent to the admins for approval.
@@ -113,7 +117,7 @@ class LoginController extends Controller
         }
 
         // Two-step code and / or a new password first (LoginStepsController), else straight in.
-        $steps = LoginSecurity::pendingSteps($user, $request, (string) $request->input('password'));
+        $steps = LoginSecurity::pendingSteps($user, $request, $password);
         if ($steps) {
             return WebLogin::begin($request, $user, $remember, $steps);
         }

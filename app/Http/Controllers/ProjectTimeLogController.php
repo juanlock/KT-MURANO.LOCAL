@@ -20,14 +20,18 @@ class ProjectTimeLogController extends Controller
 
     public function index(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'view', ProjectTimeLog::class);
+        // A member of the project reads its hours (2026-11-22, App\Support\ProjectMembers): that project only.
+        $memberOf = \App\Support\ProjectMembers::memberProject($request);
+        if (! $memberOf) {
+            $this->authorizeForUser($request->user('api'), 'view', ProjectTimeLog::class);
+        }
 
         $perPage = (int) ($request->limit ?? 10);
         $page = max(1, (int) $request->get('page', 1));
         $order = in_array($request->SortField, self::SORTABLE, true) ? $request->SortField : 'log_date';
         $dir = strtolower((string) $request->SortType) === 'asc' ? 'asc' : 'desc';
 
-        $query = $this->onlyScopedProjects(ProjectTimeLog::query(), $request)->with('project', 'task', 'employee')->whereNull('deleted_at')
+        $query = ($memberOf ? ProjectTimeLog::query()->where('project_id', $memberOf) : $this->onlyScopedProjects(ProjectTimeLog::query(), $request))->with('project', 'task', 'employee')->whereNull('deleted_at')
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('task_id'), fn ($q) => $q->where('task_id', $request->task_id))
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->employee_id))

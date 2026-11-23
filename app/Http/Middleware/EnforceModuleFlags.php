@@ -113,7 +113,7 @@ class EnforceModuleFlags
         }
         // A member of another company's project works on it from "Mis proyectos" even when their own company has no
         // Projects module (2026-11-22: the client's staff); the controller checks the membership.
-        if ($module === 'projects' && self::memberRequest($segments, (int) $user->id)) {
+        if ($module === 'projects' && self::memberRequest($segments, (int) $user->id, $request)) {
             return $next($request);
         }
 
@@ -123,12 +123,15 @@ class EnforceModuleFlags
     }
 
     /** projects/{id}/(task-meta|objectives|documents|link-preview) or tasks/{id}/activities of a project the user is a member of. */
-    private static function memberRequest(array $segments, int $userId): bool
+    private static function memberRequest(array $segments, int $userId, ?Request $request = null): bool
     {
         $projectId = null;
         if (($segments[0] ?? '') === 'projects' && ctype_digit((string) ($segments[1] ?? ''))
-            && in_array($segments[2] ?? '', ['task-meta', 'objectives', 'documents', 'link-preview'], true)) {
+            && in_array($segments[2] ?? '', ['task-meta', 'objectives', 'documents', 'link-preview', 'members', 'hours', '', 'objectives-order', 'tasks'], true)) {
             $projectId = (int) $segments[1];
+        } elseif ($request && $request->isMethod('GET') && $request->filled('project_id') && in_array(implode('/', $segments), ['tasks', 'tasks_kanban', 'project_time_logs', 'projects/meta', 'projects/reports/workload', 'projects/reports/milestones'], true)) {
+            // Every tab of the project for its members (2026-11-22, App\Support\ProjectMembers): the lists of that project.
+            $projectId = (int) $request->input('project_id');
         } elseif (($segments[0] ?? '') === 'tasks' && ctype_digit((string) ($segments[1] ?? '')) && ($segments[2] ?? '') === 'activities') {
             $projectId = (int) \Illuminate\Support\Facades\DB::table('tasks')->where('id', (int) $segments[1])->value('project_id');
         }

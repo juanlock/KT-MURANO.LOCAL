@@ -23,7 +23,7 @@
           v-model:value="filters.search" :placeholder="tr('Search task…', 'Buscar tarea…')"
           allow-clear class="tb-search" @search="load"
         />
-        <a-button v-if="projectId" type="primary" @click="$emit('new-task')">
+        <a-button v-if="projectId && !readonly" type="primary" @click="$emit('new-task')">
           <template #icon><PlusOutlined /></template>
           {{ tr('New task', 'Nueva tarea') }}
         </a-button>
@@ -79,7 +79,7 @@
                 </span>
                 <span v-else class="card-due muted">{{ tr('No due date', 'Sin fecha de vencimiento') }}</span>
 
-                <a-dropdown :trigger="['click']">
+                <a-dropdown v-if="!readonly" :trigger="['click']">
                   <a-button type="text" size="small" class="card-move">
                     <template #icon><SwapOutlined /></template>
                   </a-button>
@@ -131,7 +131,8 @@ import { t } from '../../i18n';
 import { useTr } from '../../lib/useTr';
 
 // Inside a project (ProjectDetail's "Tareas" tab): that project only, no project filter / column.
-const props = defineProps({ projectId: { type: [Number, String], default: null } });
+// readonly: a project member (2026-11-22) sees the board and opens tasks, never moves them here.
+const props = defineProps({ projectId: { type: [Number, String], default: null }, readonly: { type: Boolean, default: false } });
 // Inside a project the task opens in the side panel (TaskDrawer, 2026-11-22).
 defineEmits(['open-task', 'new-task']);
 
@@ -180,7 +181,7 @@ onMounted(async () => {
   load();
   if (props.projectId) return;
   try {
-    const meta = await http.get('projects/meta');
+    const meta = await http.get('projects/meta', props.projectId ? { project_id: props.projectId } : {});
     projects.value = meta?.projects || [];
   } catch (e) { /* the filter stays empty */ }
 });

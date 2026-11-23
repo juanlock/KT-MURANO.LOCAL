@@ -100,6 +100,24 @@
         </div>
       </div>
 
+      <!-- The meeting's points / questions, each with its answer beside it (user, 2026-11-22). -->
+      <div v-if="form.is_meeting" class="sec">
+        <div class="sec-title fold" @click="toggle('points')"><component :is="fold.points ? RightOutlined : DownOutlined" class="caret" /><QuestionCircleOutlined /> {{ tr('Points to cover / Questions', 'Puntos a tratar / Consultas') }}
+          <span v-if="form.meeting_points.length" class="cnt">{{ answeredCount }}/{{ form.meeting_points.length }} {{ tr('answered', 'respondidas') }}</span>
+        </div>
+        <div v-show="!fold.points" class="pts">
+          <div v-if="form.meeting_points.length" class="pt-head"><span /><span>{{ tr('Point / question', 'Punto / pregunta') }}</span><span>{{ tr('Answer', 'Respuesta') }}</span><span /></div>
+          <div v-for="(p, i) in form.meeting_points" :key="i" class="pt" :class="{ done: !!(p.a || '').trim() }">
+            <span class="pt-n">{{ i + 1 }}</span>
+            <a-textarea v-model:value="p.q" :disabled="ro" :auto-size="{ minRows: 1, maxRows: 6 }" :placeholder="tr('What to ask or cover', 'Qué preguntar o tratar')" />
+            <a-textarea v-model:value="p.a" :disabled="ro" :auto-size="{ minRows: 1, maxRows: 8 }" :placeholder="tr('Answer given at the meeting', 'Respuesta dada en la reunión')" />
+            <a-button v-if="!ro" type="text" size="small" danger @click="form.meeting_points.splice(i, 1)"><template #icon><DeleteOutlined /></template></a-button>
+            <span v-else />
+          </div>
+          <a-button v-if="!ro" size="small" type="dashed" @click="form.meeting_points.push({ q: '', a: '' })"><template #icon><PlusOutlined /></template>{{ tr('Add point', 'Agregar punto') }}</a-button>
+        </div>
+      </div>
+
       <div class="sec">
         <div class="sec-title fold" @click="toggle('log')"><component :is="fold.log ? RightOutlined : DownOutlined" class="caret" /><MessageOutlined /> {{ tr('Agreements / Activity log', 'Acuerdos / Registro de actividades') }}<span v-if="activities.length" class="cnt">{{ activities.length }}</span></div>
         <div v-if="!taskId && !fold.log" class="muted small">{{ tr('Save the task first.', 'Guarda la tarea primero.') }}</div>
@@ -109,6 +127,9 @@
               v-model:value="act.note" :auto-size="{ minRows: 4, maxRows: 12 }" class="act-note"
               :placeholder="tr('What was done or agreed…', 'Qué se hizo o qué se acordó…')"
             />
+            <a-tooltip :title="tr('Hours spent on this (they add up in the Hours tab)', 'Horas dedicadas a esto (se suman en la pestaña Horas)')">
+              <a-input-number v-model:value="act.hours" size="small" :min="0" :max="24" :step="0.5" class="act-pct" addon-after="h" />
+            </a-tooltip>
             <a-tooltip :title="tr('Task progress after this', 'Avance de la tarea después de esto')">
               <a-input-number v-model:value="act.progress" size="small" :min="0" :max="100" :step="5" class="act-pct" addon-after="%" />
             </a-tooltip>
@@ -121,6 +142,7 @@
             <div class="act-meta">
               <span class="act-date">{{ dateTime(a.created_at) }}</span>
               <span class="act-user">{{ a.user }}</span>
+              <a-tag v-if="a.hours" class="act-tag">{{ a.hours }} h</a-tag>
               <a-tag v-if="a.progress !== null" :color="a.progress >= 100 ? 'success' : 'processing'" class="act-tag">{{ a.progress }}%</a-tag>
               <a-button v-if="a.mine" type="text" size="small" danger class="act-del" @click="removeActivity(a)"><template #icon><DeleteOutlined /></template></a-button>
             </div>
@@ -150,7 +172,7 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { markdown } from '../../lib/markdown';
 import { Modal, message } from 'ant-design-vue';
-import { CheckSquareOutlined, MessageOutlined, PaperClipOutlined, PlusOutlined, DeleteOutlined, RightOutlined, DownOutlined, VideoCameraOutlined, CalendarOutlined, ExportOutlined } from '@ant-design/icons-vue';
+import { CheckSquareOutlined, MessageOutlined, PaperClipOutlined, PlusOutlined, DeleteOutlined, RightOutlined, DownOutlined, VideoCameraOutlined, CalendarOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { useTr } from '../../lib/useTr';
 import { useFormat } from '../../composables/useFormat';
@@ -196,7 +218,7 @@ function blank() {
   const today = new Date().toISOString().slice(0, 10);
   const due = stage?.due_date ? String(stage.due_date).slice(0, 10) : today;
   return {
-    is_meeting: false, meeting_at: null, meeting_medium: undefined, meeting_link: '',
+    is_meeting: false, meeting_at: null, meeting_medium: undefined, meeting_link: '', meeting_points: [],
     title: '', requirement: '', reason: '', objective_id: props.objectiveId || undefined, milestone_id: props.milestoneId || undefined,
     assigned_to: meta.value.manager_id ? [meta.value.manager_id] : [], status: 'not_started', priority: 'medium',
     start_date: today <= due ? today : due, end_date: due, estimated_hour: null, task_progress: 0,
@@ -214,7 +236,7 @@ async function load() {
       const x = d.task || {};
       form.value = {
         is_meeting: !!Number(x.is_meeting), meeting_at: x.meeting_at ? String(x.meeting_at).slice(0, 16) : null,
-        meeting_medium: x.meeting_medium || undefined, meeting_link: x.meeting_link || '',
+        meeting_medium: x.meeting_medium || undefined, meeting_link: x.meeting_link || '', meeting_points: parsePoints(x.meeting_points),
         title: x.title || '', requirement: x.requirement ?? (x.description || ''), reason: x.reason || '', objective_id: x.objective_id || undefined,
         milestone_id: x.milestone_id || undefined, assigned_to: d.assigned_employees || [], status: x.status || 'not_started',
         priority: x.priority || 'medium', start_date: x.start_date || null, end_date: x.end_date || null,
@@ -279,7 +301,7 @@ function close() {
 // ---- activity log
 // Collapsible sections, remembered in this browser (2026-11-22).
 const FOLD_KEY = 'murano.taskDrawer.fold';
-const fold = reactive((() => { try { return { req: false, why: false, log: false, docs: false, meet: false, ...JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') }; } catch (e) { return { req: false, why: false, log: false, docs: false }; } })());
+const fold = reactive((() => { try { return { req: false, why: false, log: false, docs: false, meet: false, points: false, ...JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') }; } catch (e) { return { req: false, why: false, log: false, docs: false }; } })());
 function toggle(k) { fold[k] = !fold[k]; try { localStorage.setItem(FOLD_KEY, JSON.stringify(fold)); } catch (e) { /* private window */ } }
 
 // ---- meeting
@@ -288,6 +310,11 @@ const mediumOptions = computed(() => [
   { value: 'WhatsApp', label: 'WhatsApp' }, { value: 'Teléfono', label: tr('Phone', 'Teléfono') }, { value: 'Presencial', label: tr('In person', 'Presencial') },
 ]);
 const isPlace = computed(() => form.value.meeting_medium === 'Presencial');
+// Points / questions of the meeting with their answers (2026-11-22).
+function parsePoints(v) {
+  try { const a = typeof v === 'string' ? JSON.parse(v || '[]') : (v || []); return Array.isArray(a) ? a.map(p => ({ q: p.q || '', a: p.a || '' })) : []; } catch (e) { return []; }
+}
+const answeredCount = computed(() => (form.value.meeting_points || []).filter(p => (p.a || '').trim()).length);
 const meetingUrl = computed(() => (/^https?:\/\/\S+$/i.test((form.value.meeting_link || '').trim()) ? form.value.meeting_link.trim() : null));
 // Typing / pasting a link names its medium.
 watch(() => form.value.meeting_link, v => {
@@ -338,23 +365,23 @@ const docsKey = ref(0);
 
 const activities = ref([]);
 const expanded = reactive({});
-const act = ref({ note: '', progress: null });
+const act = ref({ note: '', progress: null, hours: null });
 const actSaving = ref(false);
 async function loadActivities() {
   const r = await http.get(`tasks/${props.taskId}/activities`);
   activities.value = r.activities || [];
-  act.value = { note: '', progress: r.progress ?? null };
+  act.value = { note: '', progress: r.progress ?? null, hours: null };
 }
 async function addActivity() {
   actSaving.value = true;
   try {
-    await http.post(`tasks/${props.taskId}/activities`, { note: act.value.note, progress: act.value.progress });
+    await http.post(`tasks/${props.taskId}/activities`, { note: act.value.note, progress: act.value.progress, hours: act.value.hours });
     const keepDirty = dirty.value;
     const r = await http.get(`tasks/${props.taskId}/activities`);
     activities.value = r.activities || [];
     form.value.task_progress = r.progress;
     form.value.status = r.status;
-    act.value = { note: '', progress: r.progress };
+    act.value = { note: '', progress: r.progress, hours: null };
     dirty.value = keepDirty;
     emit('saved');
   } catch (e) {
@@ -371,6 +398,13 @@ function removeActivity(a) {
 
 <style scoped>
 .td-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* Meeting points: number, question, answer beside it, delete (2026-11-22). */
+.pts { display: flex; flex-direction: column; gap: 6px; }
+.pt-head, .pt { display: grid; grid-template-columns: 22px 1fr 1fr 28px; gap: 8px; align-items: start; }
+.pt-head { font-size: 11.5px; font-weight: 600; opacity: 0.6; }
+.pt-n { font-weight: 700; padding-top: 5px; text-align: right; opacity: 0.6; }
+.pt.done .pt-n { color: #16a34a; opacity: 1; }
+@media (max-width: 767px) { .pt-head { display: none; } .pt { grid-template-columns: 22px 1fr 28px; } .pt > :nth-child(3) { grid-column: 2; } }
 /* A long task name ends in … instead of running under the buttons. */
 .task-drawer :deep(.ant-drawer-title) { min-width: 0; overflow: hidden; }
 .td-ic { color: #6366f1; font-size: 18px; }

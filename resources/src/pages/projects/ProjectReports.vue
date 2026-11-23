@@ -263,7 +263,7 @@ onMounted(async () => {
   crud.fetchRows();
   if (fixedProject.value) return;
   try {
-    const meta = await http.get('projects/meta');
+    const meta = await http.get('projects/meta', props.projectId ? { project_id: props.projectId } : {});
     projects.value = meta?.projects || [];
   } catch (e) { /* the filter stays empty */ }
 });

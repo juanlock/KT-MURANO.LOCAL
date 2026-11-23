@@ -209,6 +209,19 @@ class ProjectWorkspaceController extends Controller
     /** Selects every workspace form needs, in one call. */
     public function meta(Request $request)
     {
+        // A member of the project without the projects permission (2026-11-22, App\Support\ProjectMembers): the pickers
+        // of that project only -- the project, its tasks and its team.
+        $memberOf = \App\Support\ProjectMembers::memberProject($request);
+        if ($memberOf && ! optional($request->user('api'))->can('view', Project::class)) {
+            $team = ProjectTeamController::members($memberOf);
+
+            return response()->json([
+                'projects' => Project::whereKey($memberOf)->get(['id', 'title', 'status', 'client_id']),
+                'tasks' => Task::whereNull('deleted_at')->where('project_id', $memberOf)->orderBy('title')->get(['id', 'title', 'project_id', 'status']),
+                'employees' => collect($team)->map(fn ($m) => ['id' => $m['id'], 'name' => $m['name']])->values(),
+                'clients' => [],
+            ]);
+        }
         $this->authorizeForUser($request->user('api'), 'view', Project::class);
 
         return response()->json([
@@ -294,11 +307,15 @@ class ProjectWorkspaceController extends Controller
     /** Hours and billing per person. */
     public function workloadReport(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'report', Project::class);
+        // A project member reads its report (2026-11-22, App\Support\ProjectMembers): that project only.
+        $memberOf = \App\Support\ProjectMembers::memberProject($request);
+        if (! $memberOf) {
+            $this->authorizeForUser($request->user('api'), 'report', Project::class);
+        }
 
         [$from, $to] = $this->range($request);
 
-        $logs = $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request)
+        $logs = ($memberOf ? ProjectTimeLog::whereNull('deleted_at')->where('project_id', $memberOf) : $this->onlyScopedProjects(ProjectTimeLog::whereNull('deleted_at'), $request))
             ->whereNotNull('employee_id')
             ->when($from, fn ($q) => $q->whereDate('log_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('log_date', '<=', $to))
@@ -349,11 +366,14 @@ class ProjectWorkspaceController extends Controller
     /** Milestone delivery: what is on plan, what has slipped. */
     public function milestoneReport(Request $request)
     {
-        $this->authorizeForUser($request->user('api'), 'report', Project::class);
+        $memberOf = \App\Support\ProjectMembers::memberProject($request); // a project member (2026-11-22)
+        if (! $memberOf) {
+            $this->authorizeForUser($request->user('api'), 'report', Project::class);
+        }
 
         $today = Carbon::today();
 
-        $rows = $this->onlyScopedProjects(ProjectMilestone::with('project')->whereNull('deleted_at'), $request)
+        $rows = ($memberOf ? ProjectMilestone::with('project')->whereNull('deleted_at')->where('project_id', $memberOf) : $this->onlyScopedProjects(ProjectMilestone::with('project')->whereNull('deleted_at'), $request))
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->project_id))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'LIKE', "%{$request->search}%"))

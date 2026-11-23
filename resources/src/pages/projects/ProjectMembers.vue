@@ -4,7 +4,7 @@
       <a-col :xs="24" :lg="16">
         <a-card size="small" :title="tr('People in this project', 'Personas del proyecto')">
           <template #extra>
-            <a-button type="primary" size="small" @click="addOpen = true">
+            <a-button v-if="!readonly" type="primary" size="small" @click="addOpen = true">
               <template #icon><UserAddOutlined /></template>
               {{ tr('Add members', 'Agregar miembros') }}
             </a-button>
@@ -19,6 +19,7 @@
                   <div class="nm">
                     {{ m.name }}
                     <a-tag v-if="m.is_manager" color="gold" class="tight"><CrownOutlined /> {{ tr('Project manager', 'Jefe de proyecto') }}</a-tag>
+                    <a-tag v-if="m.entity_name" color="purple" class="tight"><ApartmentOutlined /> {{ m.entity_name }}</a-tag>
                   </div>
                   <div class="em">{{ m.email || '' }}</div>
                   <!-- Login and password (2026-11-22): the standard one is shown, a changed one is not readable. -->
@@ -36,17 +37,22 @@
                     <span v-else class="muted">{{ tr('No login', 'Sin login') }}</span>
                   </div>
                 </div>
+                <!-- The member's entity (2026-11-22): one of the project's (managed in the card on the right). -->
+                <a-select
+                  v-if="!readonly" :value="m.entity_id || undefined" :options="entityOptions" size="small" class="ent" allow-clear
+                  :placeholder="tr('Entity', 'Entidad')" @change="v => saveEntityOf(m, v)"
+                />
                 <a-auto-complete
                   :value="m.role || ''" :options="roleOptions" class="role" size="small"
                   :placeholder="tr('Role in the project', 'Rol en el proyecto')" :filter-option="filterRole"
                   @change="v => (m.role = v)" @blur="saveRole(m)" @select="v => { m.role = v; saveRole(m); }"
                 />
-                <a-tooltip :title="m.is_manager ? tr('Remove as manager', 'Quitar como jefe') : tr('Make project manager', 'Hacer jefe de proyecto')">
+                <a-tooltip v-if="!readonly" :title="m.is_manager ? tr('Remove as manager', 'Quitar como jefe') : tr('Make project manager', 'Hacer jefe de proyecto')">
                   <a-button type="text" size="small" @click="setManager(m)">
                     <template #icon><CrownFilled v-if="m.is_manager" style="color: #d97706" /><CrownOutlined v-else /></template>
                   </a-button>
                 </a-tooltip>
-                <a-tooltip :title="tr('Remove from the project', 'Quitar del proyecto')">
+                <a-tooltip v-if="!readonly" :title="tr('Remove from the project', 'Quitar del proyecto')">
                   <a-button type="text" size="small" danger @click="remove(m)"><template #icon><DeleteOutlined /></template></a-button>
                 </a-tooltip>
               </div>
@@ -55,6 +61,21 @@
         </a-card>
       </a-col>
       <a-col :xs="24" :lg="8">
+        <!-- The project's entities (2026-11-22, moved here from Objectives): who each member and objective belongs to. -->
+        <a-card size="small" :title="tr('Entities', 'Entidades')" class="ents">
+          <template v-if="!readonly" #extra>
+            <a-button size="small" @click="entOpen(null)"><template #icon><PlusOutlined /></template>{{ tr('Add entity', 'Agregar entidad') }}</a-button>
+          </template>
+          <div v-if="!(info.entities || []).length" class="muted small">{{ tr('No entities yet (e.g. Jelaf, Operaciones).', 'Sin entidades todavía (p. ej. Jelaf, Operaciones).') }}</div>
+          <div v-for="e in info.entities || []" :key="e.id" class="ent-row">
+            <ApartmentOutlined class="ent-ic" />
+            <div class="ent-txt"><b>{{ e.name }}</b> <span class="muted small">{{ membersOf(e.id) }}</span><div v-if="e.description" class="muted small">{{ e.description }}</div></div>
+            <template v-if="!readonly">
+              <a-button type="text" size="small" @click="entOpen(e)"><template #icon><EditOutlined /></template></a-button>
+              <a-button type="text" size="small" danger @click="entRemove(e)"><template #icon><DeleteOutlined /></template></a-button>
+            </template>
+          </div>
+        </a-card>
         <a-card size="small" :title="tr('Companies', 'Empresas')">
           <div class="co"><span class="lbl">{{ tr('Runs the project', 'Ejecuta el proyecto') }}</span> {{ info.company?.name || '—' }}</div>
           <div class="co">
@@ -78,6 +99,16 @@
         </a-card>
       </a-col>
     </a-row>
+
+    <a-modal
+      :open="ent.open" :title="ent.id ? tr('Edit entity', 'Editar entidad') : tr('New entity', 'Nueva entidad')" :width="480"
+      :confirm-loading="ent.busy" :ok-text="tr('Save', 'Guardar')" :cancel-text="$t('Cancel')" @ok="entSave" @cancel="ent.open = false"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="tr('Name', 'Nombre')"><a-input v-model:value="ent.name" :placeholder="tr('e.g. Operations', 'p. ej. Operaciones')" /></a-form-item>
+        <a-form-item :label="tr('Who they are', 'Quién es')" style="margin-bottom: 0"><a-input v-model:value="ent.description" :placeholder="tr('e.g. online ticket sales provider', 'p. ej. proveedora de venta de pasajes en línea')" /></a-form-item>
+      </a-form>
+    </a-modal>
 
     <a-modal
       :open="addOpen" :title="tr('Add members', 'Agregar miembros')" :width="560" :confirm-loading="saving"
@@ -109,12 +140,13 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { Modal, message } from 'ant-design-vue';
 import {
   UserAddOutlined, BankOutlined, CrownOutlined, CrownFilled, DeleteOutlined, InfoCircleOutlined, UserOutlined, KeyOutlined, CopyOutlined,
+  ApartmentOutlined, PlusOutlined, EditOutlined,
 } from '@ant-design/icons-vue';
 import http from '../../lib/http';
 import { useTr } from '../../lib/useTr';
 import { sortByLabel } from '../../lib/filterOptions';
 
-const props = defineProps({ projectId: { type: Number, required: true } });
+const props = defineProps({ projectId: { type: Number, required: true }, readonly: { type: Boolean, default: false } });
 const emit = defineEmits(['changed']);
 const tr = useTr();
 
@@ -167,6 +199,34 @@ async function add() {
   } finally { saving.value = false; }
 }
 
+// Entities (2026-11-22): the list, who belongs to each, and editing them here.
+const entityOptions = computed(() => sortByLabel((info.value.entities || []).map(e => ({ value: e.id, label: e.name }))));
+const membersOf = id => { const n = members.value.filter(m => m.entity_id === id).length; return n ? `· ${n} ${n === 1 ? tr('member', 'miembro') : tr('members', 'miembros')}` : ''; };
+async function saveEntityOf(m, v) {
+  try { await http.put(`projects/${props.projectId}/members/${m.id}`, { entity_id: v || null }); await load(); emit('changed'); }
+  catch (e) { message.error(tr('Could not save.', 'No se pudo guardar.')); }
+}
+const ent = ref({ open: false, busy: false, id: null, name: '', description: '' });
+function entOpen(e) { ent.value = { open: true, busy: false, id: e?.id || null, name: e?.name || '', description: e?.description || '' }; }
+async function entSave() {
+  if (!ent.value.name.trim()) return message.warning(tr('Write the name.', 'Escribe el nombre.'));
+  ent.value.busy = true;
+  try {
+    const body = { name: ent.value.name.trim(), description: ent.value.description || null };
+    if (ent.value.id) await http.put(`projects/${props.projectId}/entities/${ent.value.id}`, body);
+    else await http.post(`projects/${props.projectId}/entities`, body);
+    ent.value.open = false;
+    await load();
+    emit('changed');
+  } catch (e) { message.error(e?.data?.message || tr('Could not save.', 'No se pudo guardar.')); } finally { ent.value.busy = false; }
+}
+function entRemove(e) {
+  Modal.confirm({
+    title: tr('Delete the entity?', '¿Eliminar la entidad?'), content: tr('Its members and objectives stay, without an entity.', 'Sus miembros y objetivos se quedan, sin entidad.'),
+    okType: 'danger', okText: tr('Delete', 'Eliminar'), cancelText: tr('Cancel', 'Cancelar'),
+    async onOk() { await http.delete(`projects/${props.projectId}/entities/${e.id}`); await load(); emit('changed'); },
+  });
+}
 async function saveRole(m) {
   try { await http.put(`projects/${props.projectId}/members/${m.id}`, { role: m.role || '' }); } catch (e) { message.error(tr('Could not save.', 'No se pudo guardar.')); }
 }
@@ -203,6 +263,13 @@ onMounted(load);
 .nm { font-weight: 500; }
 .em { font-size: 11.5px; opacity: 0.55; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .role { width: 210px; }
+.ent { width: 150px; }
+.ents { margin-bottom: 16px; }
+.ent-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(128, 128, 128, 0.1); }
+.ent-ic { color: #7c3aed; margin-top: 4px; }
+.ent-txt { flex: 1; min-width: 0; }
+.muted { opacity: 0.6; }
+.small { font-size: 12px; }
 .cred { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; font-size: 12px; margin-top: 2px; }
 .cr { display: inline-flex; align-items: center; gap: 4px; }
 .cr code { font-size: 11.5px; background: rgba(128, 128, 128, 0.12); padding: 0 4px; border-radius: 3px; }

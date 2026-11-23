@@ -22,9 +22,10 @@ class PasswordResetController extends BaseController
     public function create(Request $request)
     {
         $request->validate([
-            'email' => 'required|string|email',
+            'email' => 'required|string|max:190', // the USERNAME (user's rule, 2026-11-22)
         ]);
-        $user = User::where('email', $request->email)->first();
+        // By USERNAME: the same email can be several logins, each with its own password -- only this one is reset.
+        $user = User::where('username', $request->email)->where('type', '!=', 'customer')->whereNull('deleted_at')->first();
         if (! $user || ! $user->statut) {
             return response()->json(['status' => false,
                 'message' => 'We can\'t find a user with that e-mail address.',
@@ -32,9 +33,9 @@ class PasswordResetController extends BaseController
         }
 
         $passwordReset = PasswordReset::updateOrCreate(
-            ['email' => $user->email],
+            ['email' => $user->username],
             [
-                'email' => $user->email,
+                'email' => $user->username,
                 'token' => Str::random(60),
             ]
         );
@@ -86,10 +87,10 @@ class PasswordResetController extends BaseController
     public function reset(Request $request)
     {
         $request->validate([
-            'email' => 'required|string|email',
+            'email' => 'required|string|max:190', // the USERNAME (2026-11-22)
             'token' => 'required|string',
         ]);
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('username', $request->email)->where('type', '!=', 'customer')->whereNull('deleted_at')->first();
         if (! $user) {
             return response()->json([
                 'message' => 'We can\'t find a user with that e-mail address.',
@@ -117,7 +118,7 @@ class PasswordResetController extends BaseController
         $user->refresh();
         $passwordReset->delete();
         $this->Set_config_mail(); // Set_config_mail => BaseController
-        Mail::to($request->email)->send(new Password_Reset_Success);
+        Mail::to($user->email)->send(new Password_Reset_Success);
 
         return response()->json([
             'user' => $user,

@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  * Login security (user's rules, 2026-10-27), for every door into Murano -- the staff
  * login (/login), the customer portal and the old api/getAccessToken (the phone app's door was removed, 2026-11-10):
  *
- *  - LOCKOUT: 5 wrong passwords in an hour lock that login for 1 hour, from any IP
+ *  - LOCKOUT: 7 wrong passwords in an hour lock that login for 1 hour, from any IP (5 until 2026-11-22)
  *    (the per-IP throttle stays too). The user and the company's admins get an email;
  *    an admin unlocks it in Settings -> Login security (or Users).
  *  - STANDARD PASSWORD: whoever signs in with a standard password (CompanyLogins
@@ -32,7 +32,7 @@ use Illuminate\Support\Str;
  */
 class LoginSecurity
 {
-    public const MAX_FAILS = 5;
+    public const MAX_FAILS = 7; // 7 wrong passwords in an hour (user, 2026-11-22; was 5)
 
     public const LOCK_MINUTES = 60;
 

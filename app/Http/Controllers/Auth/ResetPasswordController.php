@@ -41,32 +41,29 @@ class ResetPasswordController extends BaseController
      */
     public function reset(Request $request)
     {
-        // Password rules + history (App\Support\PasswordPolicy, 2026-10-27), checked
-        // against the login the email belongs to.
-        $target = \App\Models\User::where('email', (string) $request->email)->whereNull('deleted_at')->first();
+        // Password rules + history (App\Support\PasswordPolicy, 2026-10-27). The link carries the USERNAME (2026-11-22,
+        // User::getEmailForPasswordReset): only that login's password changes.
+        $target = \App\Models\User::where('username', (string) $request->email)->where('type', '!=', 'customer')->whereNull('deleted_at')->first();
         $request->validate([
             'token' => 'required',
-            'email' => 'required|email',
+            'email' => 'required|string',
             'password' => \App\Support\PasswordPolicy::rules($target),
         ]);
 
         // Set mail configuration from database before sending email (if password reset success email is sent)
         $this->Set_config_mail();
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) use ($request) {
-                \App\Support\PasswordPolicy::save($user, $password, 'web', $request);
-                // A reset also unlocks the login (LoginSecurity lockout).
-                \App\Support\LoginSecurity::unlock((int) $user->id, null, $request);
-                $user->forceFill(['remember_token' => Str::random(60)])->save();
+        $broker = Password::broker();
+        if (! $target || ! $broker->tokenExists($target, (string) $request->token)) {
+            return back()->withErrors(['email' => [__(Password::INVALID_TOKEN)]]);
+        }
+        \App\Support\PasswordPolicy::save($target, (string) $request->password, 'web', $request);
+        // A reset also unlocks the login (LoginSecurity lockout).
+        \App\Support\LoginSecurity::unlock((int) $target->id, null, $request);
+        $target->forceFill(['remember_token' => Str::random(60)])->save();
+        event(new PasswordReset($target));
+        $broker->deleteToken($target);
 
-                event(new PasswordReset($user));
-            }
-        );
-
-        return $status == Password::PASSWORD_RESET
-            ? redirect()->route('login')->with('status', __($status))
-            : back()->withErrors(['email' => [__($status)]]);
+        return redirect()->route('login')->with('status', __(Password::PASSWORD_RESET));
     }
 }

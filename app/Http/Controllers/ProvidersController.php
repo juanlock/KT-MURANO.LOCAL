@@ -247,6 +247,14 @@ class ProvidersController extends BaseController
             'credit_limit' => $request->input('credit_limit', 0),
         ]);
 
+        // The supplier's login follows its email (2026-11-22: a corrected supplier email kept the old one on its login).
+        // Emails may repeat now (sign in with the username), so it is copied as typed; a SuperAdmin's email never is.
+        $email = trim((string) $request['email']);
+        $uid = Provider::whereId($id)->value('user_id');
+        if ($uid && filter_var($email, FILTER_VALIDATE_EMAIL) && ! \App\Support\LoginEmails::taken($email, 0, (int) $uid)) {
+            \App\Models\User::whereKey($uid)->where('type', 'supplier')->update(['email' => $email]);
+        }
+
         return response()->json(['success' => true]);
 
     }

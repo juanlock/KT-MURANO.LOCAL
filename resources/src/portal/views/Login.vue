@@ -15,8 +15,8 @@
 
               <form autocomplete="off" novalidate @submit.prevent="login">
                 <div class="mb-3">
-                  <label class="form-label" for="portal-email">{{ $t('email') }}</label>
-                  <input id="portal-email" v-model="email" type="email" class="form-control" :class="{ 'is-invalid': !!error }" placeholder="you@company.com" autocomplete="username" required autofocus />
+                  <label class="form-label" for="portal-email">{{ $t('login_username') }}</label>
+                  <input id="portal-email" v-model="email" type="text" class="form-control" :class="{ 'is-invalid': !!error }" :placeholder="$t('login_username_hint')" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
                 </div>
                 <div class="mb-3">
                   <label class="form-label" for="portal-password">{{ $t('password') }}</label>
@@ -31,19 +31,6 @@
                   </button>
                 </div>
               </form>
-            </template>
-
-            <!-- 1b. the email + password open several companies: pick one (2026-11-16) -->
-            <template v-else-if="step === 'company'">
-              <h2 class="h2 text-center mb-1">{{ $t('sec_company_title') }}</h2>
-              <p class="text-secondary text-center mb-4">{{ $t('sec_company_lead') }}</p>
-              <div class="d-grid gap-2">
-                <button v-for="c in companies" :key="c.id" type="button" class="btn btn-outline-primary" :disabled="loading" @click="pickCompany(c.id)">
-                  <i class="ti ti-building-store me-2"></i>{{ c.name }}
-                </button>
-              </div>
-              <div v-if="error" class="invalid-feedback d-block mt-2">{{ error }}</div>
-              <div class="text-end mt-3"><a href="#" class="text-secondary" @click.prevent="restart()">{{ $t('sec_back') }}</a></div>
             </template>
 
             <!-- 2. two-step code (email or authenticator app) -->
@@ -157,9 +144,6 @@ export default {
     },
     login() {
       return this.run(() => http.post('/portal/login', { email: this.email, password: this.password }));
-    },
-    pickCompany(id) {
-      return this.run(() => http.post('/portal/login/company', { id }));
     },
     verify() {
       return this.run(() => http.post('/portal/login/verify', { code: this.code, remember_device: this.rememberDevice }));

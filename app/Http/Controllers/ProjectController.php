@@ -268,10 +268,14 @@ class ProjectController extends Controller
     {
         // One project as its own workspace (user, 2026-11-19, "like Asana"): its header, overview figures and the dated
         // items the Calendar tab draws. Tasks / milestones / hours tabs read their own endpoints with project_id.
-        $this->authorizeForUser($request->user('api'), 'view', Project::class);
+        // A member of the project reads it whatever their company or role (2026-11-22, App\Support\ProjectMembers).
+        $member = \App\Support\ProjectMembers::isMember(optional($request->user('api'))->id, (int) $id);
+        if (! $member) {
+            $this->authorizeForUser($request->user('api'), 'view', Project::class);
+        }
 
         $project = Project::with('client:id,name', 'company:id,name')->where('deleted_at', '=', null)->findOrFail($id);
-        abort_unless($this->inScope($request, $project->company_id), 404);
+        abort_unless($member || $this->inScope($request, $project->company_id), 404);
 
         $today = Carbon::today()->toDateString();
         $tasks = \App\Models\Task::whereNull('deleted_at')->where('project_id', $id)

@@ -813,12 +813,12 @@
             @csrf
 
             <div class="form-group">
-              <label class="form-label" for="email">{{ tdb('Email_Address', 'Email address') }}</label>
+              <label class="form-label" for="email">{{ app()->getLocale() === 'es' ? 'Usuario' : 'Username' }}</label>
               <div class="input-wrapper">
                 <span class="input-icon">
-                  <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
                 </span>
-                <input id="email" class="form-input" type="email" name="email" value="{{ old('email') }}" placeholder="{{ tdb('Login_email_placeholder', 'Email address') }}" required autofocus />
+                <input id="email" class="form-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" name="email" value="{{ old('email') }}" placeholder="{{ app()->getLocale() === 'es' ? 'Su usuario (o su correo, si está habilitado)' : 'Your username (or your email, if enabled)' }}" required autofocus />
               </div>
             </div>
 

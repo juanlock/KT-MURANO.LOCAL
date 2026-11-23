@@ -335,5 +335,11 @@
     "That invoice of this supplier is already registered.": "Esa factura de este proveedor ya fue registrada.",
     "Only a pending invoice can be paid.": "Solo se puede cancelar una factura pendiente.",
     "Only a pending invoice can be voided.": "Solo se puede anular una factura pendiente.",
-    "Type the contact name.": "Escriba el nombre del contacto."
+    "Type the contact name.": "Escriba el nombre del contacto.",
+    "That username is already used in Murano: choose another one.": "Ese usuario ya existe en Murano: elija otro.",
+    "The username takes 3 to 60 letters, numbers, dot, dash or underscore (no spaces or @).": "El usuario lleva de 3 a 60 letras, números, punto, guion o guion bajo (sin espacios ni @).",
+    "Only the IT Admin or the SuperAdmin can do this.": "Solo el IT Admin o el SuperAdmin pueden hacer esto.",
+    "That email is used by another login in Murano: this login signs in with its username only.": "Ese correo lo usa otro login en Murano: este login entra solo con su usuario.",
+    "This email belongs to the system administrator; use another one.": "Ese correo es del administrador del sistema; use otro.",
+    "Sign in on the web login to choose the company.": "Ingrese por el login web."
 }

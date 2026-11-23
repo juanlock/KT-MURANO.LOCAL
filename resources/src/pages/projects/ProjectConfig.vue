@@ -41,7 +41,7 @@
               <div v-if="!m.can_see_login" class="muted small">{{ tr('Only the SuperAdmin sees this login.', 'Solo el SuperAdmin ve este login.') }}</div>
               <div v-else-if="!m.has_login" class="muted small">{{ tr('No login.', 'Sin login.') }}</div>
               <div v-else class="cred">
-                <span><UserOutlined /> <code>{{ m.login }}</code></span>
+                <span><UserOutlined /> <code>{{ m.login }}</code> <span v-if="m.login_email" class="muted small">{{ m.login_email }}</span></span>
                 <span><KeyOutlined /> <code v-if="m.password">{{ m.password }}</code><span v-else class="muted">{{ tr('custom', 'personalizada') }}</span></span>
                 <a-tag v-if="!m.login_active" class="tight">{{ tr('Login disabled', 'Login desactivado') }}</a-tag>
               </div>

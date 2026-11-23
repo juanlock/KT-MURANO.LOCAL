@@ -21,9 +21,9 @@
           </a-tooltip>
         </span>
         <a-tooltip :title="tr('All projects', 'Todos los proyectos')">
-          <a-button size="small" @click="$router.push('/projects')"><template #icon><ArrowLeftOutlined /></template></a-button>
+          <a-button size="small" @click="$router.push(member ? '/mis-proyectos' : '/projects')"><template #icon><ArrowLeftOutlined /></template></a-button>
         </a-tooltip>
-        <a-tooltip :title="tr('Edit the project', 'Editar el proyecto')">
+        <a-tooltip v-if="!ro" :title="tr('Edit the project', 'Editar el proyecto')">
           <a-button size="small" @click="$router.push(`/projects/${p.id}/edit?back=detail`)"><template #icon><EditOutlined /></template></a-button>
         </a-tooltip>
       </div>
@@ -55,7 +55,7 @@
             <a-col :xs="24" :lg="10">
               <!-- The project's description, edited here (2026-11-21: moved from the objectives tab). -->
               <a-card size="small" :title="tr('Description', 'Descripción')" style="margin-bottom: 16px">
-                <template #extra>
+                <template v-if="!ro" #extra>
                   <a v-if="!descEditing" @click="descDraft = p.description || ''; descEditing = true"><EditOutlined /> {{ $t('Edit') }}</a>
                   <a-space v-else :size="4">
                     <a-button size="small" @click="descEditing = false">{{ $t('Cancel') }}</a-button>
@@ -67,7 +67,7 @@
                 <div v-else class="muted">{{ tr('No description yet.', 'Sin descripción todavía.') }}</div>
               </a-card>
               <a-card size="small" :title="tr('Team', 'Equipo')">
-                <template #extra><a @click="tab = 'members'; onTab('members')">{{ tr('Manage', 'Gestionar') }}</a></template>
+                <template v-if="!ro" #extra><a @click="tab = 'members'; onTab('members')">{{ tr('Manage', 'Gestionar') }}</a></template>
                 <div v-if="!team.length" class="muted">{{ tr('Nobody assigned yet.', 'Nadie asignado todavía.') }}</div>
                 <a-space wrap>
                   <a-tooltip v-for="m in team" :key="m.id" :title="[m.role, m.company_name].filter(Boolean).join(' · ')">
@@ -84,17 +84,17 @@
 
         <!-- Objectives (2026-11-21) -->
         <a-tab-pane key="goals"><template #tab><a-tooltip :title="hints['goals']" placement="bottom" :mouse-enter-delay="0.5"><span><AimOutlined />{{ tr('Objectives', 'Objetivos') }}</span></a-tooltip></template>
-          <ProjectObjectives v-if="tab === 'goals'" :project-id="id" :data="data" @changed="load" @open-task="editTask" />
+          <ProjectObjectives v-if="tab === 'goals'" :readonly="ro" :mine="member ? me.task_ids : []" :project-id="id" :data="data" @changed="load" @open-task="editTask" />
         </a-tab-pane>
 
         <!-- Stages (the old "Hitos", 2026-11-21): each stage with its tasks + templates -->
         <a-tab-pane v-if="can('project_milestones')" key="milestones"><template #tab><a-tooltip :title="hints['milestones']" placement="bottom" :mouse-enter-delay="0.5"><span><FlagOutlined />{{ tr('Project stages', 'Etapas del proyecto') }}</span></a-tooltip></template>
-          <ProjectStages v-if="tab === 'milestones'" :project-id="id" :data="data" @changed="load" @open-task="editTask" @new-task="newTask" />
+          <ProjectStages v-if="tab === 'milestones'" :readonly="ro" :project-id="id" :data="data" @changed="load" @open-task="editTask" @new-task="newTask" />
         </a-tab-pane>
 
         <!-- Board -->
         <a-tab-pane v-if="can('tasks')" key="board"><template #tab><a-tooltip :title="hints['board']" placement="bottom" :mouse-enter-delay="0.5"><span><ProjectOutlined />{{ tr('Status', 'Status') }}</span></a-tooltip></template>
-          <TaskBoard v-if="tab === 'board'" :key="boardKey" :project-id="id" @open-task="editTask" @new-task="newTask()" />
+          <TaskBoard v-if="tab === 'board'" :key="boardKey" :readonly="ro" :project-id="id" @open-task="editTask" @new-task="newTask()" />
         </a-tab-pane>
 
         <!-- Timeline (Smartsheet's project timeline templates, 2026-11-20) -->
@@ -159,7 +159,7 @@
         <template v-if="tab === 'list'">
               <DataTable :crud="taskCrud" :columns="taskColumns">
                 <template #filters>
-                  <a-button type="primary" @click="newTask">
+                  <a-button v-if="!ro" type="primary" @click="newTask">
                     <template #icon><PlusOutlined /></template>
                     {{ tr('New task', 'Nueva tarea') }}
                   </a-button>
@@ -178,7 +178,7 @@
                       <a-tooltip :title="$t('Edit')">
                         <a-button type="text" size="small" @click="editTask(record.id)"><template #icon><EditOutlined /></template></a-button>
                       </a-tooltip>
-                      <a-tooltip :title="$t('Delete')">
+                      <a-tooltip v-if="!ro" :title="$t('Delete')">
                         <a-button type="text" size="small" danger @click="removeTask(record)"><template #icon><DeleteOutlined /></template></a-button>
                       </a-tooltip>
                     </a-space>
@@ -186,15 +186,15 @@
                 </template>
               </DataTable>
         </template>
-        <ProjectMembers v-else-if="tab === 'members'" :project-id="id" @changed="load" />
-        <ProjectDocuments v-else-if="tab === 'documents'" :project-id="id" :tasks="data.tasks || []" />
-        <Timesheets v-else-if="tab === 'time'" :project-id="id" @changed="load" />
+        <ProjectMembers v-else-if="tab === 'members'" :readonly="ro" :project-id="id" @changed="load" />
+        <ProjectDocuments v-else-if="tab === 'documents'" :readonly="ro" :project-id="id" :tasks="data.tasks || []" />
+        <Timesheets v-else-if="tab === 'time'" :readonly="ro" :project-id="id" @changed="load" />
         <ProjectConfig v-else-if="tab === 'config'" :project-id="id" :title="p.title || ''" />
       </div>
     </a-spin>
 
     <TaskDrawer
-      :open="drawer.open" :project-id="id" :task-id="drawer.taskId" :milestone-id="drawer.milestoneId" :objective-id="drawer.objectiveId"
+      :open="drawer.open" :member="member" :project-id="id" :task-id="drawer.taskId" :milestone-id="drawer.milestoneId" :objective-id="drawer.objectiveId"
       @update:task-id="v => (drawer.taskId = v)" @saved="onTaskSaved" @close="onTaskClosed"
     />
   </div>
@@ -240,7 +240,19 @@ const TABS = ['overview', 'goals', 'list', 'board', 'calendar', 'timeline', 'mil
 
 const tr = useTr();
 const auth = useAuthStore();
-const can = perm => auth.can(perm);
+// Member mode (/mis-proyectos/:id, 2026-11-22): any member of the team sees the main tabs like the project manager,
+// read only; List, Members, Documents and Hours only the project manager, Configuration only an editor; a member edits
+// only the tasks assigned to them (TaskDrawer in member mode).
+const props = defineProps({ member: { type: Boolean, default: false } });
+const me = ref({ is_manager: false, can_edit: false, task_ids: [] });
+const ro = computed(() => props.member && !me.value.can_edit);
+const SECONDARY_PERMS = ['project_timesheets'];
+const can = perm => {
+  if (!props.member) return auth.can(perm);
+  if (perm === 'projects') return me.value.can_edit;
+  if (SECONDARY_PERMS.includes(perm)) return me.value.is_manager || me.value.can_edit;
+  return true;
+};
 const route = useRoute();
 const router = useRouter();
 const { date, number, money } = useFormat();
@@ -258,9 +270,9 @@ const team = computed(() => data.value.team || []);
 useBarTitle(() => p.value.title || tr('Project', 'Proyecto'));
 // Secondary views: at hand on the project line, not among the main tabs (2026-11-21).
 const secondary = computed(() => [
-  can('tasks') && { key: 'list', icon: UnorderedListOutlined, label: tr('List', 'Lista') },
-  { key: 'members', icon: TeamOutlined, label: tr('Members', 'Miembros') },
-  can('tasks') && { key: 'documents', icon: PaperClipOutlined, label: tr('Documents', 'Documentos') },
+  can('tasks') && (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'list', icon: UnorderedListOutlined, label: tr('List', 'Lista') },
+  (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'members', icon: TeamOutlined, label: tr('Members', 'Miembros') },
+  can('tasks') && (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'documents', icon: PaperClipOutlined, label: tr('Documents', 'Documentos') },
   can('project_timesheets') && { key: 'time', icon: ClockCircleOutlined, label: tr('Timesheets', 'Horas') },
   can('projects') && { key: 'config', icon: SettingOutlined, label: tr('Configuration', 'Configuración') },
 ].filter(Boolean));
@@ -308,10 +320,14 @@ function onTab(key) {
 async function load() {
   loading.value = !data.value.project;
   try {
-    data.value = await http.get(`projects/${id.value}`);
+    const [d, mine] = await Promise.all([http.get(`projects/${id.value}`), props.member ? http.get(`my/projects/${id.value}`) : Promise.resolve(null)]);
+    if (mine) me.value = { is_manager: !!mine.is_manager, can_edit: !!mine.can_edit, task_ids: mine.my_task_ids || [] };
+    // A team member (not the manager) opens on Objectives, where their tasks are (user, 2026-11-22).
+    if (mine && !route.query.tab && !mine.is_manager && !mine.can_edit && tab.value === 'overview') { tab.value = 'goals'; lastMain.value = 'goals'; }
+    data.value = d;
   } catch (e) {
     message.error(tr('This project is not available.', 'Este proyecto no está disponible.'));
-    router.push('/projects');
+    router.push(props.member ? '/mis-proyectos' : '/projects');
   } finally {
     loading.value = false;
   }

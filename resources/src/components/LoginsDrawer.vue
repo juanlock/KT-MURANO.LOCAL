@@ -34,6 +34,21 @@
           <div class="nm">{{ record.name || record.username }}</div>
           <div class="muted">{{ record.email }}</div>
         </template>
+        <!-- Sign in with the username (2026-11-22); the email too only where the IT Admin / SuperAdmin turned it on. -->
+        <template v-else-if="column.key === 'username'">
+          <span class="pw"><code>{{ record.username }}</code>
+            <a-button type="text" size="small" @click="copy(record.username)"><template #icon><CopyOutlined /></template></a-button>
+            <a-tooltip v-if="data.can_email_login && canSetPw(record)" :title="tx('Rename the username', 'Renombrar el usuario')">
+              <a-button type="text" size="small" @click="unOpen(record)"><template #icon><EditOutlined /></template></a-button>
+            </a-tooltip>
+          </span>
+          <div class="em-login">
+            <a-tooltip :title="!record.email_unique ? tx('This email is used by another login in Murano: username only.', 'Este correo lo usa otro login en Murano: solo con usuario.') : tx('Also signs in with the email', 'También entra con el correo')">
+              <a-switch size="small" :checked="record.email_login" :disabled="!data.can_email_login || (!record.email_unique && !record.email_login)" :loading="emBusy === record.id" @change="v => setEmailLogin(record, v)" />
+            </a-tooltip>
+            <span class="muted small">{{ tx('with email', 'con correo') }}</span>
+          </div>
+        </template>
         <template v-else-if="column.key === 'type'">{{ typeLabel(record.type) }}</template>
         <template v-else-if="column.key === 'function'">
           <div v-if="record.job" class="nm small-b">{{ record.job }}</div>
@@ -109,6 +124,13 @@
         </template>
       </template>
     </a-table>
+    <!-- Rename a login's username (2026-11-22): it is what the person signs in with; unique in all of Murano. -->
+    <a-modal v-model:open="un.open" :title="tx('Rename the username', 'Renombrar el usuario') + (un.row ? ' · ' + (un.row.name || un.row.email) : '')"
+             :ok-text="tx('Save', 'Guardar')" :cancel-text="tx('Cancel', 'Cancelar')" :confirm-loading="un.busy" @ok="unSave">
+      <div class="muted" style="margin-bottom: 6px">{{ tx('Now', 'Ahora') }}: <code>{{ un.row && un.row.username }}</code></div>
+      <a-input v-model:value="un.value" :maxlength="60" :placeholder="tx('New username', 'Nuevo usuario')" @press-enter="unSave" />
+      <div class="muted small" style="margin-top: 6px">{{ tx('3 to 60 letters, numbers, dot, dash or underscore; no spaces or @. It must not exist in Murano. Tell the person: they sign in with it from now on.', 'De 3 a 60 letras, números, punto, guion o guion bajo; sin espacios ni @. No debe existir en Murano. Avísale a la persona: desde ahora entra con este usuario.') }}</div>
+    </a-modal>
     <!-- Change a login's password from the table (2026-11-03): a custom one can't be shown. -->
     <a-modal v-model:open="pw.open" :title="tx('Change password', 'Cambiar contraseña') + (pw.row ? ' · ' + (pw.row.name || pw.row.email) : '')"
              :ok-text="tx('Save', 'Guardar')" :cancel-text="tx('Cancel', 'Cancelar')" :confirm-loading="pw.busy" @ok="pwSave">
@@ -129,9 +151,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue';
-import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined, KeyOutlined, LinkOutlined, WhatsAppOutlined, MoreOutlined } from '@ant-design/icons-vue';
+import { ReloadOutlined, CopyOutlined, InfoCircleOutlined, LoginOutlined, KeyOutlined, LinkOutlined, WhatsAppOutlined, MoreOutlined, EditOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useAuthStore } from '../stores/auth';
 import { sortByLabel } from '../lib/filterOptions';
@@ -146,6 +168,19 @@ const tx = (en, es) => (ui.locale === 'es' ? es : en);
 
 const loading = ref(false);
 const logins = ref([]);
+// Who may turn on "also signs in with the email" (IT Admin / SuperAdmin, 2026-11-22).
+const data = reactive({ can_email_login: false });
+const emBusy = ref(null);
+async function setEmailLogin(r, on) {
+  emBusy.value = r.id;
+  try {
+    await http.post(`company-logins/${r.id}/email-login`, { on: on ? 1 : 0 });
+    r.email_login = on;
+    message.success(on ? tx('It can also sign in with its email.', 'Ahora también entra con su correo.') : tx('It signs in with its username only.', 'Ahora entra solo con su usuario.'));
+  } catch (e) {
+    message.error(e?.data?.message || tx('Could not change it', 'No se pudo cambiar'));
+  } finally { emBusy.value = null; }
+}
 const perms = ref({});
 const type = ref('all');
 const search = ref('');
@@ -189,6 +224,7 @@ const rows = computed(() => {
 });
 const columns = computed(() => [
   { title: tx('Login', 'Login'), key: 'name' },
+  { title: tx('Username', 'Usuario'), key: 'username', width: 210 },
   { title: tx('Type', 'Tipo'), key: 'type', width: 130 },
   { title: tx('Function', 'Función'), key: 'function', width: 240 },
   { title: tx('Role and accesses', 'Rol y accesos'), key: 'role', width: 220 },
@@ -301,11 +337,29 @@ async function load() {
     serverDisabled.value = res.disabled_count || 0;
     limited.value = res.limited || null;
     perms.value = res.role_permissions || {};
+    data.can_email_login = !!res.can_email_login;
   } catch (e) {
     message.error(e?.data?.message || tx('Could not load', 'No se pudo cargar'));
   } finally {
     loading.value = false;
   }
+}
+// Rename a login's username (2026-11-22): IT Admin / SuperAdmin; the server checks it is free in all of Murano.
+const un = ref({ open: false, row: null, value: '', busy: false });
+function unOpen(r) { un.value = { open: true, row: r, value: r.username || '', busy: false }; }
+async function unSave() {
+  const v = (un.value.value || '').trim();
+  if (!/^[A-Za-z0-9._-]{3,60}$/.test(v)) return message.warning(tx('3 to 60 letters, numbers, dot, dash or underscore (no spaces or @).', 'De 3 a 60 letras, números, punto, guion o guion bajo (sin espacios ni @).'));
+  if (v === un.value.row.username) { un.value.open = false; return; }
+  un.value.busy = true;
+  try {
+    await http.post(`company-logins/${un.value.row.id}/username`, { username: v });
+    un.value.row.username = v;
+    message.success(tx('Username changed', 'Usuario cambiado'));
+    un.value.open = false;
+  } catch (e) {
+    message.error(e?.data?.message || tx('Could not change it', 'No se pudo cambiar'));
+  } finally { un.value.busy = false; }
 }
 // Change a login's password (2026-11-03): any login of the company but my own.
 const pw = ref({ open: false, row: null, value: '', mustChange: true, busy: false });
@@ -401,6 +455,7 @@ watch(search, () => { if (group.value !== 'customers') return; clearTimeout(sear
 .nm { font-weight: 600; }
 .muted { opacity: 0.6; font-size: 12px; }
 .small { font-size: 11px; }
+.em-login { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 .pw { display: inline-flex; align-items: center; gap: 2px; }
 .pw code { background: rgba(22, 119, 255, 0.08); padding: 1px 6px; border-radius: 4px; }
 .role-tag { cursor: pointer; }

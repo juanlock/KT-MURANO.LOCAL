@@ -59,7 +59,7 @@ class CompanyLoginsController extends Controller
 
         $users = DB::table('users')->whereIn('id', $ids)
             ->orderByRaw("FIELD(type, 'admin', 'employee', 'sales_agent', 'supplier', 'customer', 'Online_store')")->orderBy('firstname')
-            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'type', 'statut', 'password', 'role_id', 'portal_enabled']);
+            ->get(['id', 'firstname', 'lastname', 'username', 'email', 'email_login', 'type', 'statut', 'password', 'role_id', 'portal_enabled']);
         $roleIds = DB::table('role_user')->whereIn('user_id', $users->pluck('id'))->pluck('role_id', 'user_id');
         $roles = DB::table('roles')->whereIn('id', $roleIds->values()->merge($users->pluck('role_id'))->filter()->unique())
             ->get(['id', 'name', 'label', 'description'])->keyBy('id');
@@ -75,9 +75,13 @@ class CompanyLoginsController extends Controller
         // Sign-in links by WhatsApp (2026-11-12): the live link of each login, and who may have one.
         $links = \Illuminate\Support\Facades\Schema::hasTable('login_links') ? \App\Support\LoginLinks::states($users->pluck('id')->all()) : [];
         $phones = DB::table('employees')->whereIn('user_id', $users->pluck('id'))->whereNull('deleted_at')->pluck('phone', 'user_id');
+        // Sign in with the username (2026-11-22); the email only where it's on and doesn't repeat behind the same door.
+        $emailCounts = DB::table('users')->whereIn('email', $users->pluck('email')->filter())->whereNull('deleted_at')
+            ->selectRaw("email, type = 'customer' as cust, COUNT(*) n")->groupBy('email', 'cust')->get()
+            ->mapWithKeys(fn ($r) => [mb_strtolower($r->email).'|'.(int) $r->cust => (int) $r->n]);
 
         return response()->json([
-            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned, $jobs, $links, $phones) {
+            'logins' => $users->map(function ($u) use ($roleIds, $roles, $types, $assigned, $jobs, $links, $phones, $emailCounts) {
                 $role = $roles[$roleIds[$u->id] ?? $u->role_id] ?? null;
                 // Its type's standard password, else the access one (a helpdesk agent is an employee).
                 $candidates = array_filter([$u->type === 'admin' ? null : (CompanyLogins::PASSWORDS[$types[$u->type] ?? ''] ?? null), CompanyLogins::ACCESS_PASSWORD]);
@@ -96,9 +100,13 @@ class CompanyLoginsController extends Controller
                     'link' => $links[$u->id] ?? null,
                     'link_allowed' => \App\Support\LoginLinks::allowedFor($u),
                     'phone' => $phones[$u->id] ?? null,
+                    'email_login' => (int) ($u->email_login ?? 0) === 1,
+                    'email_unique' => ($emailCounts[mb_strtolower((string) $u->email).'|'.(int) ($u->type === 'customer')] ?? 0) === 1
+                        && ! str_ends_with((string) $u->email, '@placeholder.murano.local'),
                 ];
             })->values(),
             'role_permissions' => $perms,
+            'can_email_login' => $this->isItAdminOrSuper($user),
             'group' => $group, 'counts' => $counts, 'disabled_count' => $disabledCount,
             'limited' => $group === 'customers' && $counts['customers'] > $limit && $search === '' ? $limit : null,
         ]);
@@ -152,6 +160,65 @@ class CompanyLoginsController extends Controller
             'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
 
         return response()->json(['ok' => true, 'url' => $url]);
+    }
+
+    /**
+     * POST company-logins/{id}/email-login {on} (user's rule, 2026-11-22): this login may also sign in with its email.
+     * Only the company's IT Admin or the SuperAdmin, and only when the email doesn't repeat behind the same door in all of
+     * Murano (App\Support\LoginLookup).
+     */
+    public function setEmailLogin(Request $request, $id)
+    {
+        $user = $request->user('api');
+        abort_unless($this->isItAdminOrSuper($user), 403, __('Only the IT Admin or the SuperAdmin can do this.'));
+        $target = $this->target($request, (int) $id, $user);
+        $on = $request->boolean('on');
+        if ($on) {
+            abort_unless(\App\Support\LoginLookup::emailIsFree(\App\Models\User::findOrFail($target->id)), 422,
+                __('That email is used by another login in Murano: this login signs in with its username only.'));
+        }
+        DB::table('users')->where('id', $target->id)->update(['email_login' => $on ? 1 : 0, 'updated_at' => now()]);
+        \App\Support\LoginSecurity::event($target, $target->email, 'web', $on ? 'email_login_on' : 'email_login_off', $request,
+            'by '.trim($user->firstname.' '.$user->lastname).' (Company logins)');
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * POST company-logins/{id}/username {username} (user, 2026-11-22): rename the login's username -- what it signs in
+     * with. IT Admin / SuperAdmin; unique in all of Murano (whatever the case, deleted logins included: the column is
+     * unique), no spaces or @.
+     */
+    public function setUsername(Request $request, $id)
+    {
+        $user = $request->user('api');
+        abort_unless($this->isItAdminOrSuper($user), 403, __('Only the IT Admin or the SuperAdmin can do this.'));
+        $target = $this->target($request, (int) $id, $user);
+        $name = trim((string) $request->input('username'));
+        abort_unless(preg_match('/^[A-Za-z0-9._\-]{3,60}$/', $name), 422,
+            __('The username takes 3 to 60 letters, numbers, dot, dash or underscore (no spaces or @).'));
+        abort_if(DB::table('users')->where('id', '!=', $target->id)->whereRaw('LOWER(username) = ?', [mb_strtolower($name)])->exists(), 422,
+            __('That username is already used in Murano: choose another one.'));
+        $old = $target->username;
+        DB::table('users')->where('id', $target->id)->update(['username' => $name, 'updated_at' => now()]);
+        \App\Support\LoginSecurity::event($target, $target->email, 'web', 'username_changed', $request,
+            "$old -> $name by ".trim($user->firstname.' '.$user->lastname).' (Company logins)');
+
+        return response()->json(['ok' => true, 'username' => $name]);
+    }
+
+    /** The company's IT Admin (role) or the SuperAdmin. */
+    private function isItAdminOrSuper($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->type === 'SuperAdmin') {
+            return true;
+        }
+
+        return DB::table('role_user as ru')->join('roles as r', 'r.id', '=', 'ru.role_id')->where('ru.user_id', $user->id)
+            ->whereIn('r.name', array_merge([\App\Support\CompanyRoles::ADMIN], \App\Support\CompanyRoles::OLD_ADMIN_NAMES))->exists();
     }
 
     /** DELETE company-logins/{id}/link: the login's link stops working. */

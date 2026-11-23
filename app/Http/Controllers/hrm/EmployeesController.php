@@ -914,7 +914,7 @@ class EmployeesController extends Controller
         }
 
         $user = $employee->user_id ? \App\Models\User::find($employee->user_id) : null;
-        if ($email !== '' && \App\Models\User::where('email', $email)->whereNull('deleted_at')->when($user, fn ($q) => $q->where('id', '<>', $user->id))->exists()) {
+        if ($email !== '' && \App\Support\LoginEmails::taken($email, (int) $companyId, optional($user)->id)) {
             $errors['access.email'] = ['This email is already used by another user.'];
         }
         if ($pin !== '' && \App\Models\User::pinTaken($companyId, $pin, optional($user)->id)) {
