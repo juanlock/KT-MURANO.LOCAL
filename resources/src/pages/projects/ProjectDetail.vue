@@ -190,6 +190,7 @@
         <ProjectDocuments v-else-if="tab === 'documents'" :readonly="ro" :project-id="id" :tasks="data.tasks || []" />
         <Timesheets v-else-if="tab === 'time'" :readonly="ro" :project-id="id" @changed="load" />
         <ProjectConfig v-else-if="tab === 'config'" :project-id="id" :title="p.title || ''" />
+        <ProjectQuestions v-else-if="tab === 'questions'" :project-id="id" :readonly="ro" />
       </div>
     </a-spin>
 
@@ -214,6 +215,7 @@ import {
   ArrowLeftOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UserOutlined, CalendarOutlined, BankOutlined,
   FlagOutlined, CheckSquareOutlined, AppstoreOutlined, UnorderedListOutlined, ProjectOutlined, FieldTimeOutlined,
   ClockCircleOutlined, BarChartOutlined, TeamOutlined, PaperClipOutlined, CrownOutlined, AimOutlined, CloseOutlined, SettingOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons-vue';
 import DataTable from '../../components/DataTable.vue';
 import TaskBoard from './TaskBoard.vue';
@@ -224,6 +226,7 @@ import ProjectObjectives from './ProjectObjectives.vue';
 import { useBarTitle } from '../../composables/useBarTitle';
 import ProjectMembers from './ProjectMembers.vue';
 import ProjectDocuments from './ProjectDocuments.vue';
+import ProjectQuestions from './ProjectQuestions.vue';
 import Timesheets from './Timesheets.vue';
 import ProjectReports from './ProjectReports.vue';
 import ProjectTimeline from './ProjectTimeline.vue';
@@ -236,7 +239,7 @@ import http from '../../lib/http';
 import { useTr } from '../../lib/useTr';
 import { useAuthStore } from '../../stores/auth';
 
-const TABS = ['overview', 'goals', 'list', 'board', 'calendar', 'timeline', 'milestones', 'members', 'documents', 'time', 'config', 'report'];
+const TABS = ['overview', 'goals', 'list', 'board', 'calendar', 'timeline', 'milestones', 'members', 'documents', 'time', 'config', 'report', 'questions'];
 
 const tr = useTr();
 const auth = useAuthStore();
@@ -274,12 +277,14 @@ const secondary = computed(() => [
   (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'members', icon: TeamOutlined, label: tr('Members', 'Miembros') },
   can('tasks') && (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'documents', icon: PaperClipOutlined, label: tr('Documents', 'Documentos') },
   can('project_timesheets') && { key: 'time', icon: ClockCircleOutlined, label: tr('Timesheets', 'Horas') },
+  // Questions to the members (2026-11-23): the team asks, the member answers from PREGUNTAS.
+  (!props.member || me.value.is_manager || me.value.can_edit) && { key: 'questions', icon: QuestionCircleOutlined, label: tr('Questions', 'Preguntas') },
   can('projects') && { key: 'config', icon: SettingOutlined, label: tr('Configuration', 'Configuración') },
 ].filter(Boolean));
 const isSecondary = computed(() => secondary.value.some(s => s.key === tab.value));
 const secondaryNow = computed(() => secondary.value.find(s => s.key === tab.value) || {});
 const lastMain = ref('overview');
-watch(tab, v => { if (!['list', 'members', 'documents', 'time', 'config'].includes(v)) lastMain.value = v; }, { immediate: true });
+watch(tab, v => { if (!['list', 'members', 'documents', 'time', 'config', 'questions'].includes(v)) lastMain.value = v; }, { immediate: true });
 
 // The description, edited in the overview.
 const descEditing = ref(false);
@@ -309,6 +314,7 @@ const hints = computed(() => ({
   documents: tr('Files, videos and links attached to the tasks.', 'Archivos, videos y enlaces adjuntos a las tareas.'),
   time: tr('Hours worked on the project.', 'Horas trabajadas en el proyecto.'),
   config: tr('Links of the project, how to get in from the web and each member\'s credentials.', 'Enlaces del proyecto, cómo entrar desde la web y las credenciales de cada miembro.'),
+  questions: tr('Questions to the members: they answer from their PREGUNTAS button and the answer goes to the task.', 'Preguntas a los miembros: responden desde su botón PREGUNTAS y la respuesta queda en la tarea.'),
   __sep: '',
 }));
 

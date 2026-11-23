@@ -159,6 +159,12 @@
         <div v-if="!taskId && !fold.docs" class="muted small">{{ tr('Save the task first.', 'Guarda la tarea primero.') }}</div>
         <ProjectDocuments v-else-if="!fold.docs" :key="docsKey" :readonly="!canWork" :project-id="projectId" :task-id="taskId" />
       </div>
+
+      <!-- Questions to the members about this task (2026-11-23): they answer from PREGUNTAS; the answer lands in the log above. -->
+      <div v-if="!member && taskId" class="sec">
+        <div class="sec-title fold" @click="toggle('questions')"><component :is="fold.questions ? RightOutlined : DownOutlined" class="caret" /><QuestionCircleOutlined /> {{ tr('Questions to the members', 'Preguntas a los miembros') }}</div>
+        <ProjectQuestions v-if="!fold.questions" :project-id="projectId" :task-id="taskId" />
+      </div>
     </a-spin>
   </a-drawer>
 </template>
@@ -180,6 +186,7 @@ import { useIsPhone } from '../../lib/useIsPhone';
 import { PROJECT_STATUSES } from './projectStatus';
 import { TASK_PRIORITIES, progressColor } from './workspaceOptions';
 import ProjectDocuments from './ProjectDocuments.vue';
+import ProjectQuestions from './ProjectQuestions.vue';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -301,7 +308,7 @@ function close() {
 // ---- activity log
 // Collapsible sections, remembered in this browser (2026-11-22).
 const FOLD_KEY = 'murano.taskDrawer.fold';
-const fold = reactive((() => { try { return { req: false, why: false, log: false, docs: false, meet: false, points: false, ...JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') }; } catch (e) { return { req: false, why: false, log: false, docs: false }; } })());
+const fold = reactive((() => { try { return { req: false, why: false, log: false, docs: false, meet: false, points: false, questions: false, ...JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') }; } catch (e) { return { req: false, why: false, log: false, docs: false, questions: false }; } })());
 function toggle(k) { fold[k] = !fold[k]; try { localStorage.setItem(FOLD_KEY, JSON.stringify(fold)); } catch (e) { /* private window */ } }
 
 // ---- meeting

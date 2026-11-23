@@ -85,7 +85,7 @@
             <div class="why-head"><span>{{ L('Income', 'Ingresos') }}</span><b>{{ money(why.income) }}</b></div>
             <div v-for="r in incomeRows" :key="r.key" class="why-row">
               <span class="why-name">{{ r.label }}</span>
-              <span class="why-bar"><span :style="{ width: r.pct + '%', background: '#2563eb' }" /></span>
+              <span class="why-bar"><span :style="{ width: r.pct + '%', background: '#118DFF' }" /></span>
               <span class="why-val">{{ money(r.value) }}</span>
               <span class="why-delta" :class="deltaClass(r.delta, false)">{{ deltaText(r.delta) }}</span>
             </div>
@@ -100,7 +100,7 @@
             <div class="why-head"><span>{{ L('Costs', 'Gastos') }}</span><b>{{ money(why.costs) }}</b></div>
             <div v-for="r in costRows" :key="r.key" class="why-row">
               <span class="why-name">{{ r.label }}</span>
-              <span class="why-bar"><span :style="{ width: r.pct + '%', background: '#94a3b8' }" /></span>
+              <span class="why-bar"><span :style="{ width: r.pct + '%', background: '#E66C37' }" /></span>
               <span class="why-val">{{ money(r.value) }}</span>
               <span class="why-delta" :class="deltaClass(r.delta, true)">{{ deltaText(r.delta) }}</span>
             </div>
@@ -139,7 +139,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import http from '../lib/http';
 import { t as tf } from '../i18n';
 import { useFormat } from '../composables/useFormat';
-import { useFitHeight } from '../lib/transportCharts';
+import { useFitHeight, BLUE, NAVY, ORANGE, palette } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
 import { InfoCircleOutlined } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
@@ -158,19 +158,24 @@ const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
 const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], es: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'] };
 // A bucket is a month (YYYY-MM) or, with a filter of up to 62 days, a day (YYYY-MM-DD).
 const monthLabel = m => { if (m.length > 7) return dayMonth(m); const d = dayjs(m + '-01'); return `${MONTHS[L('en', 'es')][d.month()]} ${d.format('YY')}`; };
-// Income and costs per month as bars, the profit as the line (user's request, 2026-11-11).
+// Income and costs per month (user's request, 2026-11-11); as areas with a gradient since 2026-11-23 (Power BI look, the
+// client's request), the profit as the line over them. One or two buckets (a short filter) stay bars: an area needs a span.
+const asBars = computed(() => (data.value.months || []).length <= 2);
 const trendSeries = computed(() => {
   const ms = data.value.months || [];
+  const kind = asBars.value ? 'column' : 'area';
   return [
-    { name: L('Income', 'Ingresos'), type: 'column', data: ms.map(m => m.income) },
-    { name: L('Costs', 'Gastos'), type: 'column', data: ms.map(m => m.costs) },
+    { name: L('Income', 'Ingresos'), type: kind, data: ms.map(m => m.income) },
+    { name: L('Costs', 'Gastos'), type: kind, data: ms.map(m => m.costs) },
     { name: L('Profit', 'Ganancia'), type: 'line', data: ms.map(m => m.profit) },
   ];
-});const short = v => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${Math.round(v / 1e3)}K` : `${Math.round(v)}`);
+});
+const short = v => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${Math.round(v / 1e3)}K` : `${Math.round(v)}`);
 const trendOptions = computed(() => ({
-  colors: ['#2563eb', '#94a3b8', '#16a34a'],
-  stroke: { width: [0, 0, 3], curve: 'smooth' },
-  markers: { size: [0, 0, 4], colors: ['#16a34a'], strokeWidth: 0 },
+  colors: [BLUE, ORANGE, palette(ui.dark)[1]],
+  stroke: { width: asBars.value ? [0, 0, 2] : [2, 2, 2], curve: 'smooth' },
+  fill: asBars.value ? { opacity: 1 } : { type: ['gradient', 'gradient', 'solid'], gradient: { shadeIntensity: 0, opacityFrom: 0.38, opacityTo: 0.04, stops: [0, 95] } },
+  markers: { size: [0, 0, 4], colors: [palette(ui.dark)[1]], strokeColors: ui.dark ? '#1a1a19' : '#fff', strokeWidth: 2, hover: { size: 6 } },
   // A filter of one or two days gives one or two groups: narrow bars instead of a wall.
   plotOptions: { bar: { borderRadius: 3, columnWidth: (data.value.months || []).length <= 3 ? '18%' : '60%' } },
   dataLabels: { enabled: false },
@@ -287,11 +292,25 @@ const cards = computed(() => {
   const d = data.value;
   const trips = d.trips || {};
   const period = filtered.value ? periodLabel.value : tf('Owner_Panel_Period', 'Today and the month in progress');
+  // Power BI style cards (2026-11-23): the month's trend under income / profit / costs and the change vs the month before
+  // at the same point of the month (the current month counts up to today, so the one before is taken pro rata).
+  const ms = d.months || [];
+  const last = ms[ms.length - 1];
+  const before = ms[ms.length - 2];
+  const share = last?.detail?.partial && before?.detail?.days ? Math.min(1, (last.detail.days || 0) / before.detail.days) : 1;
+  const delta = key => (last && before && before[key] ? ((last[key] - before[key] * share) / Math.abs(before[key] * share)) * 100 : null);
+  const trend = key => (ms.length > 2 ? ms.map(m => m[key]) : null);
+  const vsLabel = daily.value ? L('vs day before', 'vs día anterior') : L('vs last month', 'vs mes anterior');
+  const vsHelp = L('Compared with the month before at the same point of the month.', 'Comparado con el mes anterior al mismo avance del mes.');
   return [
     { label: tf('Owner_Income_Today', 'Income today'), value: money(d.income?.today ?? 0), note: `${(d.tickets?.today ?? 0).toLocaleString()} ${tf('Owner_Tickets', 'tickets')}`, help: period },
-    { label: incomeLabel.value, value: money(d.income?.month ?? 0), note: `${(d.tickets?.month ?? 0).toLocaleString()} ${tf('Owner_Tickets', 'tickets')}` },
+    { label: incomeLabel.value, value: money(d.income?.month ?? 0), note: `${(d.tickets?.month ?? 0).toLocaleString()} ${tf('Owner_Tickets', 'tickets')}`,
+      spark: trend('income'), sparkColor: BLUE, delta: filtered.value ? null : delta('income'), deltaLabel: vsLabel, deltaHelp: vsHelp },
+    ...(last ? [{ label: L('Profit', 'Ganancia'), value: money(last.profit ?? 0), help: L('Profit of the trips of the month in progress (same figures as Profit by route).', 'Ganancia de los viajes del mes en curso (mismas cifras que Rentabilidad por ruta).'),
+      spark: trend('profit'), sparkColor: NAVY, delta: filtered.value ? null : delta('profit'), deltaLabel: vsLabel, deltaHelp: vsHelp }] : []),
     { label: tf('Owner_Trips_Today', 'Trips today'), value: trips.total ?? 0, help: `${trips.completed ?? 0} ${tf('Owner_Done', 'done')} · ${trips.in_progress ?? 0} ${tf('Owner_On_Road', 'on the road')} · ${trips.scheduled ?? 0} ${tf('Owner_To_Leave', 'to leave')}` },
-    { label: filtered.value ? L('Fleet costs in the period', 'Costos de flota del período') : tf('Owner_Fleet_Costs', 'Fleet costs this month'), value: money(d.costs?.total ?? 0), help: `${tf('Owner_Fuel', 'Fuel')} ${money(d.costs?.fuel ?? 0)} · ${tf('Owner_Maintenance', 'Maintenance')} ${money(d.costs?.maintenance ?? 0)}` },
+    { label: filtered.value ? L('Fleet costs in the period', 'Costos de flota del período') : tf('Owner_Fleet_Costs', 'Fleet costs this month'), value: money(d.costs?.total ?? 0), help: `${tf('Owner_Fuel', 'Fuel')} ${money(d.costs?.fuel ?? 0)} · ${tf('Owner_Maintenance', 'Maintenance')} ${money(d.costs?.maintenance ?? 0)}`,
+      spark: trend('costs'), sparkColor: ORANGE },
     { label: tf('Owner_Fleet_Alerts', 'Falling due on the buses'), value: d.alerts_total ?? 0, help: tf('Owner_Next_30', 'overdue or within 30 days') },
   ];
 });
@@ -325,7 +344,7 @@ const alertWhen = days => (days < 0
 .op-route-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
 .op-route-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .op-bar { height: 4px; border-radius: 2px; background: rgba(128, 128, 128, 0.2); margin-top: 2px; overflow: hidden; }
-.op-bar span { display: block; height: 100%; background: #0369a1; border-radius: 2px; }
+.op-bar span { display: block; height: 100%; background: #118DFF; border-radius: 2px; }
 .op-alert { display: flex; gap: 6px; align-items: center; padding: 3px 0; border-top: 1px solid rgba(128, 128, 128, 0.15); font-size: 11.5px; }
 .op-alert-body { display: flex; gap: 6px; min-width: 0; flex: 1; align-items: baseline; }
 .op-alert-name { font-weight: 600; white-space: nowrap; }
@@ -350,7 +369,7 @@ const alertWhen = days => (days < 0
 .why-story { font-size: 13.5px; margin: 0 0 10px; }
 .why-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .why-box, .why-profit { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 8px 10px; }
-.why-box.on, .why-profit.on { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb inset; }
+.why-box.on, .why-profit.on { border-color: #118DFF; box-shadow: 0 0 0 1px #118DFF inset; }
 .why-head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
 .why-row { display: grid; grid-template-columns: 1fr 70px auto 64px; gap: 6px; align-items: center; font-size: 12px; padding: 2px 0; }
 .why-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

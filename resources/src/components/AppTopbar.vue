@@ -64,6 +64,17 @@
         </a-button>
       </span>
 
+      <!-- PREGUNTAS (user, 2026-11-23): beside Projects, for a login that was asked something in a project; red with the count
+           while some are pending. The window also opens by itself at sign-in (ProjectQuestionsModal). -->
+      <span v-if="questions.total > 0" class="tb-slot" :style="{ order: auth.headerOrder('pos') }">
+        <a-badge :count="questions.pending" :offset="[-4, 4]">
+          <a-button class="pos-btn q-btn" :class="{ 'q-pending': questions.pending > 0 }" @click="questionsOpen = true">
+            <template #icon><QuestionCircleOutlined /></template>
+            <span class="hide-sm">{{ trx('QUESTIONS', 'PREGUNTAS') }}</span>
+          </a-button>
+        </a-badge>
+      </span>
+
       <!-- Portfolio tablet catalogs (2026-10-25): like POS, opens the menu / models on the tablet. -->
       <span v-if="catalogs.length && auth.headerIcon('catalog') && (auth.can('portfolio_manage') || auth.can('Pos_view'))" class="tb-slot" :style="{ order: auth.headerOrder('catalog') }">
         <a-button v-if="catalogs.length === 1" class="pos-btn cat-btn" @click="openCatalog(catalogs[0])">
@@ -340,6 +351,7 @@
     <TodaySummary :open="summaryOpen" @close="summaryOpen = false" />
     <ManualDrawer :open="manualOpen" @close="manualOpen = false" />
     <LoginsDrawer v-if="canSeeLogins" :open="loginsOpen" @close="loginsOpen = false" />
+    <ProjectQuestionsModal v-if="questions.total > 0" v-model:open="questionsOpen" @changed="n => (questions.pending = n)" />
   </div>
 </template>
 
@@ -367,8 +379,9 @@ import {
   FullscreenOutlined, FullscreenExitOutlined, GlobalOutlined,
   BellOutlined, DownOutlined, PieChartOutlined, EnvironmentOutlined, SettingOutlined, SafetyCertificateOutlined, UserOutlined, IdcardOutlined, MailOutlined, ApartmentOutlined,
   DesktopOutlined, LogoutOutlined, WarningFilled, RightOutlined, FieldTimeOutlined,
-  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled, FolderOpenOutlined, ProjectOutlined,
+  DownloadOutlined, RollbackOutlined, PushpinOutlined, PushpinFilled, FolderOpenOutlined, ProjectOutlined, QuestionCircleOutlined,
 } from '@ant-design/icons-vue';
+import ProjectQuestionsModal from './ProjectQuestionsModal.vue';
 import { useTr } from '../lib/useTr';
 import { useIsPhone } from '../lib/useIsPhone';
 import TodaySummary from './TodaySummary.vue';
@@ -435,6 +448,22 @@ watch(canClock, v => { if (v) loadClock(); }, { immediate: true });
 const pending = usePendingWorkStore();
 const company = useCompanyStore();
 const router = useRouter();
+
+// ---------------- project questions (2026-11-23) ----------------
+// From the user's payload (UserController my_questions); the window opens by itself once per browser session while some
+// are pending and not put off with "Más tarde".
+const questions = ref({ pending: 0, total: 0 });
+const questionsOpen = ref(false);
+watch(() => auth.user?.my_questions, (q) => {
+  if (!q) return;
+  questions.value = { pending: Number(q.pending) || 0, total: Number(q.total) || 0 };
+  let shown = false;
+  try { shown = sessionStorage.getItem('pq_shown') === '1'; } catch (e) { /* no storage: show it */ }
+  if (q.popup && !shown) {
+    questionsOpen.value = true;
+    try { sessionStorage.setItem('pq_shown', '1'); } catch (e) { /* ignore */ }
+  }
+}, { immediate: true });
 
 // ---------------- company switcher ----------------
 
@@ -740,6 +769,10 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', syncFulls
 /* Projects beside POS (2026-11-22): violet, so it never reads as a second POS. */
 .proj-btn { background: #6d28d9; border-color: #6d28d9; color: #fff; }
 .proj-btn:hover { background: #5b21b6 !important; border-color: #5b21b6 !important; color: #fff !important; }
+/* PREGUNTAS (2026-11-23): grey when all is answered, red while some are pending. */
+.q-btn { background: #f5f5f5; border-color: #d9d9d9; color: #434343; font-weight: 600; }
+.q-btn.q-pending { background: #e5484d; border-color: #e5484d; color: #fff; }
+.q-btn.q-pending:hover { background: #cf2f35 !important; border-color: #cf2f35 !important; color: #fff !important; }
 
 /* Company logo + name beside the toggle when the side menu is hidden / collapsed
    (margin-right: auto keeps it on the left, the actions on the right). */

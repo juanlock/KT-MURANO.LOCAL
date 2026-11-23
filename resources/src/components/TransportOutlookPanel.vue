@@ -106,10 +106,10 @@ const tableScroll = computed(() => (fit.value ? { x: 'max-content', y: Math.max(
 
 const COLORS = { red: '#dc2626', amber: '#d97706', green: '#16a34a' };
 const CHANNEL = {
-  agency: { color: '#2a78d6', en: 'Agency', es: 'Agencia' },
-  jelaf: { color: '#7c3aed', en: 'Jelaf', es: 'Jelaf' },
-  perubus: { color: '#0891b2', en: 'PeruBus', es: 'PeruBus' },
-  phone: { color: '#eda100', en: 'Phone', es: 'Teléfono' },
+  agency: { color: '#118DFF', en: 'Agency', es: 'Agencia' },
+  jelaf: { color: '#8E2C9E', en: 'Jelaf', es: 'Jelaf' },
+  perubus: { color: '#E044A7', en: 'PeruBus', es: 'PeruBus' },
+  phone: { color: '#B08F00', en: 'Phone', es: 'Teléfono' },
   unknown: { color: '#898781', en: 'Not recorded', es: 'Sin registrar' },
 };
 const WEEKDAYS = { en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], es: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'] };

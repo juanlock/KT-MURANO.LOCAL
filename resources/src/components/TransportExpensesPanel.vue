@@ -72,8 +72,10 @@ onMounted(load);
 watch(() => props.range, load);
 
 // One colour per kind, the same in the ring, the trend and the table.
-const PALETTE = ['#2563eb', '#f59e0b', '#16a34a', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569', '#a16207', '#4f46e5', '#0d9488'];
-const colorOf = key => PALETTE[Math.max(0, (data.value.kinds || []).findIndex(k => k.key === key)) % PALETTE.length];
+// Power BI's palette (2026-11-23); past 8 kinds the rest fold into "Otros" (gray), never a made-up hue.
+const PALETTE = ['#118DFF', '#3A4FC4', '#E66C37', '#8E2C9E', '#E044A7', '#744EC2', '#B08F00', '#D64550'];
+// Never a repeated hue: past the 8th kind, gray (it is in "Otros" on the chart anyway).
+const colorOf = (key) => { const i = Math.max(0, (data.value.kinds || []).findIndex(k => k.key === key)); return i < PALETTE.length ? PALETTE[i] : '#9aa0a6'; };
 
 const tiles = computed(() => {
   const d = data.value;
@@ -89,22 +91,26 @@ const tiles = computed(() => {
   ];
 });
 
-// The ring: every kind, the small ones together.
+// Where the money goes (2026-11-23: a treemap instead of the ring, Power BI style): each kind a box sized by its amount,
+// with its name, share and amount inside; the small ones together in Others.
 const donutChart = computed(() => {
   const ks = data.value.kinds || [];
   const main = ks.filter(k => k.share >= 2);
   const rest = ks.filter(k => k.share < 2);
+  const total = data.value.total || 1;
   const items = [...main.map(k => ({ name: k.name, value: k.amount, color: colorOf(k.key) })),
-    ...(rest.length ? [{ name: tr('Others', 'Otros'), value: rest.reduce((s, k) => s + k.amount, 0), color: '#cbd5e1' }] : [])];
-  const o = base('donut');
+    ...(rest.length ? [{ name: tr('Others', 'Otros'), value: rest.reduce((s, k) => s + k.amount, 0), color: '#9aa0a6' }] : [])];
+  const o = base('treemap');
   return {
-    key: 'donut', title: tr('Where the money goes', 'En qué se va el dinero'), type: 'donut', height: tall.value,
-    help: tr('Share of each kind in the period. Kinds under 2 % go together in Others.', 'Parte de cada rubro en el periodo. Los rubros de menos del 2 % van juntos en Otros.'),
-    series: items.map(i => Math.round(i.value)),
-    options: { ...o, labels: items.map(i => i.name), colors: items.map(i => i.color), legend: { ...o.legend, position: 'bottom', horizontalAlign: 'center', height: undefined },
-      dataLabels: { enabled: true, formatter: v => `${Math.round(v)}%`, style: { fontSize: '10px' }, dropShadow: { enabled: false } },
-      plotOptions: { pie: { donut: { size: '58%', labels: { show: true, total: { show: true, label: tr('Total', 'Total'), formatter: () => short(data.value.total) } } } } },
-      stroke: { width: 1 } },
+    key: 'donut', title: tr('Where the money goes', 'En qué se va el dinero'), type: 'treemap', height: tall.value,
+    help: tr('Each box is a kind, sized by what it cost in the period. Kinds under 2 % go together in Others.', 'Cada recuadro es un rubro, del tamaño de lo que costó en el periodo. Los rubros de menos del 2 % van juntos en Otros.'),
+    series: [{ data: items.map(i => ({ x: i.name, y: Math.round(i.value) })) }],
+    options: { ...o, legend: { show: false }, colors: items.map(i => i.color),
+      plotOptions: { treemap: { distributed: true, enableShades: false, borderRadius: 3 } },
+      dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 600 }, offsetY: -2,
+        formatter: (text, op) => [text, `${Math.round((op.value / total) * 100)} % · ${short(op.value)}`] },
+      stroke: { width: 2, colors: ['#ffffff'] },
+      tooltip: { ...o.tooltip, y: { formatter: v => `${money(v)} (${Math.round((v / total) * 100)} %)` } } },
     table: { cols: [tr('Kind', 'Rubro'), 'S/'], rows: items.map(i => [i.name, money(i.value)]) },
   };
 });
@@ -121,14 +127,15 @@ const trendChart = computed(() => {
     ...(rest.length ? [{ name: tr('Others', 'Otros'), data: points.map(p => Math.round(rest.reduce((s, k) => s + (p.values[k.key] || 0), 0))) }] : []),
   ];
   const label = p => (d.unit === 'month' ? dayjs(p.date).format('MM-YY') : dayMonth(p.date));
-  const o = base('bar');
+  // Stacked areas (2026-11-23, instead of stacked bars): the whole band is the total spend, each layer a kind.
+  const o = base('area');
   return {
     key: 'trend', title: tr('Trend', 'Tendencia') + ` · ${d.unit === 'day' ? tr('per day', 'por día') : d.unit === 'week' ? tr('per week', 'por semana') : tr('per month', 'por mes')}`,
-    type: 'bar', height: tall.value,
-    help: tr('Expenses of each period, stacked by kind (the 6 largest; the rest in Others).', 'Gastos de cada periodo, apilados por rubro (los 6 mayores; el resto en Otros).'),
+    type: 'area', height: tall.value,
+    help: tr('Expenses of each period, stacked by kind (the 6 largest; the rest in Others): the top edge is the total.', 'Gastos de cada periodo, apilados por rubro (los 6 mayores; el resto en Otros): el borde de arriba es el total.'),
     series,
-    options: { ...o, chart: { ...o.chart, stacked: true }, colors: [...top.map(k => colorOf(k.key)), '#cbd5e1'],
-      plotOptions: { bar: { columnWidth: '70%', borderRadius: 2, borderRadiusApplication: 'end', borderRadiusWhenStacked: 'last' } },
+    options: { ...o, chart: { ...o.chart, stacked: true }, colors: [...top.map(k => colorOf(k.key)), '#9aa0a6'],
+      stroke: { width: 1.5, curve: 'smooth' }, fill: { type: 'solid', opacity: 0.72 }, markers: { size: 0 },
       xaxis: { categories: points.map(label), labels: { style: small, rotate: -45, hideOverlappingLabels: true }, axisTicks: { show: false } },
       yaxis: { labels: { style: small, formatter: v => short(v) } },
       tooltip: { ...o.tooltip, shared: true, intersect: false } },

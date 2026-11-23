@@ -215,6 +215,9 @@ class UserController extends BaseController
                         ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('employee_task as et')->join('tasks as t', 't.id', '=', 'et.task_id')
                             ->whereIn('et.employee_id', $emp)->whereNull('t.deleted_at')->select('t.project_id')))->count();
             })(),
+            // Project questions for this login (2026-11-23): the PREGUNTAS button (red while some are pending) and the
+            // window that opens by itself at sign-in.
+            'my_questions' => ProjectQuestionController::summaryFor((int) Auth::id()),
             'date_format' => $settings->date_format ?? 'YYYY-MM-DD',
             'price_format' => $settings->price_format ?? null,
             // Monetary precision (3 when 3-decimal pricing is enabled, else 2) â€” read by the SPA at boot

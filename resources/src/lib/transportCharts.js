@@ -2,13 +2,27 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
 
-// The transport dashboard's charts (2026-11-05). Colors checked for color blindness (dataviz validator); yellow is weak
-// on white, so its bars carry their figure, and every chart has its table (TransportChartBlock).
-export const BLUE = '#2a78d6';
-export const ORANGE = '#eb6834';
-export const RED = '#e34948';
-export const YELLOW = '#eda100';
+// The transport dashboard's charts (2026-11-05). Power BI's colors since 2026-11-23 (client's request: "sus gráficos con
+// los colores de Power BI"): its default theme, with the three slots that failed the dataviz validator stepped to the
+// nearest passing tone (navy #12239E -> #3A4FC4, purple #6B007B -> #8E2C9E, gold #D9B300 -> #B08F00 on white). Validated
+// light (surface #fcfcfb) and dark (#1a1a19, its own steps) for lightness, CVD separation and contrast. Order is fixed:
+// a series keeps its color whatever the filter.
+export const POWERBI = ['#118DFF', '#3A4FC4', '#E66C37', '#8E2C9E', '#E044A7', '#744EC2', '#B08F00', '#D64550'];
+export const POWERBI_DARK = ['#118DFF', '#6A4FD0', '#E66C37', '#8E44C2', '#E044A7', '#8A6FD9', '#B08F00', '#D64550'];
+export const BLUE = POWERBI[0];
+export const NAVY = POWERBI[1];
+export const ORANGE = POWERBI[2];
+export const PURPLE = POWERBI[3];
+export const PINK = POWERBI[4];
+export const VIOLET = POWERBI[5];
+export const YELLOW = POWERBI[6];
+export const RED = POWERBI[7];
 export const GRAY = '#898781';
+// Status (good / bad), never used as a series color.
+export const GOOD = '#1AAB40';
+export const BAD = '#D64550';
+/** The palette for the current theme (dark mode has its own steps). */
+export const palette = dark => (dark ? POWERBI_DARK : POWERBI);
 
 /** The height left on the screen under `el`, so a board fits with no scroll. null on a phone, where the blocks stack. */
 export function useFitHeight(el, bottom = 62) {

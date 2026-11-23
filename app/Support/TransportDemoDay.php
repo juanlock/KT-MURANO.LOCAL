@@ -807,7 +807,8 @@ class TransportDemoDay
      */
     private const PILOT_SALARY = 2500;
 
-    private const PAYROLL_PILOTS = 38;
+    // 47 since 2026-11-23: Operaciones' list (Piloto.xlsx) has 47 pilots, all on the payroll (it was 38, ours).
+    private const PAYROLL_PILOTS = 47;
 
     /** What an emergency pilot is paid for one trip (ours, to confirm with the client in Req02 / Req07). */
     private const EMERGENCY_TRIP_RATE = 200;
@@ -908,6 +909,11 @@ class TransportDemoDay
     {
         $ids = self::ids($cid, 'transport_trips');
         if (! $ids) {
+            return 0;
+        }
+        // The real timetable (2026-11-23) fills every day ahead in schedule(), by weekday / Sunday; copying 6 days back would
+        // move a Sunday's plan onto a Monday.
+        if (self::timetable($cid)) {
             return 0;
         }
         $last = DB::table('transport_trips')->whereIn('id', $ids)->whereNull('deleted_at')->max('departure_at');
@@ -1011,6 +1017,10 @@ class TransportDemoDay
         // Chepén and Trujillo leave every day, both ways, with two buses each (2026-11-11: Trujillo was missing every other
         // day). The client has 19 buses and 17 are loaded: the missing ones are made as demo buses, like one of theirs.
         $model = $spare ? DB::table('vehicles')->where('id', $spare[0])->first() : null;
+        // With the real timetable (2026-11-23) the 19 real buses are all loaded: no made-up bus any more.
+        if (self::timetable($cid)) {
+            $model = null;
+        }
         for ($n = count($spare), $num = 390; $model && $n < 4; $n++, $num += 10) {
             $row = (array) $model;
             unset($row['id']);
@@ -1036,11 +1046,59 @@ class TransportDemoDay
             }
         }
 
+        // The company's real timetable (Operaciones, 2026-11-23; settings.transport_timetable, written by migration
+        // 2026_11_23_170000): from its "from" date on, every day follows it -- Monday to Saturday or Sunday -- instead of the
+        // report's template; the buses of the two directions swap on alternate days (a bus that goes today comes back tomorrow).
+        $tt = self::timetable($cid);
+        $ttFrom = is_array($tt) && ! empty($tt['from']) ? $tt['from'] : null;
+        $ttPlan = function (\Carbon\Carbon $day) use ($tt, $ttFrom) {
+            $rows = $day->isSunday() ? ($tt['sunday'] ?? []) : ($tt['weekday'] ?? []);
+            $odd = abs(\Carbon\Carbon::parse($ttFrom)->diffInDays($day)) % 2 === 1;
+            $byRoute = collect($rows)->groupBy('route')->values();
+            $swap = [];
+            if ($odd && $byRoute->count() === 2) {
+                [$a, $b] = [$byRoute[0]->values(), $byRoute[1]->values()];
+                for ($i = 0; $i < min($a->count(), $b->count()); $i++) {
+                    $swap[$a[$i]['route'].'@'.$a[$i]['time']] = $b[$i]['bus'];
+                    $swap[$b[$i]['route'].'@'.$b[$i]['time']] = $a[$i]['bus'];
+                }
+            }
+
+            return array_map(fn ($r) => ['route' => (int) $r['route'], 'bus' => $swap[$r['route'].'@'.$r['time']] ?? $r['bus'], 'time' => $r['time'],
+                'minutes' => $r['minutes'] ?? null, 'points' => $r['points'] ?? []], $rows);
+        };
+
         $made = 0;
         $tplStart = \Carbon\Carbon::parse($tplDay);
         for ($day = now()->startOfDay()->subDays(self::HISTORY_DAYS); $day->lte(now()->startOfDay()->addDays(self::AHEAD_DAYS)); $day->addDay()) {
             $d = $day->toDateString();
             if ($d === $tplDay) {
+                continue;
+            }
+            if ($ttFrom && $d >= $ttFrom) {
+                $existing = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $d)->get(['id', 'route_id', 'departure_at']);
+                $there = $existing->map(fn ($x) => $x->route_id.'@'.substr((string) $x->departure_at, 11, 5))->flip();
+                $plan = $ttPlan($day->copy());
+                DB::transaction(function () use ($plan, $there, $d, $routes, $cid, &$made) {
+                    foreach ($plan as $p) {
+                        if (isset($there[$p['route'].'@'.$p['time']])) {
+                            continue;
+                        }
+                        $dep = \Carbon\Carbon::parse($d.' '.$p['time']);
+                        $arr = $dep->copy()->addMinutes($p['minutes'] ?: (int) ($routes->firstWhere('id', $p['route'])->duration_min ?? 0) ?: 720);
+                        $id = DB::table('transport_trips')->insertGetId([
+                            'company_id' => $cid, 'route_id' => $p['route'], 'vehicle_id' => $p['bus'], 'departure_at' => $dep, 'arrival_at' => $arr,
+                            'status' => self::statusAt($dep, $arr, 0), 'created_at' => now(), 'updated_at' => now(),
+                        ]);
+                        self::tag($cid, 'transport_trips', $id);
+                        foreach ($p['points'] as $seq => [$loc, $label, $offset]) {
+                            DB::table('transport_trip_boardings')->insert(['company_id' => $cid, 'trip_id' => $id, 'location_id' => $loc, 'label' => $label, 'seq' => $seq + 1,
+                                'board_at' => $dep->copy()->addMinutes((int) $offset), 'created_at' => now(), 'updated_at' => now()]);
+                        }
+                        $made++;
+                    }
+                });
+
                 continue;
             }
             $existing = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereDate('departure_at', $d)->get(['id', 'route_id', 'departure_at', 'reported_passengers']);
@@ -1266,6 +1324,98 @@ class TransportDemoDay
         }
 
         return $n;
+    }
+
+    /** The company's real timetable (settings.transport_timetable, 2026-11-23), or null. */
+    private static function timetable(int $cid): ?array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('settings', 'transport_timetable')) {
+            return null;
+        }
+        $tt = json_decode((string) DB::table('settings')->where('company_id', $cid)->whereNull('deleted_at')->value('transport_timetable'), true);
+
+        return is_array($tt) && ! empty($tt['from']) ? $tt : null;
+    }
+
+    /**
+     * The demo's pilots become the company's real ones (Operaciones' Piloto.xlsx, 2026-11-23): the demo pilots, in id order,
+     * take the real names and WhatsApp numbers; the missing ones are made like them (on the payroll, monthly). Idempotent: a
+     * pilot already carrying a number of the list is kept as is. $pilots = [[lastname, firstname, phone], ...].
+     */
+    public static function realPilots(int $cid, array $pilots): array
+    {
+        $demo = self::ids($cid, 'employees');
+        $rows = DB::table('employees')->whereIn('id', $demo ?: [0])->whereNull('deleted_at')->where('staff_type', 'pilot')->orderBy('id')
+            ->get(['id', 'user_id', 'phone', 'department_id', 'designation_id', 'office_shift_id', 'trip_rate']);
+        $byPhone = $rows->keyBy(fn ($e) => preg_replace('/\D/', '', (string) $e->phone));
+        $free = $rows->filter(fn ($e) => ! in_array(preg_replace('/\D/', '', (string) $e->phone), array_map(fn ($p) => preg_replace('/\D/', '', $p[2]), $pilots), true))->values();
+        $made = ['renamed' => 0, 'created' => 0, 'kept' => 0];
+        $like = $rows->first();
+        foreach ($pilots as $n => [$last, $first, $phone]) {
+            $digits = preg_replace('/\D/', '', $phone);
+            if (isset($byPhone[$digits])) {
+                $made['kept']++;
+
+                continue;
+            }
+            $e = $free->shift();
+            if (! $e && $like) {
+                $id = self::newCrew($cid, 'pilot', $like, 1000 + $n);
+                $e = DB::table('employees')->where('id', $id)->first(['id', 'user_id']);
+                $made['created']++;
+            } else {
+                $made['renamed']++;
+            }
+            if (! $e) {
+                continue;
+            }
+            DB::table('employees')->where('id', $e->id)->update(['firstname' => $first, 'lastname' => $last, 'username' => $first.' '.$last,
+                'phone' => $digits, 'whatsapp' => $digits, 'pay_type' => 'monthly', 'basic_salary' => self::PILOT_SALARY, 'trip_rate' => 0, 'updated_at' => now()]);
+            if ($e->user_id) {
+                DB::table('users')->where('id', $e->user_id)->update(['firstname' => $first, 'lastname' => $last, 'phone' => $digits, 'statut' => 1, 'updated_at' => now()]);
+            }
+        }
+
+        return $made;
+    }
+
+    /**
+     * Rebuild the demo's departures from tomorrow on (2026-11-23: the real timetable): demo trips from tomorrow -- with their
+     * advance tickets, crew, boardings and swaps -- go; their parcels go back to "to assign"; then the demo routine makes the
+     * days again (schedule, advance sales, crew) and the parcels are assigned to the new trips. The company's own trips and
+     * every past day are never touched.
+     */
+    public static function rebuildAhead(int $cid): array
+    {
+        $ids = self::ids($cid, 'transport_trips');
+        $future = $ids ? DB::table('transport_trips')->whereIn('id', $ids)->where('departure_at', '>=', now()->addDay()->startOfDay())->pluck('id')->all() : [];
+        if ($future) {
+            DB::transaction(function () use ($future, $cid) {
+                foreach (array_chunk($future, 500) as $chunk) {
+                    DB::table('transport_parcels')->whereIn('trip_id', $chunk)->update(['trip_id' => null, 'updated_at' => now()]);
+                    $tickets = DB::table('transport_tickets')->whereIn('trip_id', $chunk)->whereNull('sale_id')->pluck('id')->all();
+                    foreach (array_chunk($tickets, 1000) as $tc) {
+                        DB::table('transport_tickets')->whereIn('id', $tc)->delete();
+                        DB::table('demo_records')->where('company_id', $cid)->where('record_type', 'transport_tickets')->whereIn('record_id', $tc)->delete();
+                    }
+                    foreach (['transport_trip_crew', 'transport_trip_boardings', 'transport_trip_checkpoints', 'transport_trip_reports', 'transport_trip_swaps', 'transport_trip_decisions', 'transport_tolls'] as $tb) {
+                        if (\Illuminate\Support\Facades\Schema::hasTable($tb)) {
+                            DB::table($tb)->whereIn('trip_id', $chunk)->delete();
+                        }
+                    }
+                    // A future trip with a ticket of a real sale stays (never happens with demo trips, but never deleted).
+                    $keep = DB::table('transport_tickets')->whereIn('trip_id', $chunk)->distinct()->pluck('trip_id')->all();
+                    $gone = array_values(array_diff($chunk, $keep));
+                    DB::table('transport_trips')->whereIn('id', $gone)->delete();
+                    DB::table('demo_records')->where('company_id', $cid)->where('record_type', 'transport_trips')->whereIn('record_id', $gone)->delete();
+                }
+            });
+        }
+        $made = ['removed' => count($future), 'schedule' => self::schedule($cid), 'statuses' => self::statuses($cid),
+            'advance' => self::advance($cid), 'crew' => self::crew($cid)];
+        $made['parcels'] = \App\Services\TransportParcelAssign::assignPending($cid);
+
+        return $made;
     }
 
     /** Demo trips older than 30 days go away (with their crew and tags). */

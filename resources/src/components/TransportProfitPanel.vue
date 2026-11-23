@@ -46,12 +46,13 @@
       </a-table>
 
       </div>
-      <!-- What each stretch brings in: the short ones ride on the long trips. -->
-      <div v-if="data.legs?.length" class="pp-side" :style="sideHeight ? { maxHeight: sideHeight + 'px' } : null">
-        <div class="pp-sub-title">{{ es ? 'Ingresos por tramo' : 'Income by stretch' }}</div>
-        <div class="pp-legs">
-          <div v-for="l in data.legs" :key="l.leg" class="pp-leg" :title="`${l.tickets} ${es ? 'boletos' : 'tickets'}`"><span class="pp-leg-name">{{ l.leg }}</span><b>{{ money(l.income) }}</b></div>
-        </div>
+      <!-- The period at a glance, Power BI style (2026-11-23): how the income turns into profit (waterfall), where each route
+           stands (bubbles: occupancy x profit, size = tickets) and what each stretch brings in (treemap). One at a time. -->
+      <div v-if="totals.income" class="pp-side" :style="sideHeight ? { height: sideHeight + 'px' } : null">
+        <a-segmented v-model:value="view" size="small" block :options="viewOptions" class="pp-seg" />
+        <apexchart v-if="view === 'waterfall'" :key="`w${chartH}`" type="rangeBar" :height="chartH" :options="waterfall.options" :series="waterfall.series" />
+        <apexchart v-else-if="view === 'bubbles'" :key="`b${chartH}`" type="bubble" :height="chartH" :options="bubbles.options" :series="bubbles.series" />
+        <apexchart v-else-if="data.legs?.length" :key="`l${chartH}`" type="treemap" :height="chartH" :options="legsMap.options" :series="legsMap.series" />
       </div>
       </div>
     </a-spin>
@@ -65,7 +66,7 @@ import dayjs from 'dayjs';
 import http from '../lib/http';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
-import { useFitHeight } from '../lib/transportCharts';
+import { useFitHeight, useTransportCharts, BLUE, ORANGE, GOOD, BAD, GRAY, POWERBI } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
 
 // The dashboard's own date filter (2026-11-04): [from, to], null = its "All" before it has dates.
@@ -130,6 +131,73 @@ const tiles = computed(() => {
   return out;
 });
 
+// ---- the side charts (2026-11-23)
+const { base, short } = useTransportCharts();
+const ui = useUiStore();
+const view = ref('waterfall');
+const viewOptions = computed(() => [
+  { value: 'waterfall', label: es.value ? 'Cascada' : 'Waterfall' },
+  { value: 'bubbles', label: es.value ? 'Rutas' : 'Routes' },
+  ...(data.value.legs?.length ? [{ value: 'legs', label: es.value ? 'Tramos' : 'Stretches' }] : []),
+]);
+const chartH = computed(() => (sideHeight.value ? Math.max(220, sideHeight.value - 44) : 320));
+const COST_KINDS = [['staff', 'Pay per trip', 'Pago por viaje'], ['payroll', 'Payroll', 'Planilla'], ['fuel', 'Fuel', 'Combustible'],
+  ['maintenance', 'Maintenance', 'Mantenimiento'], ['depreciation', 'Depreciation', 'Depreciación'], ['tolls', 'Tolls', 'Peajes'],
+  ['agency', 'Agencies', 'Agencias'], ['meals', 'Snack and drink', 'Snack y bebida']];
+// Waterfall: the income as the first column, each cost taking its step down, the profit at the end (green or red).
+const waterfall = computed(() => {
+  const t = totals.value;
+  const pts = [{ x: es.value ? 'Ingresos' : 'Income', y: [0, Math.round(t.income || 0)], fillColor: BLUE }];
+  let run = t.income || 0;
+  COST_KINDS.forEach(([k, en, sp]) => {
+    const c = Number(t[k] || 0);
+    if (c > 0) { pts.push({ x: es.value ? sp : en, y: [Math.round(run - c), Math.round(run)], fillColor: ORANGE }); run -= c; }
+  });
+  const p = Math.round(t.profit || 0);
+  pts.push({ x: es.value ? 'Ganancia' : 'Profit', y: [Math.min(0, p), Math.max(0, p)], fillColor: p >= 0 ? GOOD : BAD });
+  const o = base('rangeBar');
+  return {
+    series: [{ name: 'S/', data: pts }],
+    options: { ...o, plotOptions: { bar: { horizontal: false, columnWidth: '62%', borderRadius: 3 } },
+      xaxis: { labels: { rotate: -40, style: { fontSize: '10px' }, trim: true, hideOverlappingLabels: false } },
+      yaxis: { labels: { formatter: v => short(v), style: { fontSize: '10px' } } },
+      dataLabels: { enabled: true, formatter: (v, op) => { const r = op.w.config.series[0].data[op.dataPointIndex].y; return short(r[1] - r[0]); },
+        style: { fontSize: '9.5px', colors: [ui.dark ? '#f0efec' : '#0b0b0b'] }, offsetY: -14 },
+      tooltip: { ...o.tooltip, custom: ({ dataPointIndex, w }) => { const d = w.config.series[0].data[dataPointIndex]; return `<div style="padding:6px 8px"><b>${d.x}</b><br>${money(d.y[1] - d.y[0])}</div>`; } },
+      legend: { show: false } },
+  };
+});
+// Bubbles: one per route -- across, its occupancy; up, its profit; size, its tickets. Losing routes fall under the line.
+const bubbles = computed(() => {
+  const rows = (data.value.routes || []).filter(r => r.trips_run && r.occupancy != null);
+  const pts = rows.map(r => ({ x: r.occupancy, y: Math.round(r.profit), z: (r.trips || []).reduce((s, t) => s + (t.sold || 0), 0) || 1, name: r.route }));
+  const o = base('bubble');
+  return {
+    series: [{ name: es.value ? 'Rutas' : 'Routes', data: pts }],
+    options: { ...o, colors: [BLUE], fill: { opacity: 0.6 }, stroke: { width: 1, colors: [ui.dark ? '#1a1a19' : '#fff'] },
+      plotOptions: { bubble: { minBubbleRadius: 5, maxBubbleRadius: 26 } },
+      xaxis: { type: 'numeric', min: 0, max: 100, tickAmount: 5, title: { text: es.value ? 'Ocupación %' : 'Occupancy %', style: { fontSize: '10px', fontWeight: 400 } }, labels: { style: { fontSize: '10px' } } },
+      yaxis: { labels: { formatter: v => short(v), style: { fontSize: '10px' } }, title: { text: es.value ? 'Ganancia S/' : 'Profit S/', style: { fontSize: '10px', fontWeight: 400 } } },
+      annotations: { yaxis: [{ y: 0, borderColor: BAD, strokeDashArray: 4 }] },
+      dataLabels: { enabled: true, formatter: (v, op) => (pts[op.dataPointIndex]?.name || '').split(' ')[0], style: { fontSize: '9px', colors: [ui.dark ? '#f0efec' : '#0b0b0b'] }, offsetY: -12, background: { enabled: false } },
+      tooltip: { ...o.tooltip, custom: ({ dataPointIndex }) => { const d = pts[dataPointIndex]; return d ? `<div style="padding:6px 8px"><b>${d.name}</b><br>${es.value ? 'Ocupación' : 'Occupancy'} ${d.x} %<br>${es.value ? 'Ganancia' : 'Profit'} ${money(d.y)}<br>${d.z} ${es.value ? 'boletos' : 'tickets'}</div>` : ''; } },
+      legend: { show: false } },
+  };
+});
+// Stretches: a treemap of what each one brings in.
+const legsMap = computed(() => {
+  const legs = data.value.legs || [];
+  const total = legs.reduce((s, l) => s + (l.income || 0), 0) || 1;
+  const o = base('treemap');
+  return {
+    series: [{ data: legs.map(l => ({ x: l.leg, y: Math.round(l.income || 0) })) }],
+    options: { ...o, legend: { show: false }, colors: legs.map((_, i) => (i < POWERBI.length ? POWERBI[i] : GRAY)),
+      plotOptions: { treemap: { distributed: true, enableShades: false, borderRadius: 3 } }, stroke: { width: 2, colors: ['#ffffff'] },
+      dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 600 }, formatter: (text, op) => [text, `${Math.round((op.value / total) * 100)} %`] },
+      tooltip: { ...o.tooltip, y: { formatter: v => money(v) } } },
+  };
+});
+
 const columns = computed(() => [
   { title: es.value ? 'Ruta' : 'Route', key: 'route' },
   { title: es.value ? 'Viajes +/-' : 'Trips +/-', key: 'trips' },
@@ -161,7 +229,8 @@ const tripColumns = computed(() => [
 .pp-main, .pp-side { min-width: 0; }
 .pp-main :deep(.ant-table-thead > tr > th) { padding: 3px 6px !important; white-space: nowrap; font-size: 11.5px; }
 .pp-main :deep(.ant-table-tbody > tr > td) { padding: 2px 6px !important; font-size: 12px; }
-.pp-side { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 6px 8px; overflow-y: auto; }
+.pp-side { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 6px 8px; overflow: hidden; }
+.pp-seg { margin-bottom: 4px; }
 .pp-sub-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
 .pp-legs { font-size: 11.5px; }
 .pp-leg { display: flex; align-items: baseline; gap: 6px; border-top: 1px solid rgba(128, 128, 128, 0.15); padding: 2px 0; }
@@ -170,6 +239,6 @@ const tripColumns = computed(() => [
 .pos { color: #15803d; }
 .neg { color: #b91c1c; }
 @media (min-width: 900px) {
-  .pp-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
+  .pp-grid { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1.35fr); }
 }
 </style>

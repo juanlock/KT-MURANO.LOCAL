@@ -241,7 +241,7 @@ const hourChart = computed(() => {
 .td-lines b { font-weight: 600; }
 .td-load { display: flex; align-items: center; gap: 6px; }
 .td-bar { flex: 1; min-width: 24px; height: 6px; border-radius: 3px; background: rgba(128, 128, 128, 0.2); overflow: hidden; }
-.td-bar i { display: block; height: 100%; border-radius: 3px; background: #2a78d6; }
+.td-bar i { display: block; height: 100%; border-radius: 3px; background: #118DFF; }
 .td-count { min-width: 34px; text-align: right; }
 .td-low { color: #d03b3b; }
 .td-low-icon { font-size: 11px; }

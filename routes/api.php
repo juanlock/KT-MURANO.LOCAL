@@ -1681,6 +1681,14 @@ Route::get('hospital/patients/{patientId}/wristband', 'HospitalDeskController@wr
     Route::get('my/projects', 'ProjectTeamController@myProjects');
     Route::get('my/projects/{id}', 'ProjectTeamController@myProject')->whereNumber('id');
     Route::get('my/tasks/{id}', 'ProjectTeamController@myTask')->whereNumber('id');
+    // Project questions (2026-11-23): the PREGUNTAS window, and the project team's list.
+    Route::get('my/questions', 'ProjectQuestionController@mine');
+    Route::post('my/questions/later', 'ProjectQuestionController@later');
+    Route::post('my/questions/{id}/answer', 'ProjectQuestionController@answer')->whereNumber('id');
+    Route::get('projects/{id}/questions', 'ProjectQuestionController@index')->whereNumber('id');
+    Route::post('projects/{id}/questions', 'ProjectQuestionController@store')->whereNumber('id');
+    Route::put('project-questions/{id}', 'ProjectQuestionController@update')->whereNumber('id');
+    Route::delete('project-questions/{id}', 'ProjectQuestionController@destroy')->whereNumber('id');
     Route::get('projects/{id}/config', 'ProjectTeamController@config')->whereNumber('id');
     Route::put('projects/{id}/config', 'ProjectTeamController@saveConfig')->whereNumber('id');
     Route::post('projects/{id}/members/{employee}/send-credentials', 'ProjectTeamController@sendCredentials')->whereNumber('id')->middleware('throttle:20,1');

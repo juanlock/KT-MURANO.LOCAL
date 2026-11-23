@@ -31,7 +31,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import http from '../lib/http';
-import { BLUE, GRAY, ORANGE, RED, YELLOW, useFitHeight, useTransportCharts } from '../lib/transportCharts';
+import { BLUE, GRAY, NAVY, ORANGE, PINK, PURPLE, RED, VIOLET, YELLOW, useFitHeight, useTransportCharts } from '../lib/transportCharts';
 import { claimDetailName } from '../lib/transportClaimTopics';
 import TransportChartBlock from './TransportChartBlock.vue';
 import TransportStrip from './TransportStrip.vue';
@@ -160,7 +160,7 @@ const charts = computed(() => {
   const sizeName = (s, i) => `${tr(...SIZE[s.key])} (${s.max ? `${sz[i - 1]?.max ?? 0}–${s.max}` : `+${sz[i - 1]?.max ?? 0}`} kg)`;
   const sizeNames = sz.map(sizeName);
   const contents = [...new Set(sz.flatMap(s => Object.keys(s.contents)))].sort((a, b) => a.localeCompare(b));
-  const PALETTE = [BLUE, ORANGE, YELLOW, GRAY, '#3a9b7a', '#8a5cc2', RED, '#c27a5c'];
+  const PALETTE = [BLUE, NAVY, ORANGE, PURPLE, PINK, VIOLET, YELLOW, RED]; // Power BI order (2026-11-23)
   // Two donuts side by side (user, 2026-11-09: the stacked bars did not read well): by size, by type.
   const typeCounts = contents.map(c => sz.reduce((s, x) => s + (x.contents[c] || 0), 0));
   const typeNames = contents.map(c => c || tr('Not declared', 'Sin declarar'));
@@ -171,7 +171,7 @@ const charts = computed(() => {
         { cols: [tr('Size', 'Tamaño'), tr('Parcels', 'Encomiendas'), '%', tr('Income', 'Ingresos'), tr('Average', 'Promedio'), 'kg'],
           rows: sz.map((s, i) => [sizeNames[i], s.n, `${pct(s.n, d.total)} %`, money(s.income), money(s.n ? s.income / s.n : 0), Math.round(s.kg)]) }),
       donut('type', tr('Parcels by type', 'Encomiendas por tipo'), tr('What the sender declared.', 'Lo que declaró el remitente.'),
-        typeNames, typeCounts, contents.map((_, i) => PALETTE[i % PALETTE.length]), h, i => `${typeCounts[i]}`,
+        typeNames, typeCounts, contents.map((_, i) => (i < PALETTE.length ? PALETTE[i] : GRAY)), h, i => `${typeCounts[i]}`,
         { cols: [tr('Type', 'Tipo'), tr('Parcels', 'Encomiendas'), '%'], rows: typeNames.map((n, i) => [n, typeCounts[i], `${pct(typeCounts[i], d.total)} %`]) }),
     ],
   });

@@ -22,7 +22,7 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import http from '../lib/http';
 import { BLUE, GRAY, ORANGE, RED, YELLOW, useFitHeight, useTransportCharts } from '../lib/transportCharts';
-const GREEN = '#16a34a';
+const GREEN = '#1AAB40'; // profit (status: good)
 import TransportChartBlock from './TransportChartBlock.vue';
 import TransportStrip from './TransportStrip.vue';
 
@@ -84,15 +84,18 @@ const profitCharts = computed(() => {
   const points = d.trend?.points || [];
   if (points.length) {
     const label = p => (d.trend.unit === 'month' ? dayjs(p.date).format('MM/YYYY') : dayjs(p.date).format('DD/MM'));
-    const o = base('line');
+    // Areas with a gradient (2026-11-23, Power BI look): where orange rises over blue, that period lost money.
+    const o = base('area');
     const unit = { day: ['By day', 'Por día'], week: ['By week (Monday)', 'Por semana (lunes)'], month: ['By month', 'Por mes'] }[d.trend.unit];
     out.push({
-      key: 'trend', type: 'line', height: height.value,
+      key: 'trend', type: 'area', height: height.value,
       title: tr('Income and costs', 'Ingresos y gastos'),
       help: `${tr(...unit)}. ${tr('Where costs run above income, that period lost money.', 'Donde los gastos pasan a los ingresos, ese período perdió.')}`
         + (d.idle_costs > 0 ? ` ${tr('Costs of days with no departure are not on this line', 'Los gastos de días sin salidas no están en esta línea')} (${money(d.idle_costs)}), ${tr('but they are in the total profit.', 'pero sí en la ganancia total.')}` : ''),
       series: [{ name: tr('Income', 'Ingresos'), data: points.map(p => p.income) }, { name: tr('Costs', 'Gastos'), data: points.map(p => p.costs) }],
-      options: { ...o, colors: [BLUE, ORANGE], stroke: { width: 2, curve: 'straight' }, markers: { size: points.length > 20 ? 0 : 3, strokeColors: ui.dark ? '#1a1a19' : '#fff', strokeWidth: 1, hover: { size: 5 } },
+      options: { ...o, colors: [BLUE, ORANGE], stroke: { width: 2, curve: 'smooth' },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 0, opacityFrom: 0.35, opacityTo: 0.03, stops: [0, 95] } },
+        markers: { size: points.length > 20 ? 0 : 3, strokeColors: ui.dark ? '#1a1a19' : '#fff', strokeWidth: 1, hover: { size: 5 } },
         xaxis: { categories: points.map(label), labels: { rotate: 0, hideOverlappingLabels: true, style: small }, axisTicks: { show: false }, tooltip: { enabled: false } },
         yaxis: { labels: { formatter: short, style: small } }, tooltip: { ...o.tooltip, shared: true, intersect: false } },
       table: { cols: [tr('Date', 'Fecha'), tr('Income', 'Ingresos'), tr('Costs', 'Gastos'), tr('Difference', 'Diferencia')], rows: points.map(p => [label(p), money(p.income), money(p.costs), money(p.income - p.costs)]) },
@@ -116,7 +119,7 @@ const profitCharts = computed(() => {
     const P = +t.parcels_income || 0;
     const fromTrips = (+t.tickets_income || 0) - (+t.costs || 0);
     const profit = fromTrips + P;
-    const PURPLE = '#7c3aed';
+    const PURPLE = '#8E2C9E';
     const help = tr('Tickets = what the tickets leave after paying every cost of the trips (crew, payroll, fuel, maintenance, depreciation, tolls, agencies, meals). Parcels = what they bring: they ride on the same bus with no cost of their own. Both together are the profit.',
       'Pasajes = lo que dejan los boletos después de pagar todos los gastos de los viajes (tripulación, planilla, combustible, mantenimiento, depreciación, peajes, agencias, refrigerios). Encomiendas = lo que cobran: van en el mismo bus sin gasto propio. Las dos juntas son la ganancia.');
     const parts = [
