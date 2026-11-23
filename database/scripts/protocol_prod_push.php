@@ -96,10 +96,16 @@ $liveIds = array_map('intval', array_keys($live));
 // those companies' rows travel (the same test as "a live company's row", kept instead of dropped).
 // To production (2026-11-20, "sube esta compañía"): $onlyCompanies = [id] sends ONLY that company's rows (never a live one).
 $keepOnly = ! empty($onlyCompanies);
-if ($keepOnly) $liveIds = array_values(array_diff(array_map('intval', $onlyCompanies), $devToDev ? [] : array_map('intval', array_keys($live))));
+// $allowLive = [id, ...] (2026-11-22, the user: "sube kcoltech de dev a producción"): a company in production that the
+// user EXPLICITLY asks to send in this run; only with $onlyCompanies, never by default. Conflicts still keep production's.
+$allowLiveIds = array_map('intval', (array) ($allowLive ?? []));
+if ($keepOnly) $liveIds = array_values(array_diff(array_map('intval', $onlyCompanies), $devToDev ? [] : array_diff(array_map('intval', array_keys($live)), $allowLiveIds)));
 if ($keepOnly && ! $liveIds) { echo "Nothing to send: the companies asked for are live in production.\n"; return; }
 // A company sent on its own takes its menu with it (it has no migration of its own).
 if ($keepOnly) $skip = array_values(array_diff($skip, ['menu_positions']));
+// $skipTables = [table, ...] (2026-11-22): tables left out of this run on purpose (what each server generates on its own:
+// mail imported by the poller, daily stats, poll times, journal entries of payments).
+if (! empty($skipTables)) $skip = array_values(array_unique(array_merge($skip, (array) $skipTables)));
 $devTables = $tablesOf($d);
 $hasCompanyCol = [];
 $companyCol = function (string $t) use (&$hasCompanyCol, $colsOf, $d) { return $hasCompanyCol[$t] ??= in_array('company_id', $colsOf($d, $t), true); };
