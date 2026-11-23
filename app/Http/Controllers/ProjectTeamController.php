@@ -385,7 +385,7 @@ class ProjectTeamController extends Controller
         $rows = DB::table('employee_project as ep')->join('projects as p', 'p.id', '=', 'ep.project_id')
             ->leftJoin('companies as c', 'c.id', '=', 'p.company_id')
             ->whereIn('ep.employee_id', $emp ?: [0])->whereNull('p.deleted_at')
-            ->get(['p.id', 'p.title', 'p.status', 'p.start_date', 'p.end_date', 'c.name as company_name', 'ep.role', 'ep.is_manager', 'ep.entity_id', 'pe.name as entity_name'])->unique('id');
+            ->get(['p.id', 'p.title', 'p.status', 'p.start_date', 'p.end_date', 'c.name as company_name', 'ep.role', 'ep.is_manager'])->unique('id');
 
         return response()->json(['projects' => $rows->map(function ($p) use ($emp) {
             $mine = DB::table('employee_task as et')->join('tasks as t', 't.id', '=', 'et.task_id')
