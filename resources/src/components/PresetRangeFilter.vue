@@ -8,6 +8,8 @@
        with these buttons (★, lib/datePresetDefault.js). `compact`: the
        presets as a dropdown on every screen, for narrow filter columns. -->
   <div class="prf" :class="{ 'prf--compact': compact }">
+    <!-- "Día" (2026-11-24): a calendar day with ‹ ›, before "All". -->
+    <DayPresetControl :active="active === 'day'" :single="active === 'today'" @pick="pick('day')" />
     <div class="prf-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(active)">
       <a-radio-group :value="active" button-style="solid" @change="e => pick(e.target.value)">
         <a-radio-button v-for="p in presets" :key="p.value" :value="p.value">
@@ -52,7 +54,8 @@
 import { computed, onMounted, useAttrs } from 'vue';
 import { StarFilled } from '@ant-design/icons-vue';
 import DateRangeFields from './DateRangeFields.vue';
-import { DATE_PRESETS, presetDates } from '../lib/datePresets';
+import DayPresetControl from './DayPresetControl.vue';
+import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import { savedDatePreset, startPreset, toggleDatePreset } from '../lib/datePresetDefault';
 
 defineOptions({ inheritAttrs: false });
@@ -81,16 +84,14 @@ const fieldAttrs = computed(() => {
 
 // "All" = no range (null); off when the page needs the dates set.
 const canAll = computed(() => props.allowAll && props.allowClear);
-const presets = computed(() => DATE_PRESETS.filter(p => canAll.value || p.value !== 'all'));
+// The buttons / dropdown: the ranges ("Día" has its own control).
+const presets = computed(() => DATE_PRESETS.filter(p => p.value !== 'day' && (canAll.value || p.value !== 'all')));
 
+// presetOf: a single day other than today = "day" (and that day becomes the picked one).
 const active = computed(() => {
   const v = props.value;
   if (!v || !v.length || (!v[0] && !v[1])) return canAll.value ? 'all' : null;
-  const hit = presets.value.find(p => {
-    const d = presetDates(p.value);
-    return p.value !== 'all' && d.from === v[0] && d.to === v[1];
-  });
-  return hit ? hit.value : null;
+  return presetOf(v[0], v[1]);
 });
 
 function rangeOf(preset) {
@@ -111,7 +112,7 @@ function pick(preset) {
 // fetched reload.
 onMounted(() => {
   if (!props.applyDefault) return;
-  const d = startPreset(null, presets.value.map(p => p.value));
+  const d = startPreset(null, [...presets.value.map(p => p.value), 'day']);
   if (d && d !== active.value) pick(d);
 });
 </script>

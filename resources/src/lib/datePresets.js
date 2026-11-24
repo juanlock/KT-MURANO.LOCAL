@@ -5,9 +5,17 @@
  * Weeks run Monday-Sunday, like the booking calendar.
  */
 import dayjs from 'dayjs';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+
+/**
+ * "Día" (user's rule, 2026-11-24): one day picked on a calendar, between the Start/End dates and "All", with ‹ › to go
+ * to the day before / after (DayPresetControl.vue). The picked day lives here, so presetRange('day') -- used by every
+ * page's own applyPreset() -- returns it without the pages knowing about it.
+ */
+export const pickedDay = ref(dayjs().format('YYYY-MM-DD'));
 
 export const DATE_PRESETS = [
+  { value: 'day', labelKey: 'Day' },
   { value: 'all', labelKey: 'All' },
   { value: 'year', labelKey: 'This_Year' },
   { value: 'month', labelKey: 'This_Month' },
@@ -23,6 +31,10 @@ const mondayOf = d => d.subtract((d.day() + 6) % 7, 'day').startOf('day');
 /** [from, to] as dayjs values for a preset ([null, null] for "all" / unknown). */
 export function presetRange(preset, now = dayjs()) {
   switch (preset) {
+    case 'day': {
+      const d = dayjs(pickedDay.value || now);
+      return [d.startOf('day'), d.endOf('day')];
+    }
     case 'year':
       return [now.startOf('year'), now.endOf('year')];
     case 'month':
@@ -81,8 +93,21 @@ export function rangeModel(read, write) {
 export function presetOf(from, to) {
   if (!from && !to) return 'all';
   const hit = DATE_PRESETS.find(p => {
+    if (p.value === 'all' || p.value === 'day') return false;
     const d = presetDates(p.value);
-    return p.value !== 'all' && d.from === from && d.to === to;
+    return d.from === from && d.to === to;
   });
-  return hit ? hit.value : null;
+  if (hit) return hit.value;
+  // Any other single day = "Día" on that day (today stays "Hoy").
+  if (from && from === to) {
+    pickedDay.value = from;
+    return 'day';
+  }
+  return null;
+}
+
+/** ‹ / › on "Día": the picked day moved by n days, as 'YYYY-MM-DD'. */
+export function shiftPickedDay(n) {
+  pickedDay.value = dayjs(pickedDay.value || undefined).add(n, 'day').format('YYYY-MM-DD');
+  return pickedDay.value;
 }

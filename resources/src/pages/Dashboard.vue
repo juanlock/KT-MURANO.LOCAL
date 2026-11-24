@@ -20,9 +20,12 @@
                so the double-click saves the current choice. -->
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
+          <!-- "Día" (2026-11-24): a calendar day, ‹ › to move it; between the dates and "All". -->
+          <DayPresetControl :active="period === 'day'" :single="period === 'today'" :disabled="loading" :size="boardMode ? 'small' : undefined"
+            @pick="period = 'day'; load()" />
           <div class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" :size="boardMode ? 'small' : undefined" @change="load()">
-              <a-radio-button v-for="p in DATE_PRESETS" :key="p.value" :value="p.value">
+              <a-radio-button v-for="p in RANGE_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
               </a-radio-button>
             </a-radio-group>
@@ -34,7 +37,7 @@
             <a-select
               :value="period ?? undefined" style="width: 100%" :disabled="loading" :placeholder="$t('CustomRange')"
               @update:value="v => (period = v)"
-              :options="DATE_PRESETS.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
+              :options="RANGE_PRESETS.map(p => ({ value: p.value, label: savedDatePreset === p.value ? `${$t(p.labelKey)} ★` : $t(p.labelKey) }))"
               @change="load()"
             />
           </div>
@@ -394,6 +397,9 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import TransportOutlookPanel from '../components/TransportOutlookPanel.vue';
 import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
+import DayPresetControl from '../components/DayPresetControl.vue';
+// "Día" has its own control (DayPresetControl); the buttons are the ranges.
+const RANGE_PRESETS = DATE_PRESETS.filter(p => p.value !== 'day');
 import DateRangeFields from '../components/DateRangeFields.vue';
 import {
   ReloadOutlined, ShoppingCartOutlined, ShoppingOutlined, RollbackOutlined,
@@ -1073,6 +1079,13 @@ onMounted(load);
 }
 .preset-select {
   display: none;
+}
+/* "Día" then the range buttons, on one line. */
+.preset-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 .def-star {
   font-size: 10px;
