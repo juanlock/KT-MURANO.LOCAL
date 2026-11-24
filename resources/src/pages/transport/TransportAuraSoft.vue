@@ -21,6 +21,7 @@
       <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" compact-toolbar table-key="aurasoft-imports">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'created_at'">{{ dateTime(record.created_at) }}</template>
+          <template v-else-if="column.key === 'kind'"><span class="tag" :class="record.kind === 'liquidation' ? 't-liq' : 't-prod'">{{ kindLabel(record.kind) }}</span></template>
           <template v-else-if="column.key === 'period'"><span class="nowrap">{{ date(record.period_from) }} – {{ date(record.period_to) }}</span></template>
           <template v-else-if="column.key === 'rows'">
             {{ record.rows_total }}
@@ -62,7 +63,19 @@
             <a-button size="small" :loading="busy === 'xls' + sel.id" @click="exportRows(sel, 'xls')"><FileExcelOutlined /> XLS</a-button>
           </a-space>
         </div>
-        <div class="kpis">
+        <!-- A Liquidación General (2026-11-24): its own figures. -->
+        <div v-if="sel.kind === 'liquidation'" class="kpis">
+          <div class="k"><div class="v">{{ sel.rows_total }}</div><div class="t">{{ L('Rows', 'Filas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ sel.rows_new }}</div><div class="t">{{ L('New', 'Nuevas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'updated' }" @click="setAction('updated')"><div class="v c-upd">{{ sel.rows_updated }}</div><div class="t">{{ L('Changed', 'Actualizadas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'same' }" @click="setAction('same')"><div class="v c-same">{{ sel.rows_same }}</div><div class="t">{{ L('Already had', 'Ya estaban') }}</div></div>
+          <div class="k"><div class="v">{{ sel.totals?.points }} / {{ sel.totals?.cashiers }}</div><div class="t">{{ L('Points / cashiers', 'Puntos / cajeros') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.totals?.tickets) }}</div><div class="t">{{ L('Tickets', 'Pasajes') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.totals?.card) }}</div><div class="t">{{ L('Cards', 'Tarjetas') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.totals?.expenses) }}</div><div class="t">{{ L('Expenses', 'Egresos') }}</div></div>
+          <div class="k main"><div class="v">S/ {{ money(sel.totals?.net) }}</div><div class="t">{{ L('Net', 'Neto') }}</div></div>
+        </div>
+        <div v-else class="kpis">
           <div class="k"><div class="v">{{ sel.rows_total }}</div><div class="t">{{ L('Departures', 'Salidas') }}</div></div>
           <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ sel.rows_new }}</div><div class="t">{{ L('New', 'Nuevas') }}</div></div>
           <div class="k pick" :class="{ on: action === 'updated' }" @click="setAction('updated')"><div class="v c-upd">{{ sel.rows_updated }}</div><div class="t">{{ L('Changed', 'Actualizadas') }}</div></div>
@@ -84,12 +97,17 @@
           <WarningOutlined /> {{ L('Rows left out', 'Filas no tomadas') }}: {{ sel.skipped.map(s => `${L('row', 'fila')} ${s.row} (${s.reason})`).join('; ') }}
         </div>
 
-        <DataTable :crud="rowsCrud" :columns="rowColumns" compact-toolbar table-key="aurasoft-rows">
+        <DataTable :key="sel.kind" :crud="rowsCrud" :columns="sel.kind === 'liquidation' ? liqColumns : rowColumns" compact-toolbar
+          :table-key="sel.kind === 'liquidation' ? 'aurasoft-liq' : 'aurasoft-rows'">
           <template #filters>
             <a-segmented v-model:value="action" size="small" :options="actionOptions" @change="rowsCrud.fetchRows()" />
           </template>
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'trip_date'">{{ date(record.trip_date) }} <span class="muted">{{ String(record.departure_time).slice(0, 5) }}</span></template>
+            <template v-if="column.key === 'sale_date'">{{ date(record.sale_date) }}</template>
+            <template v-else-if="column.liq">{{ money(record[column.key]) }}<span
+              v-if="record.before && ['income', 'net', 'tickets'].includes(column.key) && Number(record.before[column.key]) !== Number(record[column.key])"
+              class="was"> ({{ money(record.before[column.key]) }})</span></template>
+            <template v-else-if="column.key === 'trip_date'">{{ date(record.trip_date) }} <span class="muted">{{ String(record.departure_time).slice(0, 5) }}</span></template>
             <template v-else-if="column.key === 'plate'">{{ record.plate }}<span v-if="record.bus" class="muted"> · {{ record.bus }}</span></template>
             <template v-else-if="column.key === 'sellers'">
               <span class="sellers">{{ sellersText(record) }}</span>
@@ -134,12 +152,13 @@ const crud = useCrudTable('transport/aurasoft', { rowsKey: 'rows', sortField: 'c
 const current = computed(() => crud.payload.value?.current || null);
 const columns = computed(() => [
   { title: L('Uploaded', 'Subido'), key: 'created_at', dataIndex: 'created_at', sorter: true, width: 132 },
+  { title: L('Report', 'Reporte'), key: 'kind', dataIndex: 'kind', width: 150 },
   { title: L('File', 'Archivo'), key: 'original_name', dataIndex: 'original_name', sorter: true, ellipsis: { showTitle: true } },
   { title: L('Period', 'Período'), key: 'period', dataIndex: 'period_from', width: 178 },
-  { title: L('Departures', 'Salidas'), key: 'rows', dataIndex: 'rows_total', width: 116 },
+  { title: L('Rows', 'Filas'), key: 'rows', dataIndex: 'rows_total', width: 116 },
   { title: L('Seats', 'Pasajes'), key: 'seats', dataIndex: 'seats', width: 74, align: 'right' },
   { title: L('Tickets S/', 'Pasajes S/'), key: 'ticket_income', dataIndex: 'ticket_income', width: 104, align: 'right' },
-  { title: L('Production', 'Producción'), key: 'production', dataIndex: 'production', sorter: true, width: 110, align: 'right' },
+  { title: L('Production / income', 'Producción / ingresos'), key: 'production', dataIndex: 'production', sorter: true, width: 130, align: 'right' },
   { title: L('Uploaded by', 'Subido por'), key: 'uploaded_by', dataIndex: 'uploaded_by', width: 124, ellipsis: true },
   { title: L('Actions', 'Acciones'), key: 'actions', width: 132, align: 'center', className: 'col-acts' },
 ]);
@@ -165,6 +184,18 @@ const rowColumns = computed(() => [
   { title: L('Parcels S/', 'Encom. S/'), key: 'parcel_income', dataIndex: 'parcel_income', sorter: true, width: 86, align: 'right' },
   { title: L('Production', 'Producción'), key: 'production', dataIndex: 'production', sorter: true, width: 96, align: 'right' },
   { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 120 },
+]);
+// AuraSoft's Liquidación General (2026-11-24): its own columns.
+const kindLabel = k => (k === 'liquidation' ? L('General liquidation', 'Liquidación general') : L('Production per bus', 'Producción por bus'));
+const liqColumns = computed(() => [
+  { title: L('Date', 'Fecha'), key: 'sale_date', dataIndex: 'sale_date', sorter: true, width: 100 },
+  { title: L('Branch', 'Sucursal'), key: 'branch', dataIndex: 'branch', sorter: true, width: 110, ellipsis: { showTitle: true } },
+  { title: L('Point of sale', 'Punto de venta'), key: 'point', dataIndex: 'point', sorter: true, width: 150, ellipsis: { showTitle: true } },
+  { title: L('Cashier', 'Cajero'), key: 'cashier', dataIndex: 'cashier', sorter: true, width: 170, ellipsis: { showTitle: true } },
+  ...[['tickets', 'Tickets', 'Pasajes'], ['parcels', 'Parcels', 'Encom.'], ['excess', 'Excess', 'Exceso'], ['income', 'Income', 'Ingresos'],
+    ['card', 'Cards', 'Tarjetas'], ['web', 'Web', 'Web'], ['channel', 'Channels', 'Canales'], ['expenses', 'Expenses', 'Egresos'], ['net', 'Net', 'Neto']]
+    .map(([k, en, es]) => ({ title: L(en, es), key: k, dataIndex: k, align: 'right', width: 92, liq: true, sorter: ['tickets', 'parcels', 'income', 'card', 'expenses', 'net'].includes(k) })),
+  { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 110 },
 ]);
 const sellersText = r => Object.entries(r.channels || {}).filter(([, n]) => n > 0).map(([k, n]) => `${short(k)} ${n}`).join(' · ');
 const short = k => ({ 'AURA SOFT': 'Aura', 'NO REGISTRADO': 'No reg.', REDBUS: 'RedBus', KUPOS: 'Kupos', CARRITOC: 'Carritoc', KIOSCO: 'Kiosco', PERUBUS: 'PeruBus' }[k] || k);
@@ -193,8 +224,9 @@ async function upload(file) {
     const fd = new FormData();
     fd.append('file', file);
     const r = await http.postForm('transport/aurasoft', fd);
-    message.success(L(`${r.rows_total} departures: ${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there.`,
-      `${r.rows_total} salidas: ${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban.`), 6);
+    const what = r.kind === 'liquidation' ? L('rows', 'filas') : L('departures', 'salidas');
+    message.success(L(`${kindLabel(r.kind)}: ${r.rows_total} ${what}, ${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there.`,
+      `${kindLabel(r.kind)}: ${r.rows_total} ${what}, ${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban.`), 6);
     await crud.fetchRows();
   } catch (e) {
     message.error(e?.data?.message || L('The file could not be imported.', 'No se pudo importar el archivo.'));
@@ -244,10 +276,15 @@ async function exportRows(rec, kind) {
       all.push(...(r.rows || []));
       if (all.length >= (r.totalRows || 0) || !(r.rows || []).length) break;
     }
-    const cols = exportColumns.value;
+    const liq = rec.kind === 'liquidation';
+    const cols = liq
+      ? liqColumns.value.map(c => ({ ...c, exportValue: c.liq ? r => Number(r[c.key] || 0) : c.key === 'sale_date' ? r => date(r.sale_date) : c.key === 'action' ? r => actionLabel(r.action) : undefined }))
+      : exportColumns.value;
     const sum = k => all.reduce((s, x) => s + Number(x[k] || 0), 0);
-    const totals = { trip_date: L('Total', 'Total'), seats: sum('seats'), parcels: sum('parcels'), ticket_income: money(sum('ticket_income')),
-      parcel_income: money(sum('parcel_income')), excess_income: money(sum('excess_income')), production: money(sum('production')) };
+    const totals = liq
+      ? Object.fromEntries([['sale_date', L('Total', 'Total')], ...liqColumns.value.filter(c => c.liq).map(c => [c.key, money(sum(c.key))])])
+      : { trip_date: L('Total', 'Total'), seats: sum('seats'), parcels: sum('parcels'), ticket_income: money(sum('ticket_income')),
+        parcel_income: money(sum('parcel_income')), excess_income: money(sum('excess_income')), production: money(sum('production')) };
     const foot = cols.map(c => totals[c.key] ?? '');
     const title = `AuraSoft ${date(rec.period_from)} - ${date(rec.period_to)}`;
     if (kind === 'pdf') await exportPdf(title, cols, all, { landscape: true, foot });
@@ -297,6 +334,9 @@ onMounted(() => crud.fetchRows());
 .t-new { background: rgba(21, 128, 61, 0.14); color: #15803d; }
 .t-updated { background: rgba(180, 83, 9, 0.14); color: #b45309; }
 .t-same { background: rgba(128, 128, 128, 0.14); }
+.t-prod { background: rgba(58, 79, 196, 0.12); color: #3A4FC4; }
+.t-liq { background: rgba(15, 157, 138, 0.14); color: #0b7a6b; }
+.was { opacity: 0.55; font-size: 11px; text-decoration: line-through; }
 .hint { opacity: 0.75; padding: 12px 4px; }
 .acts { display: inline-flex; gap: 2px; }
 .side-head .facts { margin-bottom: 0; }

@@ -46,7 +46,7 @@ class TransportAuraSoftController extends Controller
         $total = (clone $q)->count();
         $limit = max(1, min(200, (int) $request->input('limit', 20)));
         $rows = $q->orderBy('i.'.$field, $dir)->orderByDesc('i.id')->forPage(max(1, (int) $request->input('page', 1)), $limit)
-            ->get(['i.id', 'i.original_name', 'i.period_from', 'i.period_to', 'i.rows_total', 'i.rows_new', 'i.rows_updated', 'i.rows_same', 'i.rows_skipped',
+            ->get(['i.id', 'i.kind', 'i.original_name', 'i.period_from', 'i.period_to', 'i.rows_total', 'i.rows_new', 'i.rows_updated', 'i.rows_same', 'i.rows_skipped',
                 'i.seats', 'i.ticket_income', 'i.production', 'i.created_at', 'u.username as uploaded_by']);
 
         // The departures held now (the latest version of each), for the header figures.
@@ -79,6 +79,15 @@ class TransportAuraSoftController extends Controller
         abort_unless($i, 404);
         $i->columns = json_decode((string) $i->columns, true) ?: [];
         $i->skipped = json_decode((string) $i->skipped, true) ?: [];
+        // A "Liquidación General" (2026-11-24): its totals by kind of money, points of sale and cashiers.
+        if ($i->kind === 'liquidation') {
+            $l = DB::table('transport_aurasoft_liquidations')->where('import_id', $id);
+            $i->totals = (clone $l)->selectRaw('COUNT(DISTINCT point) points, COUNT(DISTINCT cashier) cashiers, SUM(tickets) tickets, SUM(parcels) parcels, SUM(excess) excess,
+                SUM(collected) collected, SUM(income) income, SUM(card) card, SUM(web) web, SUM(channel) channel, SUM(delivery) delivery, SUM(cash_out) cash_out,
+                SUM(expenses) expenses, SUM(net) net')->first();
+
+            return response()->json($i);
+        }
         $rows = DB::table('transport_aurasoft_rows')->where('import_id', $id);
         $i->channels = [];
         foreach ((clone $rows)->pluck('channels') as $json) {
@@ -98,7 +107,11 @@ class TransportAuraSoftController extends Controller
     public function rows(Request $request, int $id)
     {
         $cid = $this->company($request);
-        abort_unless(DB::table('transport_aurasoft_imports')->where('company_id', $cid)->where('id', $id)->exists(), 404);
+        $kind = DB::table('transport_aurasoft_imports')->where('company_id', $cid)->where('id', $id)->value('kind');
+        abort_unless($kind, 404);
+        if ($kind === 'liquidation') {
+            return $this->liquidationRows($request, $cid, $id);
+        }
         $sortable = ['trip_date', 'plate', 'route', 'seats', 'ticket_income', 'parcel_income', 'production', 'action'];
         $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : 'trip_date';
         $dir = strtolower((string) $request->input('SortType')) === 'desc' ? 'desc' : 'asc';
@@ -122,6 +135,32 @@ class TransportAuraSoftController extends Controller
         }
 
         return response()->json(['rows' => $rows, 'totalRows' => $total]);
+    }
+
+    /** A "Liquidación General" file's rows: one per day x point of sale x cashier, changed ones with their earlier figures. */
+    private function liquidationRows(Request $request, int $cid, int $id)
+    {
+        $sortable = ['sale_date', 'branch', 'point', 'cashier', 'tickets', 'parcels', 'income', 'card', 'expenses', 'net', 'action'];
+        $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : 'sale_date';
+        $dir = strtolower((string) $request->input('SortType')) === 'desc' ? 'desc' : 'asc';
+        $s = trim((string) $request->input('search'));
+        $q = DB::table('transport_aurasoft_liquidations')->where('company_id', $cid)->where('import_id', $id)
+            ->when(in_array($request->input('action'), ['new', 'updated', 'same'], true), fn ($q) => $q->where('action', $request->input('action')))
+            ->when($s !== '', fn ($q) => $q->where(fn ($w) => $w->where('branch', 'like', "%$s%")->orWhere('point', 'like', "%$s%")->orWhere('cashier', 'like', "%$s%")));
+        $total = (clone $q)->count();
+        $limit = max(1, min(500, (int) $request->input('limit', 50)));
+        $rows = $q->orderBy($field, $dir)->orderBy('branch')->orderBy('point')->orderBy('cashier')->forPage(max(1, (int) $request->input('page', 1)), $limit)
+            ->get(['id', 'row_key', 'sale_date', 'branch', 'point', 'cashier', 'tickets', 'parcels', 'excess', 'collected', 'income', 'card', 'web', 'channel',
+                'cash_out', 'expenses', 'net', 'action', 'is_current']);
+        foreach ($rows as $r) {
+            if ($r->action === 'updated') {
+                $r->before = DB::table('transport_aurasoft_liquidations')->where('company_id', $cid)->where('row_key', $r->row_key)->where('id', '<', $r->id)
+                    ->where('action', '!=', 'same')->orderByDesc('id')->first(['tickets', 'income', 'expenses', 'net', 'import_id']);
+            }
+            unset($r->row_key);
+        }
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total, 'kind' => 'liquidation']);
     }
 
     public function file(Request $request, int $id)

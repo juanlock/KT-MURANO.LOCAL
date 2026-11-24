@@ -30,6 +30,16 @@ class AuraSoftImport
     /** Reads, stores the file privately and records its rows. Returns the import row. */
     public static function run(int $companyId, UploadedFile $file, ?int $userId): object
     {
+        // One upload button for AuraSoft's files (2026-11-24): the file's title says which report it is.
+        $data = IOFactory::load($file->getRealPath())->getSheet(0)->toArray(null, true, false, false);
+        $kind = AuraSoftLiquidation::kindOf($data);
+        if ($kind === 'liquidation') {
+            return AuraSoftLiquidation::run($companyId, $file, $userId, $data);
+        }
+        if ($kind === 'detail') {
+            throw new \RuntimeException(__('The "Liquidación Detallada" is not imported yet: upload the "Liquidación General" or the "Reporte producción por bus".'));
+        }
+        unset($data);
         $parsed = self::parse($file->getRealPath());
         if (! $parsed['rows']) {
             throw new \RuntimeException(__('No departures were found in the file. Is it the AuraSoft "Reporte producción por bus"?'));
@@ -109,6 +119,11 @@ class AuraSoftImport
      */
     public static function remove(int $companyId, int $importId): void
     {
+        if (DB::table('transport_aurasoft_imports')->where('id', $importId)->value('kind') === 'liquidation') {
+            AuraSoftLiquidation::remove($companyId, $importId);
+
+            return;
+        }
         DB::transaction(function () use ($companyId, $importId) {
             $keys = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('import_id', $importId)->where('is_current', 1)->pluck('departure_key');
             // The Murano departures they made, remembered on the earlier rows before these go.

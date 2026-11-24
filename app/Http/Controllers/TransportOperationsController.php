@@ -627,6 +627,20 @@ class TransportOperationsController extends Controller
         return response()->json(\App\Services\TransportProduction::byBus($cid, $from, $to, $this->warehouseScopeIds()));
     }
 
+    /** "Ventas por punto de venta" (2026-11-24): AuraSoft's Liquidación General by branch, point of sale and cashier. */
+    public function pointSales(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+
+        return response()->json(\App\Services\TransportPointSales::compute($cid, $from, $to));
+    }
+
     /** "Reporte del día de ventas" (2026-11-23): a day, Lima's and Chiclayo's departures side by side. */
     public function daySales(Request $request)
     {

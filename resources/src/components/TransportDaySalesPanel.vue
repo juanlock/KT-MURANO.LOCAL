@@ -199,6 +199,12 @@ async function uploadAura(file) {
     const fd = new FormData();
     fd.append('file', file);
     const r = await http.postForm('transport/aurasoft', fd);
+    // AuraSoft's Liquidación General (2026-11-24): recorded for "Ventas por punto de venta"; nothing to complete here.
+    if (r.kind === 'liquidation') {
+      message.success(tr(`General liquidation: ${r.rows_total} rows (${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there). See "Sales by point of sale".`,
+        `Liquidación general: ${r.rows_total} filas (${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban). Véala en «Ventas por punto de venta».`), 8);
+      return false;
+    }
     // The board jumps to the file's last day; the modal opens on the file's period.
     if (r.period_to) day.value = r.period_to > dayjs().format('YYYY-MM-DD') ? null : r.period_to;
     load();

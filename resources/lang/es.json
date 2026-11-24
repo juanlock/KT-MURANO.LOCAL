@@ -351,5 +351,7 @@
     "This email belongs to the system administrator; use another one.": "Ese correo es del administrador del sistema; use otro.",
     "Sign in on the web login to choose the company.": "Ingrese por el login web.",
     "No departures were found in the file. Is it the AuraSoft \"Reporte producción por bus\"?": "No se encontraron salidas en el archivo. ¿Es el «Reporte producción por bus» de AuraSoft?",
-    "The file could not be read as Excel.": "El archivo no se pudo leer como Excel."
+    "The file could not be read as Excel.": "El archivo no se pudo leer como Excel.",
+    "No rows were found in the \"Liquidación General\".": "No se encontraron filas en la «Liquidación General».",
+    "The \"Liquidación Detallada\" is not imported yet: upload the \"Liquidación General\" or the \"Reporte producción por bus\".": "La «Liquidación Detallada» todavía no se importa: suba la «Liquidación General» o el «Reporte producción por bus»."
 }
