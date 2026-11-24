@@ -827,6 +827,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/expenses', 'expenses');
         Route::get('/departures', 'departures');
         Route::get('/production', 'production');
+        Route::post('/production/fuel', 'productionFuel');
+        Route::get('/production/export', 'productionExport');
         Route::get('/day-sales', 'daySales');
     });
     // "Mando operativo" (2026-11-18): the coming departures, projected sales and whether they cover their costs.

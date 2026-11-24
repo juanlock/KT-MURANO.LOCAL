@@ -5,6 +5,12 @@
     <a-card v-if="data.enabled" :bordered="false" :body-style="{ padding: '8px' }">
       <a-spin :spinning="loading">
         <TransportStrip :items="tiles" :toggle="false" />
+        <!-- Her own file, in her own layout (2026-11-24): the summary and one sheet per bus. -->
+        <div class="pb-tools">
+          <span class="pb-hint">{{ tr('Click a bus to see its round trips and type the fuel.', 'Clic en un bus para ver sus vueltas y escribir el combustible.') }}</span>
+          <a-button size="small" :loading="exporting === 'xlsx'" @click="exportFile('xlsx')"><FileExcelOutlined /> Excel</a-button>
+          <a-button size="small" :loading="exporting === 'pdf'" @click="exportFile('pdf')"><FilePdfOutlined /> PDF</a-button>
+        </div>
         <a-empty v-if="!buses.length" :description="tr('No departures in this period.', 'Sin salidas en este período.')" />
         <div v-else class="pb-box">
           <a-table class="pb-table" :columns="columns" :data-source="buses" row-key="vehicle_id" size="small" :pagination="false" bordered
@@ -43,7 +49,17 @@
             <template v-if="column.key === 'out_at'">{{ record.out ? dt(record.out.at) : '—' }}</template>
             <template v-else-if="column.key === 'back_at'">{{ record.back ? dt(record.back.at) : '—' }}</template>
             <template v-else-if="column.key === 'net'"><b :class="record.net < 0 ? 'pb-neg' : 'pb-pos'">{{ plain(record.net) }}</b></template>
-            <template v-else-if="column.key === 'fuel'">{{ plain(record.fuel) }}<span v-if="record.fuel_missing" class="pb-warn"> *</span></template>
+            <!-- The round trip's fuel, typed by whoever runs the departures (2026-11-24: the one figure AuraSoft lacks). -->
+            <template v-else-if="column.key === 'fuel'">
+              <a-input-number v-if="canFuel" :value="record.fuel || null" size="small" :min="0" :step="10" :precision="2" :controls="false"
+                :class="['pb-fuel', { 'pb-fuel-miss': record.fuel_missing }]" :placeholder="tr('fuel', 'comb.')"
+                @blur="e => saveFuel(record, e.target.value)" @press-enter="e => e.target.blur()" />
+              <template v-else>{{ plain(record.fuel) }}<span v-if="record.fuel_missing" class="pb-warn"> *</span></template>
+            </template>
+            <template v-else-if="column.key === 'toll'">
+              <a-tooltip v-if="record.toll_est" :title="tr('No toll recorded: the route\'s toll.', 'Sin peaje registrado: el peaje de la ruta.')"><span class="pb-est">{{ plain(record.toll) }}</span></a-tooltip>
+              <template v-else>{{ plain(record.toll) }}</template>
+            </template>
             <template v-else-if="column.money">{{ get(record, column.dataIndex) != null ? plain(get(record, column.dataIndex)) : '—' }}</template>
             <template v-else-if="column.num">{{ get(record, column.dataIndex) ?? '—' }}</template>
           </template>
@@ -55,7 +71,9 @@
             </a-table-summary>
           </template>
         </a-table>
-        <div class="pb-note">{{ tr('* fuel not recorded for one of the trips. Fuel and toll of a round trip are shared half and half between the departure from Lima and the return.', '* combustible no registrado en uno de los viajes. El combustible y el peaje de una vuelta se reparten mitad y mitad entre la salida de Lima y el retorno.') }}</div>
+        <div class="pb-note">{{ canFuel
+          ? tr('Type the round trip\'s fuel and press Enter; it is shared half and half between the departure from Lima and the return. Orange = fuel missing; grey toll = the route\'s.', 'Escriba el combustible de la vuelta y presione Enter; se reparte mitad y mitad entre la salida de Lima y el retorno. Naranja = falta combustible; peaje en gris = el de la ruta.')
+          : tr('* fuel not recorded for one of the trips. Fuel and toll of a round trip are shared half and half between the departure from Lima and the return.', '* combustible no registrado en uno de los viajes. El combustible y el peaje de una vuelta se reparten mitad y mitad entre la salida de Lima y el retorno.') }}</div>
       </a-spin>
     </a-modal>
   </div>
@@ -64,12 +82,45 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
+import { message } from 'ant-design-vue';
+import { FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useTransportCharts } from '../lib/transportCharts';
+import { useAuthStore } from '../stores/auth';
+import { getActingCompanyId } from '../lib/actingCompany';
 import TransportStrip from './TransportStrip.vue';
 
 const props = defineProps({ range: { type: Array, default: null } });
 const { money, tr } = useTransportCharts();
+const auth = useAuthStore();
+const canFuel = computed(() => auth.can('transport_departures_manage'));
+
+// Excel / PDF of the period (2026-11-24): her "PRODUCCION POR BUS" file.
+const exporting = ref('');
+async function exportFile(format) {
+  exporting.value = format;
+  try {
+    const p = period();
+    const cid = getActingCompanyId();
+    const q = new URLSearchParams({ kind: 'production', format, from: p.from, to: p.to, ...(cid ? { company_id: cid } : {}) });
+    const stamp = `${dayjs(p.from).format('DD-MM-YYYY')}_al_${dayjs(p.to).format('DD-MM-YYYY')}`;
+    await http.download(`transport/production/export?${q}`, `PRODUCCION POR BUS ${stamp}.${format}`);
+  } catch (e) { message.error(tr('The file could not be made.', 'No se pudo generar el archivo.')); } finally { exporting.value = ''; }
+}
+
+// A round trip's fuel: saved when the field is left (Enter blurs it), then the bus and the board reload.
+async function saveFuel(row, raw) {
+  const value = raw === '' || raw == null ? null : Number(String(raw).replace(/,/g, ''));
+  if ((value ?? 0) === (Number(row.fuel) || 0) && !(value === null && row.fuel)) return;
+  const ids = [row.out?.id, row.back?.id].filter(Boolean);
+  try {
+    await http.post('transport/production/fuel', { trip_ids: ids, amount: value });
+    message.success(tr('Fuel saved', 'Combustible guardado'), 1.5);
+    const keep = bus.value?.vehicle_id;
+    load();
+    if (keep) bus.value = await http.get('transport/production', { ...period(), vehicle_id: keep });
+  } catch (e) { message.error(e?.data?.message || tr('It could not be saved.', 'No se pudo guardar.')); }
+}
 
 const loading = ref(false);
 const data = ref({ enabled: false, buses: [], totals: {} });
@@ -178,4 +229,10 @@ function tripTotal(c) {
 .pb-neg { color: #d03b3b; }
 .pb-warn { color: #d97706; font-weight: 700; cursor: help; }
 .pb-note { font-size: 11.5px; opacity: 0.7; margin-top: 6px; }
+.pb-tools { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 6px 0; }
+.pb-hint { font-size: 11.5px; opacity: 0.65; margin-right: auto; }
+.pb-est { opacity: 0.5; cursor: help; }
+.pb-fuel { width: 92px; }
+.pb-fuel :deep(input) { text-align: right; padding: 0 6px; height: 22px; font-variant-numeric: tabular-nums; }
+.pb-fuel-miss { border-color: #d97706; background: rgba(217, 119, 6, 0.08); }
 </style>

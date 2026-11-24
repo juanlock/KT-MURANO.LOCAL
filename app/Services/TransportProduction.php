@@ -37,7 +37,8 @@ class TransportProduction
             ->when($vehicleId, fn ($q) => $q->where('t.vehicle_id', $vehicleId))
             ->orderBy('t.departure_at')
             ->get(['t.id', 't.vehicle_id', 't.departure_at', 't.fuel_cost', 't.reported_passengers', 't.reported_income', 't.reported_parcels',
-                't.reported_parcel_income', 't.reported_excess_income', 't.source', 'r.origin_id', 'v.name as bus', 'v.model as category', 'v.seats', 'v.plate_number']);
+                't.reported_parcel_income', 't.reported_excess_income', 't.source', 't.route_id', 'r.origin_id', 'r.toll_cost as route_toll',
+                'o.name as origin', 'v.name as bus', 'v.model as category', 'v.seats', 'v.plate_number']);
         $ids = $rows->pluck('id')->all();
         $tickets = DB::table('transport_tickets')->whereIn('trip_id', $ids ?: [0])->selectRaw('trip_id, COUNT(*) n, SUM(price) s')->groupBy('trip_id')->get()->keyBy('trip_id');
         $parcels = DB::table('transport_parcels')->whereIn('trip_id', $ids ?: [0])->whereNull('deleted_at')->where('status', '!=', 'cancelled')
@@ -53,8 +54,11 @@ class TransportProduction
                 'plate' => (string) $t->plate_number, 'seats' => (int) $t->seats, 'origin_id' => (int) $t->origin_id, 'at' => (string) $t->departure_at,
                 'pax' => $pax, 'tickets' => round($tk, 2), 'parcels_n' => (int) ($parcels[$t->id]->n ?? 0) + (int) $t->reported_parcels,
                 'parcels' => round($pc, 2), 'excess' => round((float) $t->reported_excess_income, 2),
-                'fuel' => $t->fuel_cost !== null ? round((float) $t->fuel_cost, 2) : null, 'toll' => isset($tolls[$t->id]) ? round((float) $tolls[$t->id], 2) : null,
-                'source' => $t->source];
+                'fuel' => $t->fuel_cost !== null ? round((float) $t->fuel_cost, 2) : null,
+                // No toll recorded for the departure: the route's toll (2026-11-24, Mayte's S/ 329.30 a stretch), flagged.
+                'toll' => isset($tolls[$t->id]) ? round((float) $tolls[$t->id], 2) : ($t->route_toll !== null ? round((float) $t->route_toll, 2) : null),
+                'toll_est' => ! isset($tolls[$t->id]) && $t->route_toll !== null,
+                'route_id' => (int) $t->route_id, 'origin' => (string) $t->origin, 'source' => $t->source];
         });
     }
 
@@ -124,12 +128,14 @@ class TransportProduction
                 $used[$x->id] = true;
             }
             $leg = fn ($x) => $x ? ['id' => $x->id, 'at' => $x->at, 'pax' => $x->pax, 'tickets' => $x->tickets, 'parcels' => $x->parcels, 'excess' => $x->excess,
-                'total' => round($x->tickets + $x->parcels + $x->excess, 2), 'source' => $x->source] : null;
+                'total' => round($x->tickets + $x->parcels + $x->excess, 2), 'fuel' => $x->fuel, 'toll' => $x->toll, 'toll_est' => $x->toll_est,
+                'source' => $x->source] : null;
             $income = round(($out ? $out->tickets + $out->parcels + $out->excess : 0) + ($back ? $back->tickets + $back->parcels + $back->excess : 0), 2);
             $fuel = round((float) ($out->fuel ?? 0) + (float) ($back->fuel ?? 0), 2);
             $toll = round((float) ($out->toll ?? 0) + (float) ($back->toll ?? 0), 2);
             $rows[] = ['out' => $leg($out), 'back' => $leg($back), 'income' => $income, 'fuel' => $fuel, 'toll' => $toll, 'net' => round($income - $fuel - $toll, 2),
-                'fuel_missing' => ($out && $out->fuel === null) || ($back && $back->fuel === null)];
+                'fuel_missing' => ($out && $out->fuel === null) || ($back && $back->fuel === null),
+                'toll_est' => ($out && $out->toll_est) || ($back && $back->toll_est)];
         }
         $f = $trips->first();
 
@@ -148,12 +154,20 @@ class TransportProduction
         $trips = self::trips($cid, $date, $date, $warehouses);
         $ids = $trips->pluck('id')->all();
         $points = DB::table('transport_trip_boardings as b')->leftJoin('transport_locations as l', 'l.id', '=', 'b.location_id')->whereIn('b.trip_id', $ids ?: [0])
-            ->orderBy('b.seq')->get(['b.trip_id', 'b.label', 'l.name', 'b.board_at'])->groupBy('trip_id');
+            ->orderBy('b.seq')->get(['b.trip_id', 'b.label', 'l.name', 'b.board_at'])->groupBy('trip_id')
+            ->map(fn ($g) => $g->map(fn ($p) => ['name' => $p->label ?: $p->name, 'at' => $p->board_at])->values()->all())->all();
+        $timetable = [];
+        foreach ($trips as $t) {
+            if (! isset($points[$t->id]) && ($tpl = self::timetablePoints($cid, $t))) {
+                $points[$t->id] = $tpl;
+                $timetable[$t->id] = true;
+            }
+        }
         $half = fn ($origin) => $trips->where('origin_id', $origin)->map(fn ($t) => [
             'id' => $t->id, 'bus' => $t->bus, 'seats' => $t->seats, 'pax' => $t->pax, 'free' => $t->seats ? max(0, $t->seats - $t->pax) : null,
-            'points' => isset($points[$t->id]) ? $points[$t->id]->map(fn ($p) => ['name' => $p->label ?: $p->name, 'at' => $p->board_at])->values()->all()
-                : [['name' => '', 'at' => $t->at]],
-            'amount' => $t->tickets, 'parcels' => $t->parcels, 'excess' => $t->excess, 'toll' => $t->toll, 'fuel' => $t->fuel, 'source' => $t->source,
+            'points' => $points[$t->id] ?? [['name' => '', 'at' => $t->at]], 'points_timetable' => isset($timetable[$t->id]),
+            'amount' => $t->tickets, 'parcels' => $t->parcels, 'excess' => $t->excess, 'toll' => $t->toll, 'toll_est' => $t->toll_est,
+            'fuel' => $t->fuel, 'source' => $t->source,
         ])->sortBy(fn ($r) => $r['points'][0]['at'])->values()->all();
         $channels = [];
         foreach (DB::table('transport_aurasoft_rows')->where('company_id', $cid)->where('is_current', 1)->whereIn('trip_id', $ids ?: [0])->get(['trip_id', 'channels']) as $r) {
@@ -169,5 +183,194 @@ class TransportProduction
 
         return ['enabled' => true, 'date' => $date, 'prev' => $prev ? substr($prev, 0, 10) : null, 'next' => $next ? substr($next, 0, 10) : null,
             'lima' => $half($ends['LIMA']), 'chiclayo' => $half($ends['CHICLAYO']), 'channels' => $channels];
+    }
+
+    /**
+     * A departure without boarding points of its own (AuraSoft does not send them): those of the latest earlier departure of
+     * the same route at the same time of day (± 20 min) that has them, moved to this departure's date and time (2026-11-24).
+     */
+    private static function timetablePoints(int $cid, object $t): ?array
+    {
+        $at = strtotime($t->at);
+        $mins = (int) date('G', $at) * 60 + (int) date('i', $at);
+        $tpl = DB::table('transport_trips as t')->where('t.company_id', $cid)->whereNull('t.deleted_at')->where('t.route_id', $t->route_id)
+            ->where('t.departure_at', '<', $t->at)->whereRaw('ABS(HOUR(t.departure_at) * 60 + MINUTE(t.departure_at) - ?) <= 20', [$mins])
+            ->whereExists(fn ($q) => $q->from('transport_trip_boardings as b')->whereColumn('b.trip_id', 't.id'))
+            ->orderByDesc('t.departure_at')->first(['t.id', 't.departure_at']);
+        if (! $tpl) {
+            return null;
+        }
+        $shift = $at - strtotime($tpl->departure_at);
+
+        return DB::table('transport_trip_boardings as b')->leftJoin('transport_locations as l', 'l.id', '=', 'b.location_id')->where('b.trip_id', $tpl->id)
+            ->orderBy('b.seq')->get(['b.label', 'l.name', 'b.board_at'])
+            ->map(fn ($p) => ['name' => $p->label ?: $p->name, 'at' => $p->board_at ? date('Y-m-d H:i:s', strtotime($p->board_at) + $shift) : $t->at])->all();
+    }
+
+    /**
+     * Mayte types a round trip's fuel (2026-11-24: the one figure AuraSoft does not have). Shared half and half between the
+     * departure from Lima and its return, like the client's sheet (all on one when there is no other); null clears it.
+     */
+    public static function saveFuel(int $cid, array $tripIds, ?float $amount): void
+    {
+        $ids = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->whereIn('id', $tripIds ?: [0])->pluck('id')->all();
+        abort_unless($ids && count($ids) === count(array_unique($tripIds)), 404, __('Departure not found.'));
+        DB::transaction(function () use ($ids, $amount) {
+            $n = count($ids);
+            foreach ($ids as $i => $id) {
+                // The cents left by the split go on the first one.
+                $part = $amount === null ? null : ($i === 0 ? round($amount - round($amount / $n, 2) * ($n - 1), 2) : round($amount / $n, 2));
+                DB::table('transport_trips')->where('id', $id)->update(['fuel_cost' => $part, 'updated_at' => now()]);
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- the client's two Excel files
+
+    private static function companyTitle(int $cid): string
+    {
+        return mb_strtoupper((string) DB::table('companies')->where('id', $cid)->value('name'));
+    }
+
+    /** "PRODUCCION POR BUS" as Mayte keeps it: the summary "REPORTE DE PROC. X BUSES" and one sheet per bus (round trips). */
+    public static function productionXlsx(int $cid, string $from, string $to, ?array $warehouses): \PhpOffice\PhpSpreadsheet\Spreadsheet
+    {
+        $book = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sum = $book->getActiveSheet()->setTitle('REPORTE DE PROC. X BUSES');
+        $data = self::byBus($cid, $from, $to, $warehouses);
+        $period = date('d/m/Y', strtotime($from)).' AL '.date('d/m/Y', strtotime($to));
+        $sum->setCellValue('A1', self::companyTitle($cid))->mergeCells('A1:M1');
+        $sum->setCellValue('E2', 'LIMA')->mergeCells('E2:H2')->setCellValue('I2', 'CHICLAYO')->mergeCells('I2:L2');
+        $sum->fromArray(['FECHA DE REPORTE', 'ITEM', 'T. SERVICIO', 'BUS', 'PASAJES', 'ENCOMIENDA', 'EXCESO', 'TOTAL', 'PASAJES', 'ENCOMIENDA', 'EXCESO', 'TOTAL', 'TOTAL INGRESOS'], null, 'A3');
+        $r = 4;
+        foreach ($data['buses'] as $i => $b) {
+            $sum->fromArray([$period, $i + 1, mb_strtoupper($b['category']), preg_replace('/^Bus\s+/i', '', $b['bus']),
+                $b['lima']['tickets'], $b['lima']['parcels'], $b['lima']['excess'], $b['lima']['total'],
+                $b['chiclayo']['tickets'], $b['chiclayo']['parcels'], $b['chiclayo']['excess'], $b['chiclayo']['total'], $b['income']], null, 'A'.$r++);
+        }
+        $sum->setCellValue('A'.$r, 'TOTAL')->mergeCells("A{$r}:D{$r}");
+        foreach (range('E', 'M') as $c) {
+            $sum->setCellValue($c.$r, "=SUM({$c}4:{$c}".($r - 1).')');
+        }
+        self::style($sum, 'A3:M3', "A{$r}:M{$r}", 'E4:M'.$r, [2]);
+
+        foreach ($data['buses'] as $b) {
+            $trips = self::busTrips($cid, (int) $b['vehicle_id'], $from, $to, $warehouses);
+            $name = mb_substr(preg_replace('/^Bus\s+/i', '', $b['bus']) ?: 'Bus', 0, 31);
+            $sh = $book->createSheet()->setTitle($book->sheetNameExists($name) ? mb_substr($name.' '.$b['vehicle_id'], 0, 31) : $name);
+            $sh->setCellValue('B1', self::companyTitle($cid))->mergeCells('B1:L1');
+            $sh->setCellValue('A2', 'SALIDAS DE LIMA')->mergeCells('A2:L2')->setCellValue('N2', 'SALIDAS CHICLAYO')->mergeCells('N2:W2');
+            $sh->fromArray(['BUS', 'PLACA', 'FECHA', 'HORARIO', 'RUTA', 'CNT ASI.', 'TOTAL PAX', 'TOTAL ENCO', 'TOTAL EXC', 'INGRESO LIMA', 'COMBUSTIBLE', 'PEAJE', null,
+                'FECHA', 'HORARIO', 'RUTA', 'CNT ASI.', 'TOTAL PAX', 'TOTAL ENCO', 'TOTAL EXC', 'INGRESO CIX', 'INGRESO TOTAL LIMA-CIX', 'MONTO LIMA+CIX-PEAJE-COMB'], null, 'A4');
+            $row = 5;
+            $bus = preg_replace('/^Bus\s+/i', '', $b['bus']);
+            foreach ($trips['rows'] as $t) {
+                $o = $t['out'];
+                $k = $t['back'];
+                $sh->fromArray([
+                    $bus, $b['plate'], $o ? date('d/m/Y', strtotime($o['at'])) : null, $o ? date('h:iA', strtotime($o['at'])) : null, $o ? 'LIMA / CHICLAYO' : null,
+                    $o['pax'] ?? null, $o['tickets'] ?? null, $o['parcels'] ?? null, $o['excess'] ?? null, $o['total'] ?? null, $t['fuel'] ?: null, $t['toll'] ?: null, null,
+                    $k ? date('d/m/Y', strtotime($k['at'])) : null, $k ? date('h:iA', strtotime($k['at'])) : null, $k ? 'CHICLAYO / LIMA' : null,
+                    $k['pax'] ?? null, $k['tickets'] ?? null, $k['parcels'] ?? null, $k['excess'] ?? null, $k['total'] ?? null, $t['income'], $t['net'],
+                ], null, 'A'.$row++);
+            }
+            $sh->setCellValue('A'.$row, 'TOTAL');
+            foreach (['F', 'G', 'H', 'I', 'J', 'K', 'L', 'Q', 'R', 'S', 'T', 'U', 'V', 'W'] as $c) {
+                $sh->setCellValue($c.$row, "=SUM({$c}5:{$c}".($row - 1).')');
+            }
+            self::style($sh, 'A4:W4', "A{$row}:W{$row}", 'G5:W'.$row, [2]);
+            $sh->getStyle('F5:F'.$row)->getNumberFormat()->setFormatCode('0');
+            $sh->getStyle('Q5:Q'.$row)->getNumberFormat()->setFormatCode('0');
+            $sh->getColumnDimension('M')->setWidth(2);
+        }
+        $book->setActiveSheetIndex(0);
+
+        return $book;
+    }
+
+    /** "REPORTE DEL DIA VENTAS" as Mayte keeps it: one sheet per day ("22-11"), Lima on the left, Chiclayo on the right. */
+    public static function daySalesXlsx(int $cid, string $from, string $to, ?array $warehouses): \PhpOffice\PhpSpreadsheet\Spreadsheet
+    {
+        $book = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $book->removeSheetByIndex(0);
+        $days = DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')->where('status', '!=', 'cancelled')
+            ->whereBetween('departure_at', [$from.' 00:00:00', $to.' 23:59:59'])->selectRaw('DATE(departure_at) d')->distinct()->orderBy('d')->pluck('d');
+        $head = ['CANTIDAD DE ASIENTOS', 'BUS', 'PUNTOS DE EMBARQUE', 'HORARIO', 'CANT PASAJEROS', 'ASIENTOS LIBRES', 'MONTO X BUS', 'PEAJE', 'COMBUSTIBLE', 'ENCOMIENDA', 'EXCESO'];
+        foreach ($days as $d) {
+            $day = self::daySales($cid, (string) $d, $warehouses);
+            $sh = $book->createSheet()->setTitle(date('d-m', strtotime($d)));
+            $sh->setCellValue('B1', self::companyTitle($cid))->mergeCells('B1:X1');
+            $dm = date('d/m', strtotime($d));
+            $sh->setCellValue('B3', "REPORTE DE SALIDAS LIMA $dm")->mergeCells('B3:L3')->setCellValue('N3', "REPORTE DE SALIDAS CIX $dm")->mergeCells('N3:X3');
+            $sh->fromArray($head, null, 'B5');
+            $sh->fromArray($head, null, 'N5');
+            $last = 5;
+            foreach (['B' => $day['lima'], 'N' => $day['chiclayo']] as $col => $rows) {
+                $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($col);
+                $r = 6;
+                foreach ($rows as $t) {
+                    $first = $r;
+                    foreach ($t['points'] as $k => $p) {
+                        $sh->setCellValue([$c + 2, $r], $p['name'] ?: null);
+                        $sh->setCellValue([$c + 3, $r], $p['at'] ? date('h:iA', strtotime($p['at'])) : null);
+                        if ($k === 0) {
+                            $sh->fromArray([$t['seats'] ?: null, preg_replace('/^Bus\s+/i', '', $t['bus'])], null, \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c).$r);
+                            $sh->fromArray([$t['pax'], $t['free'], $t['amount'], $t['toll'], $t['fuel'], $t['parcels'] ?: null, $t['excess'] ?: null], null,
+                                \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + 4).$r);
+                        }
+                        $r++;
+                    }
+                    if ($r - 1 > $first) {   // the bus's figures span its boarding points, as on her sheet
+                        foreach ([0, 1, 4, 5, 6, 7, 8, 9, 10] as $off) {
+                            $L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + $off);
+                            $sh->mergeCells("{$L}{$first}:{$L}".($r - 1));
+                        }
+                    }
+                }
+                $sh->setCellValue([$c + 1, $r], 'TOTAL');
+                foreach ([0, 4, 5, 6, 7, 8, 9, 10] as $off) {
+                    $L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + $off);
+                    $sh->setCellValue($L.$r, "=SUM({$L}6:{$L}".($r - 1).')');
+                }
+                $last = max($last, $r);
+            }
+            self::style($sh, 'B5:X5', null, 'H6:L'.$last, [1, 3]);
+            $sh->getStyle('T6:X'.$last)->getNumberFormat()->setFormatCode('#,##0.00');
+            foreach (['B', 'N'] as $col) {
+                $c = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($col);
+                $sh->getStyle(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c).'6:'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + 10).$last)
+                    ->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            }
+            $sh->getColumnDimension('M')->setWidth(2);
+            $sh->getStyle('B'.$last.':X'.$last)->getFont()->setBold(true);
+        }
+        if (! $book->getSheetCount()) {
+            $book->createSheet()->setTitle('SIN SALIDAS')->setCellValue('A1', 'Sin salidas en el período.');
+        }
+        $book->setActiveSheetIndex(0);
+
+        return $book;
+    }
+
+    /** Header bold on blue, totals bold, money with 2 decimals, widths to fit, the title rows bold. */
+    private static function style($sh, string $header, ?string $total, string $money, array $titleRows): void
+    {
+        $sh->getStyle($header)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sh->getStyle($header)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('1F4E78');
+        $sh->getStyle($header)->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        if ($total) {
+            $sh->getStyle($total)->getFont()->setBold(true);
+            $sh->getStyle($total)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('DDEBF7');
+        }
+        $sh->getStyle($money)->getNumberFormat()->setFormatCode('#,##0.00');
+        foreach (array_merge([1], $titleRows) as $tr) {
+            $sh->getStyle($tr.':'.$tr)->getFont()->setBold(true);
+            $sh->getStyle($tr.':'.$tr)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        }
+        foreach ($sh->getColumnIterator() as $col) {
+            $sh->getColumnDimension($col->getColumnIndex())->setWidth(13);
+        }
+        $sh->freezePane(preg_replace('/^([A-Z]+)(\d+).*/', '$1', $header).((int) preg_replace('/^[A-Z]+(\d+).*/', '$1', $header) + 1));
     }
 }

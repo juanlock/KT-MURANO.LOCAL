@@ -639,6 +639,63 @@ class TransportOperationsController extends Controller
         return response()->json(\App\Services\TransportProduction::daySales($cid, $request->input('date') ?: now()->toDateString(), $this->warehouseScopeIds()));
     }
 
+    /** A round trip's fuel typed on Producción por bus (2026-11-24): {trip_ids: [out, back], amount}; shared half and half. */
+    public function productionFuel(Request $request)
+    {
+        $this->allow($request, 'transport_departures_manage');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999 || ! ModuleFlags::enabled($cid, 'transport'), 422, __('Pick a company in the header first.'));
+        $data = $request->validate(['trip_ids' => 'required|array|min:1|max:2', 'trip_ids.*' => 'integer', 'amount' => 'nullable|numeric|min:0|max:100000']);
+        \App\Services\TransportProduction::saveFuel($cid, array_map('intval', $data['trip_ids']), isset($data['amount']) ? (float) $data['amount'] : null);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Mayte's two files (2026-11-24): GET transport/production/export?kind=production|daysales&format=xlsx|pdf&from&to
+     * (daysales pdf: the day `date`). Her own layout: PRODUCCION POR BUS (summary + one sheet per bus) and REPORTE DEL DIA
+     * VENTAS (one sheet per day, Lima left, Chiclayo right).
+     */
+    public function productionExport(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999 || ! ModuleFlags::enabled($cid, 'transport'), 422, __('Pick a company in the header first.'));
+        $kind = $request->input('kind') === 'daysales' ? 'daysales' : 'production';
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $to = min($request->input('to') ?: now()->toDateString(), now()->toDateString());
+        $scope = $this->warehouseScopeIds();
+        $P = \App\Services\TransportProduction::class;
+        $stamp = date('d-m-Y', strtotime($from)).'_al_'.date('d-m-Y', strtotime($to));
+
+        if ($request->input('format') === 'pdf') {
+            if ($kind === 'daysales') {
+                $day = $P::daySales($cid, $request->input('date') ?: $to, $scope);
+                $html = view('pdf.transport_production', ['kind' => 'daysales', 'day' => $day, 'company' => $this->companyName($cid)])->render();
+                $name = 'Reporte del dia ventas '.date('d-m-Y', strtotime($day['date'])).'.pdf';
+            } else {
+                $data = $P::byBus($cid, $from, $to, $scope);
+                $html = view('pdf.transport_production', ['kind' => 'production', 'data' => $data, 'company' => $this->companyName($cid)])->render();
+                $name = "Produccion por bus $stamp.pdf";
+            }
+
+            return response(\PDF::loadHTML($html)->setPaper('a4', 'landscape')->output(), 200, [
+                'Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="'.$name.'"']);
+        }
+
+        $book = $kind === 'daysales' ? $P::daySalesXlsx($cid, $from, $to, $scope) : $P::productionXlsx($cid, $from, $to, $scope);
+        $name = ($kind === 'daysales' ? 'REPORTE DEL DIA VENTAS ' : 'PRODUCCION POR BUS ').$stamp.'.xlsx';
+        $tmp = tempnam(sys_get_temp_dir(), 'tpx');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save($tmp);
+
+        return response()->download($tmp, $name, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])->deleteFileAfterSend(true);
+    }
+
+    private function companyName(int $cid): string
+    {
+        return (string) DB::table('companies')->where('id', $cid)->value('name');
+    }
+
     /** The dashboard's "Gastos" tab (2026-11-11): what the business spends, by kind, with its trend. */
     public function expenses(Request $request)
     {

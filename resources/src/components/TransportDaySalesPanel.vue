@@ -11,6 +11,13 @@
           <a-tooltip :title="tr('The end date of the filter above (today at most); the arrows go to the day before / after with departures.', 'La fecha final del filtro de arriba (como máximo hoy); las flechas van al día anterior / siguiente con salidas.')">
             <InfoCircleOutlined class="ds-i" />
           </a-tooltip>
+          <!-- Her "REPORTE DEL DIA VENTAS" (2026-11-24): Excel = one sheet per day of the filter's period; PDF = this day. -->
+          <span class="ds-tools">
+            <a-tooltip :title="tr('One sheet per day of the period in the filter above', 'Una hoja por día del período del filtro de arriba')">
+              <a-button size="small" :loading="exporting === 'xlsx'" @click="exportFile('xlsx')"><FileExcelOutlined /> Excel</a-button>
+            </a-tooltip>
+            <a-button size="small" :loading="exporting === 'pdf'" @click="exportFile('pdf')"><FilePdfOutlined /> PDF</a-button>
+          </span>
         </div>
         <TransportStrip :items="tiles" :toggle="false" />
         <div class="ds-grid">
@@ -29,14 +36,15 @@
               <tbody>
                 <tr v-for="(r, i) in h.rows" :key="r.id" :class="{ tint: i % 2 === 0 }">
                   <td><b>{{ busName(r.bus) }}</b><a-tooltip v-if="r.source" :title="sourceLabel(r.source)"><span class="ds-src">{{ r.source === 'aurasoft' ? 'A' : r.source === 'report' ? 'R' : '' }}</span></a-tooltip></td>
-                  <td><div v-for="(p, k) in r.points" :key="k" class="ln">{{ p.name || '—' }}</div></td>
-                  <td><div v-for="(p, k) in r.points" :key="k" class="ln">{{ hm(p.at) }}</div></td>
+                  <td :class="{ est: r.points_timetable }" :title="r.points_timetable ? tr('From the timetable (the last same departure)', 'Del horario (la última salida igual)') : ''">
+                    <div v-for="(p, k) in r.points" :key="k" class="ln">{{ p.name || '—' }}</div></td>
+                  <td :class="{ est: r.points_timetable }"><div v-for="(p, k) in r.points" :key="k" class="ln">{{ hm(p.at) }}</div></td>
                   <td class="r">{{ r.pax }}<span v-if="r.seats" class="mut">/{{ r.seats }}</span></td>
                   <td class="r">{{ r.free ?? '—' }}</td>
                   <td class="r"><b :class="{ low: r.amount < lowAmount }">{{ plain(r.amount) }}</b></td>
                   <td class="r">{{ r.parcels ? plain(r.parcels) : '—' }}</td>
                   <td class="r">{{ r.excess ? plain(r.excess) : '—' }}</td>
-                  <td v-if="h.costs" class="r">{{ r.toll != null ? plain(r.toll) : '—' }}</td>
+                  <td v-if="h.costs" class="r" :class="{ est: r.toll_est }" :title="r.toll_est ? tr('The route\'s toll', 'El peaje de la ruta') : ''">{{ r.toll != null ? plain(r.toll) : '—' }}</td>
                   <td v-if="h.costs" class="r">{{ r.fuel != null ? plain(r.fuel) : '—' }}</td>
                 </tr>
               </tbody>
@@ -72,8 +80,10 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { LeftOutlined, RightOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, RightOutlined, InfoCircleOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
 import http from '../lib/http';
+import { getActingCompanyId } from '../lib/actingCompany';
 import { useTransportCharts } from '../lib/transportCharts';
 import { useFormat } from '../composables/useFormat';
 import TransportStrip from './TransportStrip.vue';
@@ -95,6 +105,23 @@ async function load() {
   } catch (e) { data.value = { enabled: false, lima: [], chiclayo: [], channels: {} }; } finally { loading.value = false; }
 }
 function go(d) { day.value = d; load(); }
+
+const exporting = ref('');
+async function exportFile(format) {
+  exporting.value = format;
+  try {
+    const today = dayjs().format('YYYY-MM-DD');
+    const shown = data.value.date || today;
+    // Excel: the filter's period (the day shown when there is none); PDF: the day shown.
+    const from = format === 'xlsx' && props.range?.[0] ? props.range[0] : shown;
+    const to = format === 'xlsx' && props.range?.[1] ? (props.range[1] < today ? props.range[1] : today) : shown;
+    const cid = getActingCompanyId();
+    const q = new URLSearchParams({ kind: 'daysales', format, from, to, date: shown, ...(cid ? { company_id: cid } : {}) });
+    const name = format === 'pdf' ? `Reporte del dia ventas ${dayjs(shown).format('DD-MM-YYYY')}.pdf`
+      : `REPORTE DEL DIA VENTAS ${dayjs(from).format('DD-MM-YYYY')}_al_${dayjs(to).format('DD-MM-YYYY')}.xlsx`;
+    await http.download(`transport/production/export?${q}`, name);
+  } catch (e) { message.error(tr('The file could not be made.', 'No se pudo generar el archivo.')); } finally { exporting.value = ''; }
+}
 onMounted(load);
 watch(() => props.range?.[1], () => { day.value = null; load(); });
 
@@ -134,6 +161,8 @@ const tiles = computed(() => {
 <style scoped>
 .ds-day { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; text-transform: capitalize; }
 .ds-i { opacity: 0.6; cursor: help; }
+.ds-tools { margin-left: auto; display: inline-flex; gap: 6px; text-transform: none; }
+.ds-table td.est { opacity: 0.5; font-style: italic; }
 .ds-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
 @media (min-width: 1100px) { .ds-grid { grid-template-columns: 1fr 1fr; } }
 .ds-half { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }
