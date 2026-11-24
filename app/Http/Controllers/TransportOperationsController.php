@@ -610,6 +610,35 @@ class TransportOperationsController extends Controller
         return response()->json(TransportDepartures::compute($cid, $request->input('date') ?: now()->toDateString(), $request->filled('agency_id') ? (int) $request->input('agency_id') : null, $this->warehouseScopeIds()));
     }
 
+    /** "Producción por bus" (2026-11-23, Mayte's report as a board): per bus, or one bus's round trips with vehicle_id. */
+    public function production(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+        if ($request->filled('vehicle_id')) {
+            return response()->json(\App\Services\TransportProduction::busTrips($cid, (int) $request->input('vehicle_id'), $from, $to, $this->warehouseScopeIds()));
+        }
+
+        return response()->json(\App\Services\TransportProduction::byBus($cid, $from, $to, $this->warehouseScopeIds()));
+    }
+
+    /** "Reporte del día de ventas" (2026-11-23): a day, Lima's and Chiclayo's departures side by side. */
+    public function daySales(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+
+        return response()->json(\App\Services\TransportProduction::daySales($cid, $request->input('date') ?: now()->toDateString(), $this->warehouseScopeIds()));
+    }
+
     /** The dashboard's "Gastos" tab (2026-11-11): what the business spends, by kind, with its trend. */
     public function expenses(Request $request)
     {

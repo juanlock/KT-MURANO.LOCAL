@@ -203,6 +203,23 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-23 (Optimum)
+
+- **Turismo with real data, no demo:** the demo (trips, tickets, parcels, sales, demo people) was removed; the 19 real
+  buses, the real timetable and tolls, the 47 pilots and the agency staff stay. AuraSoft's departures now become Murano
+  departures (passengers, tickets, parcels, excess) and feed every board; the client's daily sales report and production
+  per bus bring the boarding points, fuel and tolls (shared half and half between the departure from Lima and the return).
+- **Mayte's boards** (Turismo's Manager opens on them): **Ventas del día** -- one day, Lima and Chiclayo side by side with
+  boarding points, passengers, free seats, amount, parcels, excess, toll, fuel and seats by seller; **Producción por bus**
+  -- each bus's departures from Lima and Chiclayo, income, fuel, toll and what is left; a bus opens its round trips.
+- **Producción AuraSoft:** the files in a full-width table with actions (view, download the uploaded file, PDF, Excel,
+  remove); a file opens its detail in a big window, one line per departure.
+- **Forms dashboard:** Contactos (first contact: messages by topic and by day, a "Motivo" choice with suggested automatic
+  replies the form's admin turns on) and Reclamos (grouped, click a row = its complaints; latest complaints in columns;
+  a complaint opens in a window without leaving the board); the "Envíos" tab is gone; coloured block titles.
+
+Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-23 (Thundera)
 
 - **Turismo -> Integración -> Producción AuraSoft** (AuraSoft = the ticket system once called Jelaf): the Manager uploads
@@ -282,34 +299,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Dashboard**: rebate cards show sales × % = rebate; fits one screen. Invoices got their payment terms and due dates.
 - **Everywhere**: list + detail screens open the detail as a modal on a phone; dropdown lists are never cut.
 - Setup: `php artisan migrate` and `npm run build`.
-
-### 2026-11-20 (Thundera)
-
-- **New module "Distribución B2B" and the company HORDEX EIRL** (migrated from its
-  earlier system, in production): Inicio, Clientes, Proveedores, Productos, Compras,
-  Facturas, Guías, Kardex, Control de pagos and Reportes, laid out like its earlier
-  screens (list on the left, form / detail on the right, a click on a row shows it).
-  Guías: "XML" button reads the SUNAT electronic guide. Facturas: the invoice
-  document (number box, state, amount in words, the chain's withholdings) with
-  Anular / Imprimir / PDF; default payment term "FACTURA 30 DIAS". Reportes: five
-  Excel exports. Only its own modules are on.
-- **Side menu pin** (icons only, submenus on hover); a company can start pinned.
-- **Tables:** compact rows by default, a stronger row highlight, click on a row
-  to open its detail (where a page uses it).
-- **Install the app on this computer** (account menu): installs as
-  "Murano - <company>" with the company's logo, and that computer is trusted.
-- **Sign-in:** a login can ask an emailed code from every new place (IP).
-- **Users:** "email already taken" only when creating a login or changing its
-  email; a customer login of another company never blocks a staff login.
-- **Company logins:** disabled logins hidden, with a "Mostrar desactivados" button.
-- **Como Vamos!:** reloads on every open (it kept the previous company), only the
-  company's attendance / opening balances, stock valued on positive quantities,
-  no false profit when products have no cost.
-- **Clock in / out icon** only when the company has the HRM module.
-- **Projects:** timeline tab, tabs reordered and more visible.
-- **Dev PCs stay in sync** with each other (protocols), never touching production.
-
-Setup: `php artisan migrate`, `npm run build`.
 
 ## Session protocols
 

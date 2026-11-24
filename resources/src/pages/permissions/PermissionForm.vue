@@ -230,6 +230,7 @@ const role = ref({ name: '', description: '', home_path: null, dashboard_tabs: [
 const tr = useTr();
 // In the dashboard's own order (not alphabetical: it is the order the tabs appear in).
 const tabOptions = computed(() => [
+  ['transport_daysales', "Day's sales", 'Ventas del día'], ['transport_production', 'Production per bus', 'Producción por bus'],
   ['transport_departures', 'Departures report', 'Reporte de salidas'], ['transport_outlook', 'Operations outlook', 'Mando operativo'],
   ['transport_owner', 'Business summary', 'Resumen del negocio'], ['transport_profit', 'Profit by route', 'Rentabilidad por ruta'],
   ['transport_expenses', 'Expenses', 'Gastos'], ['transport_indicators', 'Indicators', 'Indicadores'], ['transport_risks', 'Risks', 'Riesgos'],

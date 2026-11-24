@@ -73,6 +73,13 @@ class FormSchema
             'header_in_embed' => false,          // the logo also inside an iframe on a website
             'width' => 760,                      // the form's maximum width in px (0 = the whole width)
             'button_position' => 'bottom',       // bottom | top: the submit button below or above the fields
+            // What the form is for (2026-11-23): contact = a website's first contact (reported by date and topic),
+            // complaints = a complaints book (the statistics), other. The forms dashboard never mixes them.
+            'kind' => 'other',
+            // Automatic reply by topic (2026-11-23): the choice field that holds the topic, and per option
+            // {subject, message, active}. Drafted for the form's admin and OFF until they approve each one.
+            'topic_field' => '',
+            'topic_replies' => [],
         ];
     }
 
@@ -100,6 +107,17 @@ class FormSchema
         $s['align'] = $s['align'] === 'center' ? 'center' : 'left';
         $s['header_in_embed'] = (bool) $s['header_in_embed'];
         $s['button_position'] = $s['button_position'] === 'top' ? 'top' : 'bottom';
+        $s['kind'] = in_array($s['kind'], ['contact', 'complaints', 'other'], true) ? $s['kind'] : 'other';
+        $s['topic_field'] = preg_match('/^[A-Za-z0-9_]{1,60}$/', (string) $s['topic_field']) ? (string) $s['topic_field'] : '';
+        $replies = [];
+        foreach ((array) $s['topic_replies'] as $topic => $r) {
+            if (! is_string($topic) || $topic === '' || ! is_array($r)) {
+                continue;
+            }
+            $replies[mb_substr($topic, 0, 120)] = ['subject' => mb_substr(trim((string) ($r['subject'] ?? '')), 0, 190),
+                'message' => mb_substr(trim((string) ($r['message'] ?? '')), 0, 5000), 'active' => (bool) ($r['active'] ?? false)];
+        }
+        $s['topic_replies'] = $replies;
         $s['width'] = (int) $s['width'] === 0 ? 0 : max(480, min(1200, (int) $s['width']));
         foreach (['title', 'submit_text', 'notify_subject', 'number_prefix', 'reply_to_field', 'confirm_field', 'confirm_subject', 'from_name'] as $k) {
             $s[$k] = mb_substr(strip_tags((string) $s[$k]), 0, 190);

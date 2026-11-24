@@ -42,7 +42,8 @@ class TransportProfit
             ->whereBetween('t.departure_at', [$from.' 00:00:00', $to.' 23:59:59'])
             ->when($warehouses !== null, fn ($q) => $q->whereIn('o.warehouse_id', $warehouses))
             ->orderBy('t.departure_at')
-            ->get(['t.id', 't.route_id', 't.vehicle_id', 't.departure_at', 't.status', 't.fuel_cost', 't.reported_passengers', 't.reported_income', 'r.toll_cost', 'r.distance_km', 'r.origin_id', 'o.daily_cost',
+            ->get(['t.id', 't.route_id', 't.vehicle_id', 't.departure_at', 't.status', 't.fuel_cost', 't.reported_passengers', 't.reported_income',
+                't.reported_parcels', 't.reported_parcel_income', 't.reported_excess_income', 'r.toll_cost', 'r.distance_km', 'r.origin_id', 'o.daily_cost',
                 'o.name as origin', 'd.name as destination', 'o.lat as olat', 'o.lng as olng', 'd.lat as dlat', 'd.lng as dlng',
                 'v.name as vehicle', 'v.seats', 'v.purchase_price', 'v.residual_value', 'v.useful_life_km']);
         $ids = $trips->pluck('id')->all();
@@ -116,7 +117,8 @@ class TransportProfit
                 }
             }
             $seatKm = $t->seats && $km ? (int) $t->seats * $km : 0.0;
-            $income = ['tickets' => $ticketIncome, 'parcels' => (float) ($parcels[$t->id]->income ?? 0)];
+            // A reported trip (AuraSoft, 2026-11-23) also brings its parcels and excess luggage.
+            $income = ['tickets' => $ticketIncome, 'parcels' => (float) ($parcels[$t->id]->income ?? 0) + (float) $t->reported_parcel_income + (float) $t->reported_excess_income];
             $costs = ['staff' => (float) ($crew[$t->id] ?? 0), 'payroll' => $dailyPayroll / max(1, (int) ($tripsOfDay[substr((string) $t->departure_at, 0, 10)] ?? 1)), 'fuel' => (float) $fuel, 'maintenance' => $maintenance, 'depreciation' => (float) $depreciation, 'tolls' => (float) $toll,
                 'agency' => (float) $t->daily_cost / max(1, $perDay[$t->origin_id.'|'.substr((string) $t->departure_at, 0, 10)] ?? 1), 'meals' => $vip * $mealCost];
             $totalIncome = array_sum($income);
@@ -131,7 +133,7 @@ class TransportProfit
                 'occupancy' => $seatKm > 0 ? (int) round($paxKm / $seatKm * 100) : null, 'pax_km' => round($paxKm), 'seat_km' => round($seatKm), 'vip' => $vip, 'legs' => array_values($legs),
                 // Seats it takes to cover the costs, parcels counted; a deluxe seat also brings its meal.
                 'break_even_seats' => $fare && $fare > $mealPerTicket ? (int) ceil(max(0, $totalCost - $costs['meals'] - $income['parcels']) / ($fare - $mealPerTicket)) : null,
-                'parcels' => (int) ($parcels[$t->id]->n ?? 0),
+                'parcels' => (int) ($parcels[$t->id]->n ?? 0) + (int) $t->reported_parcels,
                 'income' => array_map(fn ($v) => round($v, 2), $income) + ['total' => round($totalIncome, 2)],
                 'costs' => array_map(fn ($v) => round($v, 2), $costs) + ['total' => round($totalCost, 2)],
                 'estimated' => array_values(array_filter([$fuelEstimated && $fuel !== null ? 'fuel' : null, $tollsEstimated && $toll !== null ? 'tolls' : null])),

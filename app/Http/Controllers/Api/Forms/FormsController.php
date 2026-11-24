@@ -207,6 +207,7 @@ class FormsController extends Controller
             $u = (int) ($r->u ?? 0);
 
             return ['id' => $f->id, 'company_id' => $f->company_id, 'name' => $f->name, 'status' => (bool) $f->status,
+                'kind' => FormSchema::settings(json_decode((string) $f->settings, true))['kind'],
                 'views' => (int) ($r->v ?? 0), 'users' => $u, 'starts' => (int) ($r->s ?? 0), 'conversions' => (int) ($r->c ?? 0),
                 'submissions' => (int) ($subsByForm[$f->id] ?? 0), 'unread' => (int) ($unreadByForm[$f->id] ?? 0),
                 'conversion' => $u ? $rate((int) ($r->c ?? 0), $u) : null, 'updated_at' => $f->updated_at];
@@ -262,6 +263,77 @@ class FormsController extends Controller
     }
 
     /**
+     * GET forms/contacts?form_id&from&to (2026-11-23): the website contact forms as a first contact -- messages by date
+     * and by topic (the form's topic field), still unread, visits -> messages, the latest ones, and which topics already
+     * have an approved automatic reply. Contact forms only (settings.kind = contact); complaints are analysed apart.
+     */
+    public function contacts(Request $request)
+    {
+        $this->can($request, 'forms_view');
+        $from = $request->input('from') ?: now()->subDays(29)->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+        $fq = DB::table('forms')->whereNull('deleted_at');
+        $this->scopeListToCompany($fq, $request);
+        $forms = $fq->get(['id', 'company_id', 'name', 'settings'])
+            ->filter(fn ($f) => FormSchema::settings(json_decode((string) $f->settings, true))['kind'] === 'contact')->keyBy('id');
+        $pick = (int) $request->input('form_id');
+        $use = $pick && $forms->has($pick) ? collect([$pick]) : $forms->keys();
+        $settings = $forms->map(fn ($f) => FormSchema::settings(json_decode((string) $f->settings, true)));
+
+        $subs = DB::table('form_submissions')->whereIn('form_id', $use)->whereNull('deleted_at')
+            ->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->orderByDesc('id')
+            ->get(['id', 'form_id', 'company_id', 'number', 'data', 'is_read', 'created_at']);
+        $topicOf = function ($s) use ($settings) {
+            $field = $settings[$s->form_id]['topic_field'] ?? '';
+            $d = json_decode((string) $s->data, true) ?: [];
+
+            return [$field ? (trim((string) ($d[$field] ?? '')) ?: '—') : '—', (bool) ($d['_motivo_auto'] ?? false), $d];
+        };
+        $byTopic = [];
+        $byDay = [];
+        $latest = [];
+        foreach ($subs as $s) {
+            [$topic, $auto, $d] = $topicOf($s);
+            $byTopic[$topic] = ($byTopic[$topic] ?? 0) + 1;
+            $day = substr((string) $s->created_at, 0, 10);
+            $byDay[$day] = ($byDay[$day] ?? 0) + 1;
+            if (count($latest) < 30) {
+                $msg = collect($d)->first(fn ($v, $k) => is_string($v) && mb_strlen($v) > 15 && ! str_starts_with((string) $k, '_') && ! filter_var($v, FILTER_VALIDATE_EMAIL));
+                $latest[] = ['id' => $s->id, 'form_id' => $s->form_id, 'form' => $forms[$s->form_id]->name ?? '', 'company_id' => $s->company_id,
+                    'ref' => ($settings[$s->form_id]['number_prefix'] ?? '').$s->number, 'name' => (string) ($d['full_name'] ?? $d['name'] ?? ''),
+                    'topic' => $topic, 'topic_auto' => $auto, 'message' => mb_substr((string) $msg, 0, 140), 'is_read' => (bool) $s->is_read, 'created_at' => $s->created_at];
+            }
+        }
+        arsort($byTopic);
+        $total = $subs->count();
+        // Approved automatic replies of the chosen form(s), per topic.
+        $active = [];
+        foreach ($use as $fid) {
+            foreach ($settings[$fid]['topic_replies'] ?? [] as $t => $r) {
+                $active[$t] = ($active[$t] ?? false) || $r['active'];
+            }
+        }
+        $series = [];
+        for ($d = \Carbon\Carbon::parse($from); $d->lte(\Carbon\Carbon::parse($to)) && count($series) < 800; $d->addDay()) {
+            $series[] = ['d' => $d->toDateString(), 'messages' => $byDay[$d->toDateString()] ?? 0];
+        }
+        $st = DB::table('form_stats_daily')->whereIn('form_id', $use)->whereBetween('day', [$from, $to])->selectRaw('sum(views) v, sum(users) u')->first();
+
+        return response()->json([
+            'from' => $from, 'to' => $to,
+            'forms' => CompanyNames::attach($forms->map(fn ($f) => ['id' => $f->id, 'company_id' => $f->company_id, 'name' => $f->name,
+                'topic_field' => $settings[$f->id]['topic_field'], 'replies' => count($settings[$f->id]['topic_replies']),
+                'replies_active' => collect($settings[$f->id]['topic_replies'])->where('active', true)->count()])->values()->all()),
+            'total' => $total, 'unread' => $subs->where('is_read', false)->count(),
+            'visits' => (int) ($st->u ?? 0), 'views' => (int) ($st->v ?? 0),
+            'by_topic' => collect($byTopic)->map(fn ($n, $t) => ['topic' => (string) $t, 'count' => $n, 'percent' => $total ? round($n * 100 / $total, 1) : 0,
+                'reply' => array_key_exists($t, $active) ? ($active[$t] ? 'active' : 'draft') : null])->values()->all(),
+            'series' => $series,
+            'latest' => CompanyNames::attach($latest),
+        ]);
+    }
+
+    /**
      * GET forms/report?form_id&from&to&search&page&per_page&all=1 -- every submission
      * of every form the user may see (AdminSystem: all companies), newest first,
      * with its form, number, date, a summary and every field as "label: value".
@@ -290,20 +362,45 @@ class FormsController extends Controller
         if ($to = $request->input('to')) {
             $q->whereDate('created_at', '<=', $to);
         }
+        // The submissions as list rows (2026-11-23): number, date, name, agency / route, detail, and the grouped value.
+        // value=X (user: "que cada línea me envíe a un modal con la lista de lo seleccionado") = only that row's,
+        // otherwise the 30 latest of the period ("Últimos reclamos", the same compact list as the contacts).
+        $prefix = FormSchema::settings(json_decode((string) $f->settings, true) ?: [])['number_prefix'] ?? '';
+        $inputs = FormSchema::inputs(json_decode((string) $f->fields, true) ?: []);
+        $pick = fn ($re, $types = null) => collect($inputs)->first(fn ($x) => preg_match($re, (string) ($x['label'] ?? '').' '.$x['key'])
+            && (! $types || in_array($x['type'], $types, true)))['key'] ?? null;
+        $nameKey = $pick('/nombre|name/iu', ['text']);
+        $agencyKey = $pick('/agencia|agency|local|sede/iu');
+        $detailKeys = collect($inputs)->where('type', 'textarea')->pluck('key')->all();
+        $want = $request->has('value') ? (string) $request->input('value') : null;
+        $items = [];
         $counts = [];
         $total = 0;
-        foreach ($key ? $q->pluck('data') : [] as $raw) {
+        foreach ($key ? (clone $q)->orderByDesc('created_at')->get(['id', 'form_id', 'number', 'data', 'is_read', 'created_at']) : [] as $s) {
+            $d = json_decode((string) $s->data, true) ?: [];
+            $vals = array_map(fn ($x) => trim((string) $x) ?: '—', (array) ($d[$key] ?? '') ?: ['']);
             $total++;
-            $v = (json_decode((string) $raw, true) ?: [])[$key] ?? '';
-            foreach ((array) $v ?: [''] as $one) {
-                $one = trim((string) $one) ?: '—';
+            foreach ($vals as $one) {
                 $counts[$one] = ($counts[$one] ?? 0) + 1;
             }
+            if ($want !== null ? ! in_array($want, $vals, true) : count($items) >= 30) {
+                continue;
+            }
+            $msg = collect($detailKeys)->map(fn ($k) => trim((string) ($d[$k] ?? '')))->first(fn ($v) => $v !== '')
+                ?? collect($d)->first(fn ($v, $k) => is_string($v) && mb_strlen($v) > 15 && ! str_starts_with((string) $k, '_') && ! filter_var($v, FILTER_VALIDATE_EMAIL));
+            $route = trim(($d['origen'] ?? '').(! empty($d['origen']) && ! empty($d['destino']) ? ' → ' : '').($d['destino'] ?? ''));
+            $items[] = ['id' => $s->id, 'form_id' => $s->form_id, 'ref' => $prefix.$s->number, 'topic' => implode(', ', $vals),
+                'name' => (string) ($nameKey ? ($d[$nameKey] ?? '') : ($d['full_name'] ?? $d['name'] ?? '')),
+                'where' => trim(($agencyKey ? (string) ($d[$agencyKey] ?? '') : '').($route ? ' · '.$route : ''), ' ·'),
+                'message' => mb_substr((string) $msg, 0, 3000), 'is_read' => (bool) $s->is_read, 'created_at' => $s->created_at];
+        }
+        if ($want !== null) {
+            return response()->json(['field' => $key, 'value' => $want, 'items' => $items]);
         }
         arsort($counts);
         $rows = collect($counts)->map(fn ($n, $v) => ['value' => (string) $v, 'count' => $n, 'percent' => $total ? round($n * 100 / $total, 1) : 0])->values()->all();
 
-        return response()->json(['fields' => $fields, 'field' => $key, 'total' => $total, 'rows' => $rows]);
+        return response()->json(['fields' => $fields, 'field' => $key, 'total' => $total, 'rows' => $rows, 'latest' => $items]);
     }
 
     /**

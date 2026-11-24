@@ -749,6 +749,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/', 'index');
         Route::post('/', 'store');
         Route::get('/dashboard', 'dashboard');
+        Route::get('/contacts', 'contacts'); // website contact forms as a first contact (2026-11-23)
         Route::get('/report', 'report');
         Route::get('/submissions/{id}', 'showSubmission')->whereNumber('id');
         Route::put('/submissions/{id}', 'updateSubmission')->whereNumber('id');
@@ -825,6 +826,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/parcels/board', 'parcelsBoard');
         Route::get('/expenses', 'expenses');
         Route::get('/departures', 'departures');
+        Route::get('/production', 'production');
+        Route::get('/day-sales', 'daySales');
     });
     // "Mando operativo" (2026-11-18): the coming departures, projected sales and whether they cover their costs.
     Route::get('transport/outlook', [\App\Http\Controllers\TransportOutlookController::class, 'index']);

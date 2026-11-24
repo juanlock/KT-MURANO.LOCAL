@@ -11,91 +11,95 @@
       </a-tooltip>
     </div>
 
-    <a-row :gutter="14">
-      <a-col :span="24" class="col-list">
-        <a-card size="small" class="panel">
-          <div class="side-head">
-            <h3>{{ L('Files uploaded', 'Archivos subidos') }}</h3>
-            <a-upload :show-upload-list="false" accept=".xlsx,.xls" :before-upload="upload">
-              <a-button type="primary" size="small" :loading="uploading"><UploadOutlined /> {{ L('Upload AuraSoft file', 'Subir archivo AuraSoft') }}</a-button>
-            </a-upload>
-          </div>
-          <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" :selected-key="sel?.id ?? null" compact-toolbar table-key="aurasoft-imports">
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'created_at'">{{ dateTime(record.created_at) }}</template>
-              <template v-else-if="column.key === 'period'">{{ date(record.period_from) }} – {{ date(record.period_to) }}</template>
-              <template v-else-if="column.key === 'rows'">
-                {{ record.rows_total }}
-                <span class="mini"><span class="c-new">+{{ record.rows_new }}</span> <span class="c-upd">~{{ record.rows_updated }}</span> <span class="c-same">={{ record.rows_same }}</span></span>
-              </template>
-              <template v-else-if="column.key === 'production'"><span class="n">{{ money(record.production) }}</span></template>
-            </template>
-          </DataTable>
-        </a-card>
-      </a-col>
-
-      <DetailPanel :open="phoneOpen" :span="24" class="col-detail" @close="phoneOpen = false">
-        <a-card size="small" class="panel">
-          <template v-if="sel">
-            <div class="side-head">
-              <h3 class="dt-title" :title="sel.original_name">{{ sel.original_name }}</h3>
-              <a-space :size="6">
-                <a-button size="small" @click="downloadFile"><DownloadOutlined /> Excel</a-button>
-                <a-popconfirm :title="L('Remove this import? Its departures go back to the previous file\'s figures. The Excel stays saved.', '¿Quitar esta importación? Sus salidas vuelven a las cifras del archivo anterior. El Excel queda guardado.')"
-                  :ok-text="L('Remove', 'Quitar')" :cancel-text="L('No', 'No')" @confirm="remove">
-                  <a-button size="small" danger>{{ L('Remove', 'Quitar') }}</a-button>
-                </a-popconfirm>
-              </a-space>
-            </div>
-            <div class="facts">
-              <span><span class="lbl">{{ L('Period', 'Período') }}:</span> <b>{{ date(sel.period_from) }} – {{ date(sel.period_to) }}</b></span>
-              <span><span class="lbl">{{ L('Uploaded', 'Subido') }}:</span> {{ dateTime(sel.created_at) }} · {{ sel.uploaded_by || '—' }}</span>
-              <span v-if="sel.company_text"><span class="lbl">{{ L('Company', 'Empresa') }}:</span> {{ sel.company_text }}</span>
-            </div>
-            <div class="kpis">
-              <div class="k"><div class="v">{{ sel.rows_total }}</div><div class="t">{{ L('Departures', 'Salidas') }}</div></div>
-              <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ sel.rows_new }}</div><div class="t">{{ L('New', 'Nuevas') }}</div></div>
-              <div class="k pick" :class="{ on: action === 'updated' }" @click="setAction('updated')"><div class="v c-upd">{{ sel.rows_updated }}</div><div class="t">{{ L('Changed', 'Actualizadas') }}</div></div>
-              <div class="k pick" :class="{ on: action === 'same' }" @click="setAction('same')"><div class="v c-same">{{ sel.rows_same }}</div><div class="t">{{ L('Already had', 'Ya estaban') }}</div></div>
-              <div class="k"><div class="v">{{ num(sel.seats) }}</div><div class="t">{{ L('Seats', 'Pasajes') }}</div></div>
-              <div class="k"><div class="v">S/ {{ money(sel.ticket_income) }}</div><div class="t">{{ L('Tickets', 'Pasajes S/') }}</div></div>
-              <div class="k"><div class="v">S/ {{ money(sel.parcel_income) }}</div><div class="t">{{ L('Parcels', 'Encomiendas') }}</div></div>
-              <div class="k"><div class="v">S/ {{ money(sel.excess_income) }}</div><div class="t">{{ L('Excess', 'Exceso') }}</div></div>
-              <div class="k main"><div class="v">S/ {{ money(sel.production) }}</div><div class="t">{{ L('Production', 'Producción') }}</div></div>
-            </div>
-            <div v-if="Object.keys(sel.channels || {}).length" class="chips">
-              <span class="lbl">{{ L('Seats by seller', 'Pasajes por vendedor') }}:</span>
-              <span v-for="(n, k) in sel.channels" :key="k" class="chip">{{ k }} <b>{{ num(n) }}</b> <span class="pct">{{ pct(n) }}</span></span>
-            </div>
-            <div v-if="sel.buses_unknown?.length" class="warn">
-              <WarningOutlined /> {{ L('Plates without a bus in Murano', 'Placas sin bus en Murano') }} ({{ sel.buses_unknown.length }}/{{ sel.buses }}): {{ sel.buses_unknown.join(', ') }}
-            </div>
-            <div v-if="sel.skipped?.length" class="warn">
-              <WarningOutlined /> {{ L('Rows left out', 'Filas no tomadas') }}: {{ sel.skipped.map(s => `${L('row', 'fila')} ${s.row} (${s.reason})`).join('; ') }}
-            </div>
-
-            <DataTable :crud="rowsCrud" :columns="rowColumns" compact-toolbar table-key="aurasoft-rows">
-              <template #filters>
-                <a-segmented v-model:value="action" size="small" :options="actionOptions" @change="rowsCrud.fetchRows()" />
-              </template>
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'trip_date'">{{ date(record.trip_date) }} <span class="muted">{{ String(record.departure_time).slice(0, 5) }}</span></template>
-                <template v-else-if="column.key === 'plate'">{{ record.plate }}<span v-if="record.bus" class="muted"> · {{ record.bus }}</span></template>
-                <template v-else-if="column.key === 'sellers'">
-                  <span class="sellers">{{ Object.entries(record.channels || {}).filter(([, n]) => n > 0).map(([k, n]) => `${short(k)} ${n}`).join(' · ') }}</span>
-                </template>
-                <template v-else-if="['ticket_income', 'parcel_income', 'production'].includes(column.key)"><span class="n">{{ money(record[column.key]) }}</span></template>
-                <template v-else-if="column.key === 'action'"><span class="tag" :class="'t-' + record.action">{{ actionLabel(record.action) }}</span></template>
-              </template>
-            </DataTable>
+    <a-card size="small" class="panel">
+      <div class="side-head">
+        <h3>{{ L('Files uploaded', 'Archivos subidos') }}</h3>
+        <a-upload :show-upload-list="false" accept=".xlsx,.xls" :before-upload="upload">
+          <a-button type="primary" size="small" :loading="uploading"><UploadOutlined /> {{ L('Upload AuraSoft file', 'Subir archivo AuraSoft') }}</a-button>
+        </a-upload>
+      </div>
+      <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" compact-toolbar table-key="aurasoft-imports">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'created_at'">{{ dateTime(record.created_at) }}</template>
+          <template v-else-if="column.key === 'period'"><span class="nowrap">{{ date(record.period_from) }} – {{ date(record.period_to) }}</span></template>
+          <template v-else-if="column.key === 'rows'">
+            {{ record.rows_total }}
+            <span class="mini"><span class="c-new">+{{ record.rows_new }}</span> <span class="c-upd">~{{ record.rows_updated }}</span> <span class="c-same">={{ record.rows_same }}</span></span>
           </template>
-          <div v-else class="hint">
-            <p>{{ L('No file yet.', 'Todavía no hay archivos.') }}</p>
-            <p>{{ L('In AuraSoft, download the "Reporte producción por bus" for the dates you want (a day, a week or a month) and upload it here as it comes. If the dates overlap an earlier file, the departures are not repeated.', 'En AuraSoft, descargue el «Reporte producción por bus» de las fechas que quiera (un día, una semana o un mes) y súbalo aquí tal cual. Si las fechas se cruzan con un archivo anterior, las salidas no se repiten.') }}</p>
+          <template v-else-if="['seats'].includes(column.key)"><span class="n">{{ num(record.seats) }}</span></template>
+          <template v-else-if="['ticket_income', 'production'].includes(column.key)"><span class="n">{{ money(record[column.key]) }}</span></template>
+          <template v-else-if="column.key === 'actions'">
+            <span class="acts" @click.stop>
+              <a-tooltip :title="L('View', 'Ver')"><a-button size="small" type="text" @click="pick(record.id)"><EyeOutlined /></a-button></a-tooltip>
+              <a-tooltip :title="L('Download the uploaded file', 'Descargar el archivo subido')"><a-button size="small" type="text" @click="downloadFile(record)"><DownloadOutlined /></a-button></a-tooltip>
+              <a-tooltip :title="L('Export PDF', 'Exportar PDF')"><a-button size="small" type="text" :loading="busy === 'pdf' + record.id" @click="exportRows(record, 'pdf')"><FilePdfOutlined style="color: #dc2626" /></a-button></a-tooltip>
+              <a-tooltip :title="L('Export Excel', 'Exportar XLS')"><a-button size="small" type="text" :loading="busy === 'xls' + record.id" @click="exportRows(record, 'xls')"><FileExcelOutlined style="color: #15803d" /></a-button></a-tooltip>
+              <a-popconfirm :title="L('Remove this import? Its departures go back to the previous file\'s figures. The Excel stays saved.', '¿Quitar esta importación? Sus salidas vuelven a las cifras del archivo anterior. El Excel queda guardado.')"
+                :ok-text="L('Remove', 'Quitar')" :cancel-text="L('No', 'No')" @confirm="remove(record)">
+                <a-tooltip :title="L('Remove', 'Quitar')"><a-button size="small" type="text" danger><DeleteOutlined /></a-button></a-tooltip>
+              </a-popconfirm>
+            </span>
+          </template>
+        </template>
+      </DataTable>
+      <div v-if="!crud.rows.value?.length" class="hint">
+        <p>{{ L('In AuraSoft, download the "Reporte producción por bus" for the dates you want (a day, a week or a month) and upload it here as it comes. If the dates overlap an earlier file, the departures are not repeated.', 'En AuraSoft, descargue el «Reporte producción por bus» de las fechas que quiera (un día, una semana o un mes) y súbalo aquí tal cual. Si las fechas se cruzan con un archivo anterior, las salidas no se repiten.') }}</p>
+      </div>
+    </a-card>
+
+    <!-- The file's detail in a big window (user, 2026-11-23). -->
+    <a-modal v-model:open="detailOpen" :footer="null" width="96vw" :style="{ top: '16px', maxWidth: '1500px' }" :title="sel ? sel.original_name : ''" wrap-class-name="aura-modal" destroy-on-close>
+      <template v-if="sel">
+        <div class="side-head">
+          <div class="facts">
+            <span><span class="lbl">{{ L('Period', 'Período') }}:</span> <b>{{ date(sel.period_from) }} – {{ date(sel.period_to) }}</b></span>
+            <span><span class="lbl">{{ L('Uploaded', 'Subido') }}:</span> {{ dateTime(sel.created_at) }} · {{ sel.uploaded_by || '—' }}</span>
+            <span v-if="sel.company_text"><span class="lbl">{{ L('Company', 'Empresa') }}:</span> {{ sel.company_text }}</span>
           </div>
-        </a-card>
-      </DetailPanel>
-    </a-row>
+          <a-space :size="6">
+            <a-button size="small" @click="downloadFile(sel)"><DownloadOutlined /> {{ L('Uploaded file', 'Archivo subido') }}</a-button>
+            <a-button size="small" :loading="busy === 'pdf' + sel.id" @click="exportRows(sel, 'pdf')"><FilePdfOutlined /> PDF</a-button>
+            <a-button size="small" :loading="busy === 'xls' + sel.id" @click="exportRows(sel, 'xls')"><FileExcelOutlined /> XLS</a-button>
+          </a-space>
+        </div>
+        <div class="kpis">
+          <div class="k"><div class="v">{{ sel.rows_total }}</div><div class="t">{{ L('Departures', 'Salidas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ sel.rows_new }}</div><div class="t">{{ L('New', 'Nuevas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'updated' }" @click="setAction('updated')"><div class="v c-upd">{{ sel.rows_updated }}</div><div class="t">{{ L('Changed', 'Actualizadas') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'same' }" @click="setAction('same')"><div class="v c-same">{{ sel.rows_same }}</div><div class="t">{{ L('Already had', 'Ya estaban') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.seats) }}</div><div class="t">{{ L('Seats', 'Pasajes') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.ticket_income) }}</div><div class="t">{{ L('Tickets', 'Pasajes S/') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.parcel_income) }}</div><div class="t">{{ L('Parcels', 'Encomiendas') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.excess_income) }}</div><div class="t">{{ L('Excess', 'Exceso') }}</div></div>
+          <div class="k main"><div class="v">S/ {{ money(sel.production) }}</div><div class="t">{{ L('Production', 'Producción') }}</div></div>
+        </div>
+        <div v-if="Object.keys(sel.channels || {}).length" class="chips">
+          <span class="lbl">{{ L('Seats by seller', 'Pasajes por vendedor') }}:</span>
+          <span v-for="(n, k) in sel.channels" :key="k" class="chip">{{ k }} <b>{{ num(n) }}</b> <span class="pct">{{ pct(n) }}</span></span>
+        </div>
+        <div v-if="sel.buses_unknown?.length" class="warn">
+          <WarningOutlined /> {{ L('Plates without a bus in Murano', 'Placas sin bus en Murano') }} ({{ sel.buses_unknown.length }}/{{ sel.buses }}): {{ sel.buses_unknown.join(', ') }}
+        </div>
+        <div v-if="sel.skipped?.length" class="warn">
+          <WarningOutlined /> {{ L('Rows left out', 'Filas no tomadas') }}: {{ sel.skipped.map(s => `${L('row', 'fila')} ${s.row} (${s.reason})`).join('; ') }}
+        </div>
+
+        <DataTable :crud="rowsCrud" :columns="rowColumns" compact-toolbar table-key="aurasoft-rows">
+          <template #filters>
+            <a-segmented v-model:value="action" size="small" :options="actionOptions" @change="rowsCrud.fetchRows()" />
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'trip_date'">{{ date(record.trip_date) }} <span class="muted">{{ String(record.departure_time).slice(0, 5) }}</span></template>
+            <template v-else-if="column.key === 'plate'">{{ record.plate }}<span v-if="record.bus" class="muted"> · {{ record.bus }}</span></template>
+            <template v-else-if="column.key === 'sellers'">
+              <span class="sellers">{{ sellersText(record) }}</span>
+            </template>
+            <template v-else-if="['ticket_income', 'parcel_income', 'production'].includes(column.key)"><span class="n">{{ money(record[column.key]) }}</span></template>
+            <template v-else-if="column.key === 'action'"><span class="tag" :class="'t-' + record.action">{{ actionLabel(record.action) }}</span></template>
+          </template>
+        </DataTable>
+      </template>
+    </a-modal>
   </div>
 </template>
 
@@ -104,13 +108,13 @@
  * Integración -> Producción AuraSoft (2026-11-23, Turismo Cautivo; AuraSoft = the ticket system once called Jelaf).
  * The Manager uploads AuraSoft's "Reporte producción por bus" Excel (a day or a range, on demand). Every file is kept and
  * shows what it brought: departures new, changed (different figures than the earlier file) or already there.
- * Left: the files (latest opened). Right: the file's summary and its rows. Server: TransportAuraSoftController.
+ * The files in a full-width table with their actions (view, the uploaded file, PDF, XLS, remove); a click opens the file's summary and rows in a big window (user, 2026-11-23). Server: TransportAuraSoftController.
  */
 import { ref, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
-import { UploadOutlined, DownloadOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
+import { UploadOutlined, DownloadOutlined, WarningOutlined, InfoCircleOutlined, EyeOutlined, FilePdfOutlined, FileExcelOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 import DataTable from '../../components/DataTable.vue';
-import DetailPanel from '../../components/DetailPanel.vue';
+import { exportExcel, exportPdf } from '../../lib/exporters';
 import { useCrudTable } from '../../composables/useCrudTable';
 import { useFormat } from '../../composables/useFormat';
 import { useBarTitle } from '../../composables/useBarTitle';
@@ -123,16 +127,21 @@ const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
 const { date, dateTime } = useFormat();
 const num = v => Number(v || 0).toLocaleString('en-US');
 const money = v => Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const phoneOpen = ref(false);
+const detailOpen = ref(false);
+const busy = ref('');
 
 const crud = useCrudTable('transport/aurasoft', { rowsKey: 'rows', sortField: 'created_at', sortType: 'desc', limit: 20 });
 const current = computed(() => crud.payload.value?.current || null);
 const columns = computed(() => [
-  { title: L('Uploaded', 'Subido'), key: 'created_at', dataIndex: 'created_at', sorter: true, width: 128 },
+  { title: L('Uploaded', 'Subido'), key: 'created_at', dataIndex: 'created_at', sorter: true, width: 132 },
   { title: L('File', 'Archivo'), key: 'original_name', dataIndex: 'original_name', sorter: true, ellipsis: { showTitle: true } },
-  { title: L('Period', 'Período'), key: 'period', dataIndex: 'period_from', width: 160 },
-  { title: L('Departures', 'Salidas'), key: 'rows', dataIndex: 'rows_total', width: 128 },
-  { title: L('Production', 'Producción'), key: 'production', dataIndex: 'production', sorter: true, width: 104, align: 'right' },
+  { title: L('Period', 'Período'), key: 'period', dataIndex: 'period_from', width: 178 },
+  { title: L('Departures', 'Salidas'), key: 'rows', dataIndex: 'rows_total', width: 116 },
+  { title: L('Seats', 'Pasajes'), key: 'seats', dataIndex: 'seats', width: 74, align: 'right' },
+  { title: L('Tickets S/', 'Pasajes S/'), key: 'ticket_income', dataIndex: 'ticket_income', width: 104, align: 'right' },
+  { title: L('Production', 'Producción'), key: 'production', dataIndex: 'production', sorter: true, width: 110, align: 'right' },
+  { title: L('Uploaded by', 'Subido por'), key: 'uploaded_by', dataIndex: 'uploaded_by', width: 124, ellipsis: true },
+  { title: L('Actions', 'Acciones'), key: 'actions', width: 132, align: 'center', className: 'col-acts' },
 ]);
 
 const sel = ref(null);
@@ -147,16 +156,17 @@ const rowsCrud = useCrudTable(() => `transport/aurasoft/${sel.value?.id || 0}/ro
   params: () => ({ action: action.value === 'all' ? undefined : action.value }),
 });
 const rowColumns = computed(() => [
-  { title: L('Date', 'Fecha'), key: 'trip_date', dataIndex: 'trip_date', sorter: true, width: 118 },
-  { title: L('Plate', 'Placa'), key: 'plate', dataIndex: 'plate', sorter: true, width: 128, ellipsis: { showTitle: true } },
+  { title: L('Date', 'Fecha'), key: 'trip_date', dataIndex: 'trip_date', sorter: true, width: 140 },
+  { title: L('Plate', 'Placa'), key: 'plate', dataIndex: 'plate', sorter: true, width: 150, ellipsis: { showTitle: true } },
   { title: L('Route', 'Ruta'), key: 'route', dataIndex: 'route', sorter: true, width: 150, ellipsis: { showTitle: true } },
   { title: L('Seats', 'Pas.'), key: 'seats', dataIndex: 'seats', sorter: true, width: 56, align: 'right' },
   { title: L('Sellers', 'Vendedores'), key: 'sellers', dataIndex: 'channels', ellipsis: { showTitle: true } },
-  { title: L('Tickets S/', 'Pasajes S/'), key: 'ticket_income', dataIndex: 'ticket_income', sorter: true, width: 92, align: 'right' },
+  { title: L('Tickets S/', 'Pasajes S/'), key: 'ticket_income', dataIndex: 'ticket_income', sorter: true, width: 100, align: 'right' },
   { title: L('Parcels S/', 'Encom. S/'), key: 'parcel_income', dataIndex: 'parcel_income', sorter: true, width: 86, align: 'right' },
   { title: L('Production', 'Producción'), key: 'production', dataIndex: 'production', sorter: true, width: 96, align: 'right' },
-  { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 104 },
+  { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 120 },
 ]);
+const sellersText = r => Object.entries(r.channels || {}).filter(([, n]) => n > 0).map(([k, n]) => `${short(k)} ${n}`).join(' · ');
 const short = k => ({ 'AURA SOFT': 'Aura', 'NO REGISTRADO': 'No reg.', REDBUS: 'RedBus', KUPOS: 'Kupos', CARRITOC: 'Carritoc', KIOSCO: 'Kiosco', PERUBUS: 'PeruBus' }[k] || k);
 const pct = n => {
   const t = Object.values(sel.value?.channels || {}).reduce((s, x) => s + Number(x || 0), 0);
@@ -168,7 +178,7 @@ async function pick(id, show = true) {
   action.value = 'all';
   rowsCrud.page.value = 1;
   await rowsCrud.fetchRows();
-  if (show) phoneOpen.value = true;
+  if (show) detailOpen.value = true;
 }
 function setAction(a) {
   action.value = action.value === a ? 'all' : a;
@@ -186,7 +196,6 @@ async function upload(file) {
     message.success(L(`${r.rows_total} departures: ${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there.`,
       `${r.rows_total} salidas: ${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban.`), 6);
     await crud.fetchRows();
-    await pick(r.id, false);
   } catch (e) {
     message.error(e?.data?.message || L('The file could not be imported.', 'No se pudo importar el archivo.'));
   } finally {
@@ -195,34 +204,68 @@ async function upload(file) {
   return false; // the upload is ours, not the component's
 }
 
-async function downloadFile() {
+async function downloadFile(rec) {
   try {
     const cid = getActingCompanyId();
-    await http.download(`transport/aurasoft/${sel.value.id}/file${cid ? `?company_id=${cid}` : ''}`, sel.value.original_name);
+    await http.download(`transport/aurasoft/${rec.id}/file${cid ? `?company_id=${cid}` : ''}`, rec.original_name);
   } catch (e) { message.error(L('The file could not be downloaded.', 'No se pudo descargar el archivo.')); }
 }
 
-async function remove() {
+async function remove(rec) {
   try {
-    await http.delete(`transport/aurasoft/${sel.value.id}`);
+    await http.delete(`transport/aurasoft/${rec.id}`);
     message.success(L('Import removed', 'Importación quitada'));
-    sel.value = null;
-    phoneOpen.value = false;
+    if (sel.value?.id === rec.id) { sel.value = null; detailOpen.value = false; }
     await crud.fetchRows();
-    if (crud.rows.value?.length) await pick(crud.rows.value[0].id, false);
   } catch (e) { message.error(e?.data?.message || L('It could not be removed.', 'No se pudo quitar.')); }
 }
 
+// Every row of one file as PDF or Excel (all its departures, not only the page on screen).
+const exportColumns = computed(() => [
+  { title: L('Date', 'Fecha'), key: 'trip_date', exportValue: r => `${date(r.trip_date)} ${String(r.departure_time).slice(0, 5)}` },
+  { title: 'Bus', key: 'bus', exportValue: r => r.bus || '' },
+  { title: L('Plate', 'Placa'), key: 'plate', dataIndex: 'plate' },
+  { title: L('Route', 'Ruta'), key: 'route', dataIndex: 'route' },
+  { title: L('Seats', 'Pasajes'), key: 'seats', dataIndex: 'seats' },
+  { title: L('Sellers', 'Vendedores'), key: 'sellers', exportValue: sellersText },
+  { title: L('Tickets S/', 'Pasajes S/'), key: 'ticket_income', exportValue: r => Number(r.ticket_income || 0) },
+  { title: L('Parcels', 'Encom.'), key: 'parcels', dataIndex: 'parcels' },
+  { title: L('Parcels S/', 'Encom. S/'), key: 'parcel_income', exportValue: r => Number(r.parcel_income || 0) },
+  { title: L('Excess S/', 'Exceso S/'), key: 'excess_income', exportValue: r => Number(r.excess_income || 0) },
+  { title: L('Production S/', 'Producción S/'), key: 'production', exportValue: r => Number(r.production || 0) },
+  { title: L('In this file', 'En este archivo'), key: 'action', exportValue: r => actionLabel(r.action) },
+]);
+async function exportRows(rec, kind) {
+  busy.value = kind + rec.id;
+  try {
+    const all = [];
+    for (let page = 1; page < 50; page++) {
+      const r = await http.get(`transport/aurasoft/${rec.id}/rows`, { page, limit: 500, SortField: 'trip_date', SortType: 'asc' });
+      all.push(...(r.rows || []));
+      if (all.length >= (r.totalRows || 0) || !(r.rows || []).length) break;
+    }
+    const cols = exportColumns.value;
+    const sum = k => all.reduce((s, x) => s + Number(x[k] || 0), 0);
+    const totals = { trip_date: L('Total', 'Total'), seats: sum('seats'), parcels: sum('parcels'), ticket_income: money(sum('ticket_income')),
+      parcel_income: money(sum('parcel_income')), excess_income: money(sum('excess_income')), production: money(sum('production')) };
+    const foot = cols.map(c => totals[c.key] ?? '');
+    const title = `AuraSoft ${date(rec.period_from)} - ${date(rec.period_to)}`;
+    if (kind === 'pdf') await exportPdf(title, cols, all, { landscape: true, foot });
+    else await exportExcel(title.replace(/[\\/:*?"<>|]/g, '-'), cols, all, { foot });
+  } catch (e) {
+    message.error(L('The export failed.', 'No se pudo exportar.'));
+  } finally {
+    busy.value = '';
+  }
+}
+
 useBarTitle(L('AuraSoft production', 'Producción AuraSoft'));
-onMounted(async () => {
-  await crud.fetchRows();
-  // The latest file opened (user's rule, 2026-11-23).
-  if (crud.rows.value?.length) await pick(crud.rows.value[0].id, false);
-});
+onMounted(() => crud.fetchRows());
 </script>
 
 <style scoped>
-@media (min-width: 1200px) { .col-list { flex: 0 0 40%; max-width: 40%; } .col-detail { flex: 0 0 60%; max-width: 60%; } }
+.acts { display: inline-flex; gap: 2px; }
+.side-head .facts { margin-bottom: 0; }
 .panel { border-radius: 2px; }
 .held { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; font-size: 13px; padding: 6px 10px; margin-bottom: 10px;
   border-radius: 4px; background: rgba(var(--app-primary-rgb, 0, 120, 212), 0.08); }
@@ -255,6 +298,19 @@ onMounted(async () => {
 .t-updated { background: rgba(180, 83, 9, 0.14); color: #b45309; }
 .t-same { background: rgba(128, 128, 128, 0.14); }
 .hint { opacity: 0.75; padding: 12px 4px; }
+.acts { display: inline-flex; gap: 2px; }
+.side-head .facts { margin-bottom: 0; }
 .aura :deep(.dt-managed .ant-table-cell) { white-space: nowrap; }
 @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+</style>
+
+<style>
+/* One line per value, compact rows (user, 2026-11-23): the list and the file's window (teleported out of .aura). */
+.aura .dt-fit .ant-table-tbody > tr > td, .aura .dt-fit .ant-table-thead > tr > th,
+.aura-modal .dt-fit .ant-table-tbody > tr > td, .aura-modal .dt-fit .ant-table-thead > tr > th,
+.aura .ant-table-cell, .aura-modal .ant-table-cell { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+.aura .ant-table-cell.col-acts { overflow: visible; padding-left: 2px !important; padding-right: 2px !important; }
+.aura .acts .ant-btn { padding: 0 4px; width: auto; min-width: 0; }
+.aura-modal .ant-table-tbody > tr > td, .aura-modal .ant-table-thead > tr > th { padding-top: 3px !important; padding-bottom: 3px !important; font-size: 12.5px; }
+.aura-modal .ant-table-thead > tr > th { line-height: 1.2; }
 </style>

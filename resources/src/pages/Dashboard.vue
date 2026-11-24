@@ -88,7 +88,15 @@
              goes, where the money comes from and what puts it at risk, then the day's operation. -->
         <!-- Turismo, 2026-11-18: the departures report is the first board the owner and accounting need; then the predictive
              "Mando operativo" (upcoming departures at risk, where to push marketing). -->
-        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
+        <!-- Mayte's two reports as boards (2026-11-23): the day's sales, Lima and Chiclayo side by side, and production per bus. -->
+        <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales">
+          <template #tab><CalendarOutlined /> {{ es ? 'Ventas del día' : "Day's sales" }}</template>
+          <TransportDaySalesPanel :range="rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production">
+          <template #tab><TableOutlined /> {{ es ? 'Producción por bus' : 'Production per bus' }}</template>
+          <TransportProductionPanel :range="rangeFields" />
+        </a-tab-pane>        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
         </a-tab-pane>
@@ -393,7 +401,7 @@ import {
   TagOutlined, AppstoreOutlined, InfoCircleOutlined,
   CreditCardOutlined, BankOutlined, WarningOutlined, ShopOutlined,
   CalculatorOutlined, TeamOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
-  LineChartOutlined, FundOutlined, AimOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined, InboxOutlined,
+  LineChartOutlined, FundOutlined, AimOutlined, CarOutlined, BarChartOutlined, AuditOutlined, ScheduleOutlined, InboxOutlined, CalendarOutlined, TableOutlined,
 } from '@ant-design/icons-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
@@ -412,6 +420,8 @@ import TransportExpensesPanel from '../components/TransportExpensesPanel.vue';
 import TransportOwnerPanel from '../components/TransportOwnerPanel.vue';
 import TransportParcelsPanel from '../components/TransportParcelsPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
+import TransportProductionPanel from '../components/TransportProductionPanel.vue';
+import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
 import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
@@ -448,7 +458,7 @@ const es = computed(() => useUiStore().locale === 'es');
 const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
 // Roles -> "Dashboard tabs" (2026-11-19, Turismo: each role its own board): only those, when the role has a list.
 const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
-const transportPanels = computed(() => [departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
+const transportPanels = computed(() => [profitPanel.value && 'transport_daysales', profitPanel.value && 'transport_production', departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
   .filter(k => !roleTabs.value || roleTabs.value.includes(k)));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));

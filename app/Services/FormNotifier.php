@@ -181,6 +181,38 @@ class FormNotifier
         return self::send($cid, $to, [], $s['from_name'] ?: $company, $subject, $html, $text, $replyTo, (int) $form->id);
     }
 
+    /**
+     * The automatic reply for the visitor's topic (2026-11-23): when the form has a topic field and the reply for the
+     * chosen option is active (the form's admin approved it), that text goes to the email the visitor typed -- instead of
+     * the plain receipt. Returns true when it was sent.
+     */
+    public static function topicReply(object $form, array $fields, array $s, object $sub): bool
+    {
+        if (! $s['topic_field'] || ! $s['topic_replies']) {
+            return false;
+        }
+        $data = json_decode((string) $sub->data, true) ?: [];
+        $reply = $s['topic_replies'][(string) ($data[$s['topic_field']] ?? '')] ?? null;
+        if (! $reply || ! $reply['active'] || $reply['message'] === '') {
+            return false;
+        }
+        $to = $s['confirm_field'] && filter_var(trim((string) ($data[$s['confirm_field']] ?? '')), FILTER_VALIDATE_EMAIL)
+            ? trim((string) $data[$s['confirm_field']]) : self::senderEmail($fields, $s, $sub);
+        if (! $to || self::reserved($to)) {
+            return false;
+        }
+        $cid = (int) $form->company_id;
+        $company = trim((string) DB::table('companies')->where('id', $cid)->value('name')) ?: 'Forms';
+        $ref = $s['number_prefix'].$sub->number;
+        $name = trim((string) ($data['full_name'] ?? $data['name'] ?? ''));
+        $msg = str_replace(['{number}', '{name}'], [$ref, $name], $reply['message']);
+        $subject = str_replace(['{form}', '{number}'], [$form->name, $ref], $reply['subject'] ?: (($s['title'] ?: $form->name).' - '.$ref));
+        $html = self::html($msg, [], null, null, $s['primary_color'], $company);
+        $sent = self::send($cid, [$to], $s['confirm_bcc'], $s['from_name'] ?: $company, $subject, $html, $msg."\n\n--\n{$company}", $s['notify_emails'][0] ?? null, (int) $form->id);
+
+        return ! empty($sent);
+    }
+
     public static function confirmVisitor(object $form, array $fields, array $s, object $sub): array
     {
         if (! $s['confirm_email'] || ! $s['confirm_field']) {

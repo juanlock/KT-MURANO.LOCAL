@@ -39,7 +39,7 @@ class AuraSoftImport
         $plates = DB::table('vehicles')->where('company_id', $companyId)->whereNull('deleted_at')->whereNotNull('plate_number')->where('plate_number', '!=', '')
             ->get(['id', 'plate_number'])->mapWithKeys(fn ($v) => [self::plateKey($v->plate_number) => $v->id]);
 
-        return DB::transaction(function () use ($companyId, $file, $userId, $parsed, $path, $sha, $plates) {
+        $import = DB::transaction(function () use ($companyId, $file, $userId, $parsed, $path, $sha, $plates) {
             $now = now();
             $importId = DB::table('transport_aurasoft_imports')->insertGetId([
                 'company_id' => $companyId, 'file' => $path, 'original_name' => mb_substr($file->getClientOriginalName(), 0, 250), 'sha256' => $sha,
@@ -91,8 +91,16 @@ class AuraSoftImport
                 'seats' => $seats, 'ticket_income' => round($income, 2), 'production' => round($production, 2),
             ]);
 
-            return DB::table('transport_aurasoft_imports')->where('id', $importId)->first();
+            // Its departures reach the boards as Murano departures (2026-11-23), in the same transaction.
+            $keys = DB::table('transport_aurasoft_rows')->where('import_id', $importId)->pluck('departure_key')->unique()->values()->all();
+            $sync = AuraSoftTrips::sync($companyId, $keys);
+            $imp = DB::table('transport_aurasoft_imports')->where('id', $importId)->first();
+            $imp->trips = $sync;
+
+            return $imp;
         });
+
+        return $import;
     }
 
     /**
@@ -103,6 +111,12 @@ class AuraSoftImport
     {
         DB::transaction(function () use ($companyId, $importId) {
             $keys = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('import_id', $importId)->where('is_current', 1)->pluck('departure_key');
+            // The Murano departures they made, remembered on the earlier rows before these go.
+            foreach (DB::table('transport_aurasoft_rows')->where('import_id', $importId)->whereNotNull('trip_id')->get(['departure_key', 'trip_id']) as $r) {
+                DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $r->departure_key)->where('import_id', '!=', $importId)
+                    ->whereNull('trip_id')->update(['trip_id' => $r->trip_id]);
+            }
+            $orphan = DB::table('transport_aurasoft_rows')->where('import_id', $importId)->whereNotNull('trip_id')->pluck('trip_id', 'departure_key');
             DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('import_id', $importId)->delete();
             foreach ($keys as $key) {
                 $prev = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $key)->where('action', '!=', 'same')
@@ -112,6 +126,15 @@ class AuraSoftImport
                 }
             }
             DB::table('transport_aurasoft_imports')->where('company_id', $companyId)->where('id', $importId)->delete();
+            // The departures back to the earlier file's figures; one no file holds any more goes (AuraSoft-made only).
+            AuraSoftTrips::sync($companyId, $keys->all());
+            foreach ($orphan as $key => $tripId) {
+                $stillHeld = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $key)->exists();
+                $own = DB::table('transport_tickets')->where('trip_id', $tripId)->exists() || DB::table('transport_parcels')->where('trip_id', $tripId)->exists();
+                if (! $stillHeld && ! $own) {
+                    DB::table('transport_trips')->where('id', $tripId)->where('source', 'aurasoft')->where('notes', 'AuraSoft')->delete();
+                }
+            }
         });
     }
 

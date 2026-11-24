@@ -205,7 +205,8 @@ class PublicFormController extends Controller
         if ($s['notify']) {
             FormNotifier::submitted($f, $fields, $s, $sub);
         }
-        if ($s['confirm_email']) {
+        // The reply for the visitor's topic (approved by the form's admin) replaces the plain receipt (2026-11-23).
+        if (! FormNotifier::topicReply($f, $fields, $s, $sub) && $s['confirm_email']) {
             FormNotifier::confirmVisitor($f, $fields, $s, $sub);
         }
 
