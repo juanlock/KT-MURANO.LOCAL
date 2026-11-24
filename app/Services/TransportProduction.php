@@ -93,6 +93,19 @@ class TransportProduction
                 'excess' => round($trips->sum('excess'), 2), 'fuel' => $sum('fuel'), 'toll' => $sum('toll'), 'net' => $sum('net'),
                 'lima' => $sum(fn ($b) => $b['lima']['total']), 'chiclayo' => $sum(fn ($b) => $b['chiclayo']['total']),
                 'missing_fuel' => $buses->sum('missing_fuel')],
+            // By service type (the bus's category: CONFORT, MASTER, PREMIUM, EJECUTIVO...), 2026-11-24: what each kind yields.
+            'by_service' => $buses->groupBy(fn ($b) => mb_strtoupper(trim((string) $b['category'])) ?: '—')->map(function ($g, $k) use ($trips) {
+                $ids = $g->pluck('vehicle_id')->all();
+                $tt = $trips->whereIn('vehicle_id', $ids);
+                $seats = $tt->sum('seats');
+                $n = max(1, $tt->count());
+
+                return ['service' => $k, 'buses' => $g->count(), 'trips' => $tt->count(), 'pax' => $tt->sum('pax'),
+                    'occupancy' => $seats ? (int) round($tt->sum('pax') / $seats * 100) : null,
+                    'income' => round($g->sum('income'), 2), 'net' => round($g->sum('net'), 2),
+                    'income_trip' => round($g->sum('income') / $n, 2), 'net_trip' => round($g->sum('net') / $n, 2),
+                    'ticket_avg' => $tt->sum('pax') ? round($tt->sum('tickets') / $tt->sum('pax'), 2) : null];
+            })->sortByDesc('income_trip')->values()->all(),
             'by_day' => $trips->groupBy(fn ($t) => substr($t->at, 0, 10))->map(fn ($g, $d) => ['d' => $d,
                 'income' => round($g->sum('tickets') + $g->sum('parcels') + $g->sum('excess'), 2), 'fuel' => round($g->sum(fn ($t) => (float) $t->fuel), 2),
                 'toll' => round($g->sum(fn ($t) => (float) $t->toll), 2), 'pax' => $g->sum('pax')])->values()->all()];
@@ -164,7 +177,7 @@ class TransportProduction
             }
         }
         $half = fn ($origin) => $trips->where('origin_id', $origin)->map(fn ($t) => [
-            'id' => $t->id, 'bus' => $t->bus, 'seats' => $t->seats, 'pax' => $t->pax, 'free' => $t->seats ? max(0, $t->seats - $t->pax) : null,
+            'id' => $t->id, 'bus' => $t->bus, 'category' => $t->category, 'seats' => $t->seats, 'pax' => $t->pax, 'free' => $t->seats ? max(0, $t->seats - $t->pax) : null,
             'points' => $points[$t->id] ?? [['name' => '', 'at' => $t->at]], 'points_timetable' => isset($timetable[$t->id]),
             'amount' => $t->tickets, 'parcels' => $t->parcels, 'excess' => $t->excess, 'toll' => $t->toll, 'toll_est' => $t->toll_est,
             'fuel' => $t->fuel, 'source' => $t->source,
@@ -223,6 +236,26 @@ class TransportProduction
                 DB::table('transport_trips')->where('id', $id)->update(['fuel_cost' => $part, 'updated_at' => now()]);
             }
         });
+    }
+
+    /**
+     * "Completar el reporte" (2026-11-24, Ventas del día): every round trip of the period, all buses, with what is still
+     * missing (fuel) -- the missing ones first, then by date. Each row carries its trip ids for saveFuel().
+     */
+    public static function pending(int $cid, string $from, string $to, ?array $warehouses): array
+    {
+        $rows = [];
+        foreach (self::byBus($cid, $from, $to, $warehouses)['buses'] as $b) {
+            foreach (self::busTrips($cid, (int) $b['vehicle_id'], $from, $to, $warehouses)['rows'] as $r) {
+                $rows[] = ['bus' => preg_replace('/^Bus\s+/i', '', $b['bus']), 'plate' => $b['plate'], 'out' => $r['out'], 'back' => $r['back'],
+                    'income' => $r['income'], 'fuel' => $r['fuel'] ?: null, 'toll' => $r['toll'], 'toll_est' => $r['toll_est'], 'fuel_missing' => $r['fuel_missing'],
+                    'trip_ids' => array_values(array_filter([$r['out']['id'] ?? null, $r['back']['id'] ?? null])),
+                    'at' => $r['out']['at'] ?? $r['back']['at'] ?? ''];
+            }
+        }
+        usort($rows, fn ($a, $b) => [$b['fuel_missing'], $a['at']] <=> [$a['fuel_missing'], $b['at']]);
+
+        return ['from' => $from, 'to' => $to, 'rows' => $rows, 'missing' => count(array_filter($rows, fn ($r) => $r['fuel_missing']))];
     }
 
     // ---------------------------------------------------------------- the client's two Excel files

@@ -5,6 +5,18 @@
     <a-card v-if="data.enabled" :bordered="false" :body-style="{ padding: '8px' }">
       <a-spin :spinning="loading">
         <TransportStrip :items="tiles" :toggle="false" />
+        <!-- By service type (2026-11-24, user: "confort o premium u otro nos da una diferencia"): per departure, best first. -->
+        <div v-if="services.length > 1" class="pb-svc">
+          <div v-for="s in services" :key="s.service" class="pb-svc-c">
+            <div class="pb-svc-t">{{ s.service }} <span>{{ s.buses }} {{ s.buses === 1 ? 'bus' : 'buses' }} · {{ s.trips }} {{ tr('dep.', 'sal.') }}</span></div>
+            <div class="pb-svc-v">
+              <span><b>{{ s.occupancy != null ? s.occupancy + ' %' : '—' }}</b> {{ tr('occ.', 'ocup.') }}</span>
+              <a-tooltip :title="tr('Income per departure', 'Ingreso por salida')"><span><b>{{ money(s.income_trip) }}</b> /{{ tr('dep.', 'sal.') }}</span></a-tooltip>
+              <a-tooltip :title="tr('Income - fuel - tolls per departure', 'Ingresos - combustible - peaje por salida')"><span :class="s.net_trip < 0 ? 'pb-neg' : 'pb-pos'"><b>{{ money(s.net_trip) }}</b> {{ tr('net', 'neto') }}</span></a-tooltip>
+              <a-tooltip :title="tr('Average ticket', 'Pasaje promedio')"><span>{{ s.ticket_avg != null ? money(s.ticket_avg) : '—' }} {{ tr('ticket', 'pasaje') }}</span></a-tooltip>
+            </div>
+          </div>
+        </div>
         <!-- Her own file, in her own layout (2026-11-24): the summary and one sheet per bus. -->
         <div class="pb-tools">
           <span class="pb-hint">{{ tr('Click a bus to see its round trips and type the fuel.', 'Clic en un bus para ver sus vueltas y escribir el combustible.') }}</span>
@@ -125,6 +137,7 @@ async function saveFuel(row, raw) {
 const loading = ref(false);
 const data = ref({ enabled: false, buses: [], totals: {} });
 const buses = computed(() => data.value.buses || []);
+const services = computed(() => data.value.by_service || []);
 const period = () => {
   const today = dayjs().format('YYYY-MM-DD');
   return { from: props.range?.[0] || dayjs().startOf('month').format('YYYY-MM-DD'), to: props.range?.[1] && props.range[1] < today ? props.range[1] : today };
@@ -229,6 +242,11 @@ function tripTotal(c) {
 .pb-neg { color: #d03b3b; }
 .pb-warn { color: #d97706; font-weight: 700; cursor: help; }
 .pb-note { font-size: 11.5px; opacity: 0.7; margin-top: 6px; }
+.pb-svc { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; margin: 6px 0; }
+.pb-svc-c { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 6px; padding: 4px 8px; min-width: 0; }
+.pb-svc-t { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-svc-t span { font-weight: 400; opacity: 0.6; font-size: 11px; margin-left: 4px; }
+.pb-svc-v { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .pb-tools { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 6px 0; }
 .pb-hint { font-size: 11.5px; opacity: 0.65; margin-right: auto; }
 .pb-est { opacity: 0.5; cursor: help; }

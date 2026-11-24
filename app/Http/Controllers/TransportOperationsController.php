@@ -645,10 +645,34 @@ class TransportOperationsController extends Controller
         $this->allow($request, 'transport_departures_manage');
         $cid = (int) $this->resolveActingCompanyId($request);
         abort_if($cid === 999 || ! ModuleFlags::enabled($cid, 'transport'), 422, __('Pick a company in the header first.'));
+        // Several round trips at once ("Completar el reporte"): {items: [{trip_ids, amount}]}, one transaction.
+        if ($request->has('items')) {
+            $data = $request->validate(['items' => 'required|array|min:1|max:500', 'items.*.trip_ids' => 'required|array|min:1|max:2',
+                'items.*.trip_ids.*' => 'integer', 'items.*.amount' => 'nullable|numeric|min:0|max:100000']);
+            DB::transaction(function () use ($cid, $data) {
+                foreach ($data['items'] as $it) {
+                    \App\Services\TransportProduction::saveFuel($cid, array_map('intval', $it['trip_ids']), isset($it['amount']) ? (float) $it['amount'] : null);
+                }
+            });
+
+            return response()->json(['ok' => true, 'saved' => count($data['items'])]);
+        }
         $data = $request->validate(['trip_ids' => 'required|array|min:1|max:2', 'trip_ids.*' => 'integer', 'amount' => 'nullable|numeric|min:0|max:100000']);
         \App\Services\TransportProduction::saveFuel($cid, array_map('intval', $data['trip_ids']), isset($data['amount']) ? (float) $data['amount'] : null);
 
         return response()->json(['ok' => true]);
+    }
+
+    /** "Completar el reporte" (2026-11-24): the period's round trips with what is missing. GET transport/production/pending?from&to */
+    public function productionPending(Request $request)
+    {
+        $this->allow($request, 'transport_departures_manage');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999 || ! ModuleFlags::enabled($cid, 'transport'), 422, __('Pick a company in the header first.'));
+        $to = $request->input('to') ?: now()->toDateString();
+        $from = $request->input('from') ?: $to;
+
+        return response()->json(\App\Services\TransportProduction::pending($cid, $from, $to, $this->warehouseScopeIds()));
     }
 
     /**

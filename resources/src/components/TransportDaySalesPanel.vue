@@ -13,6 +13,14 @@
           </a-tooltip>
           <!-- Her "REPORTE DEL DIA VENTAS" (2026-11-24): Excel = one sheet per day of the filter's period; PDF = this day. -->
           <span class="ds-tools">
+            <!-- Mayte's day in one place (2026-11-24): upload AuraSoft's report, then complete what it lacks, then her files. -->
+            <a-upload v-if="canUpload" :show-upload-list="false" accept=".xlsx,.xls" :before-upload="uploadAura">
+              <a-button size="small" type="primary" :loading="uploading"><UploadOutlined /> {{ tr('Upload AuraSoft', 'Subir AuraSoft') }}</a-button>
+            </a-upload>
+            <a-tooltip v-if="canUpload" :title="tr('Uploaded files (AuraSoft)', 'Archivos subidos (AuraSoft)')">
+              <a-button size="small" @click="goFiles"><FolderOpenOutlined /> {{ tr('Files', 'Archivos') }}</a-button>
+            </a-tooltip>
+            <a-button v-if="canFuel" size="small" @click="openComplete(null)"><EditOutlined /> {{ tr('Complete', 'Completar') }}</a-button>
             <a-tooltip :title="tr('One sheet per day of the period in the filter above', 'Una hoja por día del período del filtro de arriba')">
               <a-button size="small" :loading="exporting === 'xlsx'" @click="exportFile('xlsx')"><FileExcelOutlined /> Excel</a-button>
             </a-tooltip>
@@ -35,7 +43,7 @@
               </thead>
               <tbody>
                 <tr v-for="(r, i) in h.rows" :key="r.id" :class="{ tint: i % 2 === 0 }">
-                  <td><b>{{ busName(r.bus) }}</b><a-tooltip v-if="r.source" :title="sourceLabel(r.source)"><span class="ds-src">{{ r.source === 'aurasoft' ? 'A' : r.source === 'report' ? 'R' : '' }}</span></a-tooltip></td>
+                  <td><b>{{ busName(r.bus) }}</b><div v-if="r.category" class="svc">{{ r.category }}</div><a-tooltip v-if="r.source" :title="sourceLabel(r.source)"><span class="ds-src">{{ r.source === 'aurasoft' ? 'A' : r.source === 'report' ? 'R' : '' }}</span></a-tooltip></td>
                   <td :class="{ est: r.points_timetable }" :title="r.points_timetable ? tr('From the timetable (the last same departure)', 'Del horario (la última salida igual)') : ''">
                     <div v-for="(p, k) in r.points" :key="k" class="ln">{{ p.name || '—' }}</div></td>
                   <td :class="{ est: r.points_timetable }"><div v-for="(p, k) in r.points" :key="k" class="ln">{{ hm(p.at) }}</div></td>
@@ -73,11 +81,85 @@
       </a-spin>
     </a-card>
     <a-empty v-else-if="!loading" :description="tr('Pick a company with Transport in the top bar to see this.', 'Elige una compañía con Transporte en la barra superior para ver esto.')" />
+
+    <!-- "Completar el reporte": after an upload (or from the button), the period's round trips and their fuel. -->
+    <a-modal v-model:open="cmp.open" width="96vw" :style="{ top: '16px', maxWidth: '1180px' }" :title="tr('Complete the report', 'Completar el reporte')"
+      :ok-text="tr('Save', 'Guardar')" :cancel-text="tr('Close', 'Cerrar')" :confirm-loading="cmp.saving" :ok-button-props="{ disabled: !changedCount }" @ok="saveComplete">
+      <div v-if="cmp.imported" class="cm-imp">
+        <CheckCircleFilled class="cm-ok" />
+        <b>{{ cmp.imported.original_name }}</b> ·
+        {{ tr('period', 'período') }} {{ fmtDate(cmp.imported.period_from) }} – {{ fmtDate(cmp.imported.period_to) }} ·
+        {{ cmp.imported.rows_total }} {{ tr('departures', 'salidas') }}:
+        <span class="c-new">{{ cmp.imported.rows_new }} {{ tr('new', 'nuevas') }}</span>,
+        <span class="c-upd">{{ cmp.imported.rows_updated }} {{ tr('changed', 'actualizadas') }}</span>,
+        {{ cmp.imported.rows_same }} {{ tr('already there', 'ya estaban') }}
+        <a-button size="small" type="link" class="cm-link" @click="goFiles"><FolderOpenOutlined /> {{ tr('Uploaded files', 'Archivos subidos') }}</a-button>
+        <div v-if="!cmp.imported.rows_new && !cmp.imported.rows_updated" class="cm-same">
+          {{ tr('This file brought nothing new: every departure was already there with the same figures. It is kept in the uploaded files anyway.', 'Este archivo no trajo nada nuevo: todas sus salidas ya estaban con las mismas cifras. Igual queda guardado en Archivos subidos.') }}
+        </div>
+        <!-- Departures that came with other figures: before -> now (the new ones replace the earlier, both kept). -->
+        <div v-if="cmp.changes.length" class="cm-changes">
+          <b>{{ tr('Changed departures', 'Salidas con cambios') }} ({{ cmp.changes.length }})</b>
+          <table class="ds-table">
+            <thead><tr><th>Bus</th><th>{{ tr('Date', 'Fecha') }}</th><th>{{ tr('Route', 'Ruta') }}</th><th class="r">Pax</th><th class="r">{{ tr('Tickets', 'Pasajes') }}</th><th class="r">{{ tr('Production', 'Producción') }}</th></tr></thead>
+            <tbody>
+              <tr v-for="c in cmp.changes" :key="c.id">
+                <td><b>{{ c.bus ? busName(c.bus) : c.plate }}</b></td>
+                <td>{{ fmtDate(c.trip_date) }} {{ String(c.departure_time).slice(0, 5) }}</td><td>{{ c.route }}</td>
+                <td class="r"><span class="was">{{ c.before?.seats }}</span> {{ c.seats }}</td>
+                <td class="r"><span class="was">{{ plain(c.before?.ticket_income) }}</span> {{ plain(c.ticket_income) }}</td>
+                <td class="r"><span class="was">{{ plain(c.before?.production) }}</span> <b>{{ plain(c.production) }}</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-else class="cm-imp cm-plain">
+        <a-button size="small" type="link" class="cm-link" @click="goFiles"><FolderOpenOutlined /> {{ tr('Uploaded files (AuraSoft)', 'Archivos subidos (AuraSoft)') }}</a-button>
+      </div>
+      <div class="cm-bar">
+        <span>{{ tr('Period', 'Período') }}</span>
+        <PresetRangeFilter v-model:value="cmp.range" compact @change="loadPending" />
+        <a-checkbox v-model:checked="cmp.onlyMissing">{{ tr('Only missing fuel', 'Solo sin combustible') }} ({{ cmp.data.missing || 0 }})</a-checkbox>
+        <span class="cm-help">{{ tr('Type the round trip\'s fuel (Lima departure + return); it is shared half and half. Then Save.', 'Escriba el combustible de la vuelta (salida de Lima + retorno); se reparte mitad y mitad. Luego Guardar.') }}</span>
+      </div>
+      <a-spin :spinning="cmp.loading">
+        <a-empty v-if="!cmpRows.length && !cmp.loading" :description="cmp.onlyMissing ? tr('Nothing missing in this period.', 'Nada pendiente en este período.') : tr('No departures in this period.', 'Sin salidas en este período.')" />
+        <div v-else class="cm-scroll">
+          <table class="ds-table cm-table">
+            <thead>
+              <tr>
+                <th>Bus</th><th>{{ tr('Departure from Lima', 'Salida de Lima') }}</th><th class="r">Pax</th>
+                <th>{{ tr('Return from Chiclayo', 'Retorno de Chiclayo') }}</th><th class="r">Pax</th>
+                <th class="r">{{ tr('Round trip income', 'Ingreso vuelta') }}</th><th class="r">{{ tr('Toll', 'Peaje') }}</th><th class="r">{{ tr('Fuel', 'Combustible') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(r, i) in cmpRows" :key="r.trip_ids.join('-')" :class="{ tint: i % 2 === 0 }">
+                <td><b>{{ r.bus }}</b> <span class="mut">{{ r.plate }}</span></td>
+                <td>{{ r.out ? dtm(r.out.at) : '—' }}</td><td class="r">{{ r.out?.pax ?? '' }}</td>
+                <td>{{ r.back ? dtm(r.back.at) : '—' }}</td><td class="r">{{ r.back?.pax ?? '' }}</td>
+                <td class="r">{{ plain(r.income) }}</td>
+                <td class="r" :class="{ est: r.toll_est }">{{ plain(r.toll) }}</td>
+                <td class="r">
+                  <a-input-number v-model:value="r.edit" size="small" :min="0" :step="10" :precision="2" :controls="false" placeholder="0.00"
+                    :class="['cm-fuel', { 'cm-miss': r.fuel_missing && r.edit == null }]" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </a-spin>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { UploadOutlined, EditOutlined, CheckCircleFilled, FolderOpenOutlined } from '@ant-design/icons-vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
+import PresetRangeFilter from './PresetRangeFilter.vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { LeftOutlined, RightOutlined, InfoCircleOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons-vue';
@@ -105,6 +187,67 @@ async function load() {
   } catch (e) { data.value = { enabled: false, lima: [], chiclayo: [], channels: {} }; } finally { loading.value = false; }
 }
 function go(d) { day.value = d; load(); }
+
+// ---- upload AuraSoft + complete the report (2026-11-24, for Mayte)
+const auth = useAuthStore();
+const canUpload = computed(() => auth.can('transport_aurasoft_import'));
+const canFuel = computed(() => auth.can('transport_departures_manage'));
+const uploading = ref(false);
+async function uploadAura(file) {
+  uploading.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await http.postForm('transport/aurasoft', fd);
+    // The board jumps to the file's last day; the modal opens on the file's period.
+    if (r.period_to) day.value = r.period_to > dayjs().format('YYYY-MM-DD') ? null : r.period_to;
+    load();
+    openComplete(r);
+  } catch (e) {
+    message.error(e?.data?.message || tr('The file could not be imported.', 'No se pudo importar el archivo.'));
+  } finally { uploading.value = false; }
+  return false;
+}
+const cmp = reactive({ open: false, imported: null, changes: [], range: [], onlyMissing: true, loading: false, saving: false, data: { rows: [], missing: 0 } });
+const router = useRouter();
+// The uploaded files' table (Integración -> Producción AuraSoft).
+function goFiles() { cmp.open = false; router.push('/transport/aurasoft'); }
+async function loadChanges(imp) {
+  cmp.changes = [];
+  if (!imp?.rows_updated) return;
+  try { cmp.changes = (await http.get(`transport/aurasoft/${imp.id}/rows`, { action: 'updated', limit: 200 })).rows || []; } catch (e) { /* only a help */ }
+}
+function openComplete(imported) {
+  cmp.imported = imported;
+  loadChanges(imported);
+  const shown = data.value.date || dayjs().format('YYYY-MM-DD');
+  cmp.range = imported?.period_from ? [imported.period_from, imported.period_to] : (props.range?.[0] ? [props.range[0], props.range[1]] : [shown, shown]);
+  cmp.onlyMissing = true;
+  cmp.open = true;
+  loadPending();
+}
+async function loadPending() {
+  cmp.loading = true;
+  try {
+    const [from, to] = cmp.range?.length ? cmp.range : [];
+    const d = await http.get('transport/production/pending', { from, to });
+    d.rows.forEach(r => { r.edit = r.fuel; });
+    cmp.data = d;
+  } catch (e) { cmp.data = { rows: [], missing: 0 }; message.error(e?.data?.message || tr('It could not be loaded.', 'No se pudo cargar.')); } finally { cmp.loading = false; }
+}
+const cmpRows = computed(() => (cmp.data.rows || []).filter(r => !cmp.onlyMissing || r.fuel_missing));
+const changed = computed(() => (cmp.data.rows || []).filter(r => (r.edit ?? null) !== (r.fuel ?? null)));
+const changedCount = computed(() => changed.value.length);
+async function saveComplete() {
+  cmp.saving = true;
+  try {
+    await http.post('transport/production/fuel', { items: changed.value.map(r => ({ trip_ids: r.trip_ids, amount: r.edit ?? null })) });
+    message.success(tr(`${changedCount.value} round trips saved`, `${changedCount.value} vueltas guardadas`));
+    await loadPending();
+    load();
+  } catch (e) { message.error(e?.data?.message || tr('It could not be saved.', 'No se pudo guardar.')); } finally { cmp.saving = false; }
+}
+const dtm = d => (d ? `${fmtDate(d)} ${dayjs(d).format('hh:mm A')}` : '');
 
 const exporting = ref('');
 async function exportFile(format) {
@@ -163,6 +306,24 @@ const tiles = computed(() => {
 .ds-i { opacity: 0.6; cursor: help; }
 .ds-tools { margin-left: auto; display: inline-flex; gap: 6px; text-transform: none; }
 .ds-table td.est { opacity: 0.5; font-style: italic; }
+.cm-imp { font-size: 12.5px; padding: 6px 8px; margin-bottom: 8px; border-radius: 6px; background: rgba(21, 128, 61, 0.08); }
+.cm-ok { color: #15803d; margin-right: 4px; }
+.cm-plain { background: transparent; padding: 0; }
+.svc { font-size: 9.5px; opacity: 0.6; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-link { padding: 0 4px; height: auto; }
+.cm-same { margin-top: 4px; color: #6b7280; }
+.cm-changes { margin-top: 6px; max-height: 180px; overflow: auto; background: rgba(180, 83, 9, 0.06); padding: 4px 6px; border-radius: 4px; }
+.was { opacity: 0.5; text-decoration: line-through; margin-right: 4px; font-size: 11px; }
+.c-new { color: #15803d; }
+.c-upd { color: #b45309; }
+.cm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 8px; font-size: 12.5px; }
+.cm-help { opacity: 0.6; font-size: 11.5px; }
+.cm-scroll { max-height: calc(100vh - 260px); overflow: auto; }
+.cm-table th { position: sticky; top: 0; background: var(--ant-color-bg-container, #fff); z-index: 1; }
+.cm-table td { vertical-align: middle; }
+.cm-fuel { width: 100px; }
+.cm-fuel :deep(input) { text-align: right; height: 22px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.cm-miss { border-color: #d97706; background: rgba(217, 119, 6, 0.08); }
 .ds-grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
 @media (min-width: 1100px) { .ds-grid { grid-template-columns: 1fr 1fr; } }
 .ds-half { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; overflow: hidden; min-width: 0; display: flex; flex-direction: column; }

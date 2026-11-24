@@ -113,6 +113,12 @@ class TransportAuraSoftController extends Controller
                 'r.parcels', 'r.parcel_income', 'r.excess_income', 'r.production', 'r.action', 'r.is_current', 'v.name as bus']);
         foreach ($rows as $r) {
             $r->channels = json_decode((string) $r->channels, true) ?: [];
+            // A changed departure carries what it was before (2026-11-24: "indica si algún registro tiene cambio").
+            if ($r->action === 'updated') {
+                $key = DB::table('transport_aurasoft_rows')->where('id', $r->id)->value('departure_key');
+                $r->before = DB::table('transport_aurasoft_rows')->where('company_id', $cid)->where('departure_key', $key)->where('id', '<', $r->id)
+                    ->where('action', '!=', 'same')->orderByDesc('id')->first(['seats', 'ticket_income', 'parcel_income', 'excess_income', 'production', 'import_id']);
+            }
         }
 
         return response()->json(['rows' => $rows, 'totalRows' => $total]);

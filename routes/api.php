@@ -828,6 +828,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/departures', 'departures');
         Route::get('/production', 'production');
         Route::post('/production/fuel', 'productionFuel');
+        Route::get('/production/pending', 'productionPending');
         Route::get('/production/export', 'productionExport');
         Route::get('/day-sales', 'daySales');
     });
