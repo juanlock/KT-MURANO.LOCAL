@@ -78,6 +78,7 @@ function buildFullTree(positions, menu, forEditor) {
     if (row?.hidden && !forEditor) return; // hiding a container also hides its descendants (they're never built)
     const overrides = {};
     if (row?.label) { overrides.label = row.label; overrides.raw = true; }
+    if (row?.short_label) overrides.shortLabel = row.short_label;   // the top menu's name (2026-11-24)
     if (row?.icon) overrides.icon = row.icon;
     const entry = Object.keys(overrides).length ? { ...info.entry, ...overrides } : { ...info.entry };
     const parentKey = row ? (row.parent_key ?? null) : info.defaultParentKey;
@@ -103,6 +104,7 @@ function buildFullTree(positions, menu, forEditor) {
     const entry = {
       key: row.key,
       label: row.label || row.key,
+      shortLabel: row.short_label || undefined,
       raw: true,
       custom: true,
       icon: row.icon || 'bar-chart',

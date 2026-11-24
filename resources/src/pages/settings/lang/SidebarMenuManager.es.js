@@ -118,4 +118,11 @@ export default {
     'At the beginning': 'Al principio',
     'At the end': 'Al final',
     'After "{name}"': 'Después de "{name}"',
+    // Short names for the top menu (2026-11-24).
+    'Short name (top menu)': 'Nombre corto (menú de arriba)',
+    'Short name': 'Nombre corto',
+    'Top menu: {name}': 'Menú de arriba: {name}',
+    'Shown when the side menu is collapsed and its groups go to the top bar; the full name appears on hover.': 'Se usa cuando el menú lateral se recoge y sus grupos pasan a la barra de arriba; el nombre completo se ve al pasar el mouse.',
+    'Empty = the proposal: {name}': 'Vacío = la propuesta: {name}',
+    'Use the proposal': 'Usar la propuesta',
 };

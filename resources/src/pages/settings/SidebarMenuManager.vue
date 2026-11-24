@@ -98,6 +98,10 @@
           <span class="smm-col-label">
             <span class="smm-label" :class="{ 'smm-hidden-label': dataRef.hidden }">{{ labelOf(dataRef.entry) }}</span>
             <a-tag v-if="dataRef.type === 'subgroup'" class="smm-tag" :bordered="false">{{ s('group') }}</a-tag>
+            <!-- The top menu's name (2026-11-24): the company's own, else the proposal. -->
+            <a-tooltip v-if="dataRef.type === 'module' && dataRef.isContainer && shortOf(dataRef) && shortOf(dataRef) !== labelOf(dataRef.entry)" :title="s('Short name (top menu)')">
+              <a-tag class="smm-tag" :color="dataRef.entry.shortLabel ? 'cyan' : 'default'" :bordered="false">↑ {{ shortOf(dataRef) }}</a-tag>
+            </a-tooltip>
             <a-tag v-if="dataRef.isCustom" class="smm-tag" color="blue" :bordered="false">{{ s('custom') }}</a-tag>
             <a-tooltip v-if="dataRef.notMine" :title="s('Other roles of the company see it; yours has no permission for it.')">
               <a-tag class="smm-tag" color="default" :bordered="false">{{ s('not in your menu') }}</a-tag>
@@ -129,6 +133,11 @@
             <a-tooltip v-if="isSuperAdmin" :title="s('Rename')">
               <a-button type="text" size="small" @click="openRenameModal(dataRef)">
                 <template #icon><EditOutlined /></template>
+              </a-button>
+            </a-tooltip>
+            <a-tooltip v-if="dataRef.type === 'module' && dataRef.isContainer" :title="s('Short name (top menu)')">
+              <a-button type="text" size="small" @click="openShortModal(dataRef)">
+                <template #icon><FontSizeOutlined /></template>
               </a-button>
             </a-tooltip>
             <a-tooltip :title="dataRef.hidden ? s('Hidden -- click to show') : s('Click to hide')">
@@ -239,6 +248,21 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- Short name for the top menu (2026-11-24): any user who can arrange the menu (it renames nothing). -->
+    <a-modal v-model:open="shortModalVisible" :title="shortTarget ? s('Top menu: {name}', { name: labelOf(shortTarget.entry) }) : ''"
+      :ok-text="s('Save')" :cancel-text="s('Cancel')" @ok="confirmShort">
+      <p class="smm-short-help">{{ s('Shown when the side menu is collapsed and its groups go to the top bar; the full name appears on hover.') }}</p>
+      <a-form layout="vertical">
+        <a-form-item :label="s('Short name')">
+          <a-input v-model:value="shortValue" :maxlength="40" show-count allow-clear :placeholder="shortProposal || ''" @keyup.enter="confirmShort" />
+        </a-form-item>
+      </a-form>
+      <div v-if="shortProposal" class="smm-short-help">
+        {{ s('Empty = the proposal: {name}', { name: shortProposal }) }}
+        <a-button size="small" type="link" @click="shortValue = shortProposal">{{ s('Use the proposal') }}</a-button>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -312,8 +336,9 @@ import {
   SaveOutlined, UndoOutlined, EyeOutlined, EyeInvisibleOutlined, DeleteOutlined,
   PlusOutlined, EditOutlined, LinkOutlined, FolderOutlined, OrderedListOutlined,
   ArrowUpOutlined, ArrowDownOutlined, DragOutlined,
-  HolderOutlined, LoadingOutlined, CheckCircleOutlined, WarningOutlined, SafetyOutlined, SortAscendingOutlined,
+  HolderOutlined, LoadingOutlined, CheckCircleOutlined, WarningOutlined, SafetyOutlined, SortAscendingOutlined, FontSizeOutlined,
 } from '@ant-design/icons-vue';
+import { proposedShort } from '../../config/menuShort';
 import PageHeader from '../../components/PageHeader.vue';
 import { looseTranslation } from '../../i18n';
 import { useLocalText } from '../../lib/useLocalText';
@@ -930,6 +955,30 @@ function removeItem(node) {
   changed();
 }
 
+/* ---------------------------------------- short name for the top menu (2026-11-24) */
+
+const shortModalVisible = ref(false);
+const shortTarget = ref(null);
+const shortValue = ref('');
+const shortProposal = computed(() => (shortTarget.value ? proposedShort(shortTarget.value.key, locale.value) : null));
+/** What the top bar shows for a top-level group: the company's own short name, else the proposal. */
+function shortOf(node) {
+  return node.entry.shortLabel || proposedShort(node.key, locale.value);
+}
+function openShortModal(node) {
+  shortTarget.value = node;
+  shortValue.value = node.entry.shortLabel || '';
+  shortModalVisible.value = true;
+}
+function confirmShort() {
+  const node = shortTarget.value;
+  const v = (shortValue.value || '').trim();
+  // The proposal typed back = no own name (the proposal keeps following the code).
+  node.entry = { ...node.entry, shortLabel: v && v !== shortProposal.value ? v : undefined };
+  changed();
+  shortModalVisible.value = false;
+}
+
 function openRenameModal(node) {
   renameTarget.value = node;
   renameValue.value = labelOf(node.entry);
@@ -1034,6 +1083,7 @@ function flattenPositions(list, parentKey = null) {
       parent_key: parentKey,
       sort_order: index,
       label: (n.isCustom || n.entry.raw) && n.entry.label ? n.entry.label : null,
+      short_label: n.entry.shortLabel || null,
       icon: n.isCustom ? (n.entry.icon || null) : null,
       route: n.isCustom ? (n.entry.href || n.entry.to || null) : null,
       external: n.isCustom ? !!n.entry.href : false,
@@ -1310,6 +1360,11 @@ async function reset() {
 }
 .smm-subgroup .smm-label {
   font-weight: 500;
+}
+.smm-short-help {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 8px;
 }
 .smm-tag {
   flex: none;

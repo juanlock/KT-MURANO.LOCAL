@@ -45,6 +45,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { DownOutlined } from '@ant-design/icons-vue';
 import { looseTranslation } from '../i18n';
+import { proposedShort } from '../config/menuShort';
 import { resolveTarget } from '../config/menu';
 import { MENU_ICONS, fallbackIcon } from '../config/menuIcons';
 import { MENU_ITEM_ICONS } from '../config/menuItemIcons';
@@ -165,6 +166,19 @@ function label(entry) {
 // A static key: the active language's own entry first; when it has none (the
 // key stored with another upper / lower case: SMS_Templates -> sms_templates)
 // looseTranslation, and only then vue-i18n's English fallback / the key.
+/**
+ * A top-level group's name: in the top bar (horizontal, user's rule 2026-11-24) its short name -- the company's own
+ * (Manage Menu -> "Nombre corto") else the code's proposal (config/menuShort.js) -- with the full name on hover.
+ * The side menu always shows the full name.
+ */
+function topLabel(group) {
+  const full = label(group);
+  if (!props.horizontal) return full;
+  const own = group.shortLabel ? (looseTranslation(group.shortLabel) ?? group.shortLabel) : null;
+  const short = own || proposedShort(group.key, locale.value);
+  return short && short !== full ? h('span', { title: full }, short) : full;
+}
+
 function tr(key) {
   if (te(key, locale.value)) return t(key);
   return looseTranslation(key) ?? t(key);
@@ -320,10 +334,10 @@ const items = computed(() => {
       // Show it as an empty submenu instead; it fills in once items get
       // added to it. Hidden while searching -- it can never match anything.
       if (!searchQuery.value) {
-        out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: [] });
+        out.push({ key: group.key, icon: topLevelIcon(group), label: topLabel(group), children: [] });
       }
     } else if (group.children && hasVisibleDescendant(group)) {
-      out.push({ key: group.key, icon: topLevelIcon(group), label: label(group), children: buildGroupChildren(group) });
+      out.push({ key: group.key, icon: topLevelIcon(group), label: topLabel(group), children: buildGroupChildren(group) });
     } else if (group.to) {
       if (!matchesSearch(group)) continue;
       const tgt = resolveTarget(group.to);

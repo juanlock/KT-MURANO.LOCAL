@@ -25,7 +25,7 @@ class MenuPositionController extends Controller
 
         return response()->json(
             MenuPosition::where('company_id', $companyId)
-                ->select('item_key as key', 'parent_key', 'sort_order', 'label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden', 'location')
+                ->select('item_key as key', 'parent_key', 'sort_order', 'label', 'short_label', 'icon', 'route', 'external', 'is_custom', 'template', 'dynamic_table', 'hidden', 'location')
                 ->get()
         );
     }
@@ -52,6 +52,8 @@ class MenuPositionController extends Controller
             'positions.*.parent_key' => 'nullable|string',
             'positions.*.sort_order' => 'required|integer',
             'positions.*.label' => 'nullable|string|max:191',
+            // The top menu's short name (2026-11-24); a company's IT Admin may set it too (it renames nothing).
+            'positions.*.short_label' => 'nullable|string|max:40',
             'positions.*.icon' => 'nullable|string|max:191',
             'positions.*.route' => 'nullable|string|max:191',
             'positions.*.external' => 'nullable|boolean',
@@ -369,6 +371,7 @@ class MenuPositionController extends Controller
                 'parent_key' => $row['parent_key'] ?? null,
                 'sort_order' => $row['sort_order'],
                 'label' => $row['label'] ?? null,
+                'short_label' => isset($row['short_label']) && trim((string) $row['short_label']) !== '' ? trim((string) $row['short_label']) : null,
                 'icon' => $row['icon'] ?? null,
                 'route' => $row['route'] ?? null,
                 'external' => $row['external'] ?? false,
