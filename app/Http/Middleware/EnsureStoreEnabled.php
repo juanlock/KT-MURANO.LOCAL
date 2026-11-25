@@ -13,7 +13,15 @@ class EnsureStoreEnabled
      */
     public function handle(Request $request, Closure $next)
     {
-        $settings = StoreSetting::current();
+        // Security (user's rule, 2026-11-25): a store page opens only for a KNOWN company with the Store module on.
+        // /online_store from a new PC or a private window showed the install's own store (AdminSystem 999, "StoreX"),
+        // and companies with the module off (Ruba: 255 products) still had a public store. Unknown / 999 / module off
+        // = 404, as if the page did not exist.
+        $cid = (int) StoreSetting::currentCompanyId();
+        if ($cid <= 0 || $cid === 999 || ! \App\Support\ModuleFlags::enabled($cid, 'Store')) {
+            abort(404);
+        }
+        $settings = StoreSetting::forCompany($cid);
 
         if (! $settings || ! $settings->enabled) {
             // Root-domain mode: keep "/" useful for staff when the store is off
