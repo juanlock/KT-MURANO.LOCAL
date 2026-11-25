@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
+    use \App\Models\Concerns\ScopedToStoreCompany; // the public storefront sees only its company (2026-11-25)
     protected $dates = ['deleted_at'];
 
     protected $fillable = [

@@ -17,6 +17,8 @@ class WebsiteCompany
     {
         $request->attributes->set('website_company', (int) $companyId);
         $request->attributes->set('website_path', $path);
+        // The website's product blocks show only its company's catalogue (ScopedToStoreCompany, 2026-11-25).
+        app()->instance('store.company_id', (int) $companyId);
 
         return $next($request);
     }

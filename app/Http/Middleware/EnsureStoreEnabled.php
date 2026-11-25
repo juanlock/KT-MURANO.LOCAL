@@ -24,6 +24,10 @@ class EnsureStoreEnabled
 
             abort(404);
         }
+        // Only this store's company catalogue on its pages (ScopedToStoreCompany, 2026-11-25).
+        if ((int) $settings->company_id) {
+            app()->instance('store.company_id', (int) $settings->company_id);
+        }
 
         return $next($request);
     }

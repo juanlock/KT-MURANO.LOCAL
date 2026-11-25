@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Brand extends Model
 {
+    use \App\Models\Concerns\ScopedToStoreCompany; // the public storefront sees only its company (2026-11-25)
     use SoftDeletes;
     protected $dates = ['deleted_at'];
 
