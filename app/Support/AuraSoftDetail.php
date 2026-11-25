@@ -82,10 +82,10 @@ class AuraSoftDetail
                 'rows_total' => array_sum($count), 'rows_new' => $count['new'], 'rows_updated' => $count['updated'], 'rows_same' => $count['same'],
                 'rows_skipped' => count($parsed['skipped']), 'ticket_income' => round($tickets, 2), 'production' => round($income, 2),
             ]);
-            // Its customers become customers of type Pasajero (2026-11-24), in the same transaction.
-            $clients = AuraSoftClients::sync($companyId, $importId);
+            // Its customers go to the passenger base (2026-11-24: transport_passengers, never clients), same transaction.
+            $passengers = AuraSoftPassengers::sync($companyId);
             $imp = DB::table('transport_aurasoft_imports')->where('id', $importId)->first();
-            $imp->clients_new = $clients['new'];
+            $imp->passengers_new = $passengers['new'];
 
             return $imp;
         });

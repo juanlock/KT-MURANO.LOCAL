@@ -669,6 +669,41 @@ class TransportOperationsController extends Controller
         return response()->json(\App\Services\TransportAuraBoards::customers($cid, $from, $to));
     }
 
+    /**
+     * Pasajeros -> Base de pasajeros (2026-11-24): transport_passengers, the standard table's paging / sorting / search.
+     * kind = person | company | phone (with phone) | nodoc (known by name + phone only).
+     */
+    public function passengers(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999, 422, __('Pick a company in the header first.'));
+        ModuleFlags::abortUnlessEnabled($cid, 'transport');
+        $sortable = ['name', 'doc', 'phone', 'first_purchase', 'last_purchase', 'purchases', 'parcels', 'amount', 'online_tickets'];
+        $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : 'last_purchase';
+        $dir = strtolower((string) $request->input('SortType')) === 'asc' ? 'asc' : 'desc';
+        $s = trim((string) $request->input('search'));
+        $q = DB::table('transport_passengers')->where('company_id', $cid)
+            ->when($request->input('kind') === 'person', fn ($q) => $q->where('is_company', 0)->whereNotNull('doc'))
+            ->when($request->input('kind') === 'company', fn ($q) => $q->where('is_company', 1))
+            ->when($request->input('kind') === 'phone', fn ($q) => $q->whereNotNull('phone'))
+            ->when($request->input('kind') === 'nodoc', fn ($q) => $q->whereNull('doc'))
+            ->when($s !== '', fn ($q) => ctype_digit($s)
+                ? $q->where(fn ($w) => $w->where('doc', 'like', "$s%")->orWhere('phone', 'like', "%$s%"))
+                : $q->where('name', 'like', '%'.$s.'%'));
+        $total = (clone $q)->count();
+        $limit = max(1, min(500, (int) $request->input('limit', 50)));
+        $rows = $q->orderByRaw("$field IS NULL")->orderBy($field, $dir)->orderBy('id')->forPage(max(1, (int) $request->input('page', 1)), $limit)
+            ->get(['id', 'doc', 'name', 'is_company', 'phone', 'phones', 'first_purchase', 'last_purchase', 'purchases', 'parcels', 'amount', 'online_tickets', 'last_online']);
+        foreach ($rows as $r) {
+            $r->phones = json_decode((string) $r->phones, true) ?: [];
+        }
+        $sum = DB::table('transport_passengers')->where('company_id', $cid)
+            ->selectRaw('COUNT(*) n, SUM(is_company) companies, SUM(phone IS NOT NULL) with_phone, SUM(doc IS NULL) no_doc')->first();
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total, 'summary' => $sum]);
+    }
+
     /** "Encomiendas AuraSoft" (2026-11-24): parcels still to deliver (kardex) and what is left to collect at destination. */
     public function auraParcels(Request $request)
     {

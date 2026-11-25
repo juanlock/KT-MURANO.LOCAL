@@ -795,6 +795,7 @@ const routes = [
             { path: 'transport/routes', name: 'transport-routes', component: () => import('../pages/transport/TransportRoutes.vue'), meta: { title: 'Routes and locations', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/staff', name: 'transport-staff', component: () => import('../pages/transport/TransportStaff.vue'), meta: { title: 'Active staff', permission: ['transport_view', 'transport_manage'] } },
             { path: 'transport/today', name: 'transport-today', component: () => import('../pages/transport/TransportToday.vue'), meta: { title: 'Transport_Today', permission: 'transport_supervise' } },
+            { path: 'transport/passengers', name: 'transport-passengers', component: () => import('../pages/transport/TransportPassengers.vue'), meta: { title: 'Transport_Passengers', permission: 'transport_profit' } },
             { path: 'transport/aurasoft', name: 'transport-aurasoft', component: () => import('../pages/transport/TransportAuraSoft.vue'), meta: { title: 'Transport_AuraSoft', permission: 'transport_aurasoft_import' } },
             { path: 'transport/daily', name: 'transport-daily', component: () => import('../pages/transport/TransportDaily.vue'), meta: { title: 'Transport_Daily', permission: ['transport_departures_view', 'transport_departures_manage'] } },
             { path: 'transport/agency', name: 'transport-agency', component: () => import('../pages/transport/TransportAgency.vue'), meta: { title: 'Transport_MyAgency', permission: 'transport_agency_view' } },

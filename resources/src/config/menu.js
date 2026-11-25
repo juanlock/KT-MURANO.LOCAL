@@ -324,6 +324,7 @@ export const MIGRATED_ROUTES = {
     '/app/transport/today': '/transport/today',
     '/app/transport/daily': '/transport/daily',
     '/app/transport/aurasoft': '/transport/aurasoft',
+    '/app/transport/passengers': '/transport/passengers',
     '/app/b2b/dashboard': '/b2b/dashboard',
     '/app/b2b/guides': '/b2b/guides',
     '/app/b2b/collections': '/b2b/collections',
@@ -1063,6 +1064,8 @@ export const MENU = [
         permissions: ['transport_aurasoft_import'],
         children: [
             { label: 'Transport_AuraSoft', to: '/app/transport/aurasoft', permissions: ['transport_aurasoft_import'] },
+            // Base de pasajeros (2026-11-24): AuraSoft's buyers (DNI / RUC + phone), its own table, never Customers.
+            { label: 'Transport_Passengers', to: '/app/transport/passengers', permissions: ['transport_profit'] },
         ],
     },
     {

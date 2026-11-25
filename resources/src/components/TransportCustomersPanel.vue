@@ -28,7 +28,8 @@
               <thead><tr><th>{{ tr('Customer', 'Cliente') }}</th><th>{{ tr('Purch.', 'Compras') }}</th><th>{{ tr('Last', 'Última') }}</th><th>S/</th></tr></thead>
               <tbody>
                 <tr v-for="c in data.top" :key="c.doc">
-                  <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}<span v-if="c.first >= data.from" class="cu-new">{{ tr('new', 'nuevo') }}</span></td>
+                  <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}<span v-if="c.first >= data.from" class="cu-new">{{ tr('new', 'nuevo') }}</span>
+                    <a v-if="c.phone" class="cu-wa" :href="`https://wa.me/${c.phone}`" target="_blank" rel="noopener" :title="'+' + c.phone"><WhatsAppOutlined /></a></td>
                   <td class="cu-num">{{ c.n }}<span v-if="c.parcels" class="cu-mut"> · {{ c.parcels }} {{ tr('parc.', 'enc.') }}</span></td>
                   <td class="cu-num">{{ date(c.last) }}</td>
                   <td class="cu-num"><b>{{ plain(c.amount) }}</b></td>
@@ -47,7 +48,8 @@
               <thead><tr><th>{{ tr('Customer', 'Cliente') }}</th><th>{{ tr('Purch.', 'Compras') }}</th><th>{{ tr('Last', 'Última') }}</th><th>S/</th></tr></thead>
               <tbody>
                 <tr v-for="c in data.lost" :key="c.doc">
-                  <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}</td>
+                  <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}
+                    <a v-if="c.phone" class="cu-wa" :href="`https://wa.me/${c.phone}`" target="_blank" rel="noopener" :title="'+' + c.phone"><WhatsAppOutlined /></a></td>
                   <td class="cu-num">{{ c.n }}</td><td class="cu-num">{{ date(c.last) }}</td><td class="cu-num"><b>{{ plain(c.amount) }}</b></td>
                 </tr>
               </tbody>
@@ -55,7 +57,7 @@
           </div>
         </div>
         <div class="cu-note">
-          {{ tr('From AuraSoft\'s "Liquidación Detallada" (customers with DNI / RUC). They are in People -> Customers as type Passenger, without portal.', 'De la «Liquidación Detallada» de AuraSoft (clientes con DNI / RUC). Están en Personas -> Clientes como tipo Pasajero, sin portal.') }}
+          {{ tr('From AuraSoft\'s "Liquidación Detallada" (customers with DNI / RUC). They are in Passengers -> Passenger base.', 'De la «Liquidación Detallada» de AuraSoft (clientes con DNI / RUC). Están en Pasajeros -> Base de pasajeros.') }}
           <template v-if="data.available?.from"> {{ tr('Data from', 'Hay datos del') }} {{ date(data.available.from) }} {{ tr('to', 'al') }} {{ date(data.available.to) }}.</template>
         </div>
       </a-spin>
@@ -67,7 +69,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
-import { InfoCircleOutlined } from '@ant-design/icons-vue';
+import { InfoCircleOutlined, WhatsAppOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { BLUE, ORANGE, useTransportCharts } from '../lib/transportCharts';
 import { useFormat } from '../composables/useFormat';
@@ -97,7 +99,8 @@ const emptyText = computed(() => (data.value.available?.from
 const tiles = computed(() => {
   const t = data.value.totals || {};
   return [
-    { label: tr('Customers who bought', 'Clientes que compraron'), value: num(t.active), help: `${num(data.value.passengers)} ${tr('passengers in Customers', 'pasajeros en Clientes')}` },
+    { label: tr('Customers who bought', 'Clientes que compraron'), value: num(t.active),
+      help: `${num(data.value.passengers)} ${tr('in the passenger base', 'en la base de pasajeros')}, ${num(data.value.with_phone)} ${tr('with phone', 'con celular')}` },
     { label: tr('New', 'Nuevos'), value: num(t.new), help: tr('First purchase ever in this period.', 'Primera compra en este período.') },
     { label: tr('Returning', 'Volvieron'), value: num(t.returning) },
     { label: tr('People / companies', 'Personas / empresas'), value: `${num(t.people)} / ${num(t.companies)}` },
@@ -148,6 +151,7 @@ const weekOptions = computed(() => {
 .cu-tag.ruc { background: rgba(58, 79, 196, 0.14); color: #3A4FC4; }
 .cu-tag.dni { background: rgba(128, 128, 128, 0.16); }
 .cu-new { font-size: 10px; margin-left: 6px; padding: 0 4px; border-radius: 3px; background: rgba(230, 108, 55, 0.15); color: #C2410C; }
+.cu-wa { margin-left: 6px; color: #25D366; }
 .cu-note { font-size: 11.5px; opacity: 0.65; margin-top: 6px; }
 @media (max-width: 900px) { .cu-grid { grid-template-columns: 1fr; } .cu-box { max-height: none; } }
 </style>

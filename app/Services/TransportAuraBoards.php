@@ -117,7 +117,7 @@ class TransportAuraBoards
             $n = (int) $c->n;
             $freq[$n === 1 ? '1' : ($n === 2 ? '2' : ($n <= 5 ? '3-5' : ($n <= 10 ? '6-10' : '11+')))]++;
         }
-        $row = fn ($c) => ['doc' => $c->client_doc, 'name' => \App\Support\AuraSoftClients::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
+        $row = fn ($c) => ['doc' => $c->client_doc, 'name' => \App\Support\AuraSoftPassengers::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
             'n' => (int) $c->n, 'parcels' => (int) ($c->parcels ?? 0), 'amount' => round((float) $c->amount, 2), 'last' => $c->last, 'first' => $c->first ?? null];
         $top = $per->sortByDesc('amount')->take(15)->map($row)->values();
         $topCompanies = $per->filter(fn ($c) => strlen($c->client_doc) === 11)->sortByDesc('amount')->take(10)->map($row)->values();
@@ -142,12 +142,17 @@ class TransportAuraBoards
             ->where('n', '>=', 3)->where('last', '<', $cut)->orderByDesc('amount');
         $lostCount = (clone $lost)->count();
         $lostTop = $lost->limit(12)->get()->map($row)->values();
+        $phones = DB::table('transport_passengers')->where('company_id', $cid)
+            ->whereIn('doc', $top->pluck('doc')->merge($lostTop->pluck('doc'))->merge($topCompanies->pluck('doc'))->unique()->values())->pluck('phone', 'doc');
+        $withPhone = fn ($list) => $list->map(fn ($r) => $r + ['phone' => $phones[$r['doc']] ?? null])->values();
+        [$top, $lostTop, $topCompanies] = [$withPhone($top), $withPhone($lostTop), $withPhone($topCompanies)];
 
         return [
             'enabled' => true, 'from' => $from, 'to' => $to, 'available' => ['from' => $available->d1 ?? null, 'to' => $available->d2 ?? null],
             'totals' => ['amount' => round($tot['amount'], 2), 'company_amount' => round($tot['company_amount'], 2), 'lost' => $lostCount,
                 'avg' => $tot['active'] ? round($tot['amount'] / $tot['active'], 2) : 0] + array_intersect_key($tot, array_flip(['active', 'new', 'returning', 'people', 'companies'])),
-            'passengers' => (int) DB::table('clients')->where('company_id', $cid)->where('client_type', 'passenger')->whereNull('deleted_at')->count(),
+            'passengers' => (int) DB::table('transport_passengers')->where('company_id', $cid)->count(),
+            'with_phone' => (int) DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('phone')->count(),
             'frequency' => $freq, 'weeks' => array_values($weeks), 'top' => $top, 'top_companies' => $topCompanies, 'lost' => $lostTop,
         ];
     }
