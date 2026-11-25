@@ -33,10 +33,18 @@ class StoreSetting extends Model
             if ($isStore && $r->hasSession()) {
                 $r->session()->put('store_company', $cid);
             }
+            if ($isStore || $r->attributes->get('website_company')) {
+                \Illuminate\Support\Facades\Cookie::queue('store_company', (string) $cid, 60 * 24 * 30, '/');
+            }
 
             return $cid;
         }
         try {
+            // The last store visited (2026-11-25): a company website (/hordex) or a link with its company -- shared by
+            // the website pages and the store pages, which use different session cookies.
+            if ($isStore && ($cid = (int) $r->cookie('store_company')) > 0) {
+                return $cid;
+            }
             if ($isStore) {
                 if ($r->hasSession() && ($cid = (int) $r->session()->get('store_company'))) {
                     return $cid;
