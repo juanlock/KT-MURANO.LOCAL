@@ -9,7 +9,12 @@
     <a-popover v-model:open="open" trigger="click" placement="bottomLeft" overlay-class-name="dpc-pop">
       <template #content>
         <div class="dpc-cal">
-          <a-calendar :fullscreen="false" :value="calValue" @select="onSelect" />
+          <!-- Its own shown month (2026-11-25, the client: changing Nov to Oct did nothing -- the calendar was bound to the
+               picked day, so it snapped back). It follows the month / year chosen in its header. -->
+          <!-- The header's month / year lists open inside the popover: outside it, a click on them closed the popover. -->
+          <a-config-provider :get-popup-container="calContainer">
+            <a-calendar :fullscreen="false" :value="viewValue" @select="onSelect" @panel-change="d => (viewValue = d)" @change="d => (viewValue = d)" />
+          </a-config-provider>
           <div class="dpc-foot">
             <a-button size="small" type="link" @click="pickDate(today)">{{ $t('Today') }}</a-button>
           </div>
@@ -33,7 +38,7 @@
  * with the arrows; the parent then selects the "day" preset and reloads, so presetRange('day') returns that day.
  * `active` = the filter is on one day picked this way.
  */
-import { computed, ref } from 'vue';
+import { ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import { LeftOutlined, RightOutlined, CalendarOutlined, StarFilled } from '@ant-design/icons-vue';
 import { pickedDay, shiftPickedDay } from '../lib/datePresets';
@@ -53,7 +58,10 @@ const { date } = useFormat();
 const L = (en, es) => (String(i18n.global.locale.value || 'en').startsWith('es') ? es : en);
 const open = ref(false);
 const today = dayjs().format('YYYY-MM-DD');
-const calValue = computed(() => dayjs(pickedDay.value || today));
+const viewValue = ref(dayjs(pickedDay.value || today));
+const calContainer = trigger => trigger?.closest?.('.dpc-cal') || document.body;
+// Each time it opens, it starts on the picked day's month.
+watch(open, o => { if (o) viewValue.value = dayjs(pickedDay.value || today); });
 
 function pickDate(d) {
   pickedDay.value = d;
@@ -62,7 +70,10 @@ function pickDate(d) {
 }
 // The calendar also fires select when its month / year changes: only a day closes it.
 function onSelect(d, info) {
-  if (info && info.source && info.source !== 'date') return;
+  if (info && info.source && info.source !== 'date') {
+    viewValue.value = d;
+    return;
+  }
   pickDate(d.format('YYYY-MM-DD'));
 }
 function move(n) {
@@ -76,6 +87,6 @@ function move(n) {
 .dpc-btn { display: inline-flex; align-items: center; gap: 4px; }
 .dpc-arrow { padding: 0 6px; }
 .dpc-star { font-size: 10px; color: #faad14; }
-.dpc-cal { width: 290px; }
+.dpc-cal { width: 290px; position: relative; }
 .dpc-foot { display: flex; justify-content: flex-end; border-top: 1px solid rgba(128, 128, 128, 0.15); }
 </style>
