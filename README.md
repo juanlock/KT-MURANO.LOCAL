@@ -203,6 +203,22 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-25 (Thundera)
+
+- **Turismo -> Base de pasajeros -> «Por verificar»:** the names that appear with several DNI / RUC numbers, each with
+  its documents and the names the base and SUNAT give them. Read only: AuraSoft's imported data is never changed.
+- **Forms dashboard, suggested replies:** a window shows the text to confirm and turn it on, without opening the form
+  editor (new permission "Respuestas sugeridas"; editing the form stays with the IT Admin).
+- **Hordex invoices and guides:** invoices linked to the guides they came from, the purchase orders corrected, and the
+  guides still to invoice reviewed.
+- **Hordex online store** at `/hordex`: grocery template, in Spanish, the client's logo, its products with their prices
+  and basic pictures (to be replaced with real photos), cash on delivery or pickup only.
+- **Each online store shows only its company:** its products, categories, pages and its own language; the visit stays
+  in the store last entered.
+- **Security:** a store page whose company is unknown, the install's own (999) or one with the Store module off answers
+  404 (before, `/online_store` from a new PC showed the install's store, and stores with the module off were public).
+- Setup: `php artisan migrate` and `npm run build`.
+
 ### 2026-11-24 (Thundera)
 
 - **Mayte's reports from AuraSoft's files:** Ventas del día and Producción por bus fill in fuel per round trip (typed once,
@@ -276,26 +292,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Hordex invoices**: new invoice with the client's guides and / or products, Edit (clear and rebuild from a guide),
   Revert a cancellation; the "En producción" switch in Companies.
 - **Turismo Cautivo**: Forms at the top of its menu; the questionnaire moved to KcolTech; the owner is Julio Valladares.
-- Setup: `php artisan migrate` and `npm run build`.
-
-### 2026-11-22 (Optimum, earlier)
-
-- **Projects rebuilt around the four pillars**: every project's stages are Requerimiento, Análisis y Diseño,
-  Implementación and Puesta en Marcha; a new project is born with them plus objective 1 "Definición del alcance" and its
-  meeting. Eight project templates (system from scratch, language migration, new office, hiring, security audit, cloud
-  migration, digital assessment, help desk) fill those stages with tasks, roles and approximate dates.
-- **Objectives**: grouped by pillar with a colour each, numbered in order, collapsible (remembered); each objective
-  creates its task and assigns it; completed tasks show one line of what they were; assignees as avatars (our staff /
-  the client's in two colours).
-- **A task opens in a side panel (70 %)**: name, requirement / why, the informative box in the status colour, meetings
-  (date, medium, link, Outlook invitation), the activity log with date, time and %, and documents, links (with YouTube /
-  TikTok previews) and pasted screenshots; Guardar / Guardar y cerrar.
-- **Mis proyectos**: any member (also the client's staff) sees their projects and tasks, records progress and uploads
-  documents on the tasks assigned to them. Project → Configuración: links, web access and each member's credentials
-  (copy, WhatsApp, email). Members show user and password.
-- **Company logins** opens by group (access and roles / other staff / customers) and loads much faster.
-- **Country from a list and phones with their country code** in every form; the company's country comes first and
-  still sets the date format.
 - Setup: `php artisan migrate` and `npm run build`.
 
 ## Session protocols
