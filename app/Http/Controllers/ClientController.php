@@ -185,6 +185,7 @@ class ClientController extends BaseController
             $item['name'] = $client->name;
             $item['phone'] = $client->phone;
             $item['tax_number'] = $client->tax_number;
+            $item['client_type'] = $client->client_type ?? null; // 'passenger' = from AuraSoft, no portal (2026-11-24)
             $item['code'] = $client->code;
             $item['email'] = $client->email;
             $item['woocommerce_id'] = $client->woocommerce_id;

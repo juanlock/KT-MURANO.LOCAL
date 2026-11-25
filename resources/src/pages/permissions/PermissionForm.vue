@@ -233,6 +233,7 @@ const tabOptions = computed(() => [
   ['transport_daysales', "Day's sales", 'Ventas del día'], ['transport_production', 'Production per bus', 'Producción por bus'],
   ['transport_pointsales', 'Sales by point of sale', 'Ventas por punto de venta'],
   ['transport_cashbook', 'Cash and customers', 'Caja y clientes'],
+  ['transport_customers', 'Customers', 'Clientes'],
   ['transport_aura_parcels', 'AuraSoft parcels', 'Encomiendas AuraSoft'],
   ['transport_departures', 'Departures report', 'Reporte de salidas'], ['transport_outlook', 'Operations outlook', 'Mando operativo'],
   ['transport_owner', 'Business summary', 'Resumen del negocio'], ['transport_profit', 'Profit by route', 'Rentabilidad por ruta'],

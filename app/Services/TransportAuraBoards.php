@@ -85,6 +85,73 @@ class TransportAuraBoards
         ];
     }
 
+    /**
+     * "Clientes" (2026-11-24): who buys, from the Liquidación Detallada's DNI / RUC (the customers of type Pasajero).
+     * In the period: active customers, new ones (first purchase ever in the period) and returning ones, people vs
+     * companies, how often they buy, the best customers, new vs returning by week, and the good customers who stopped
+     * buying (3+ purchases before, none in the last 30 days up to the period's end) -- the ones to win back.
+     */
+    public static function customers(int $cid, string $from, string $to): array
+    {
+        $sale = fn () => DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)
+            ->whereIn('module', self::SALE_MODULES)->whereNotNull('client_doc')->where('client_doc', '!=', '')
+            ->where(fn ($w) => $w->whereNull('status')->orWhere('status', '!=', 'ANULADO'));
+        $available = DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)->selectRaw('MIN(sale_date) d1, MAX(sale_date) d2')->first();
+        $first = $sale()->groupBy('client_doc')->selectRaw('client_doc, MIN(sale_date) f');
+        $per = DB::query()->fromSub($sale()->whereBetween('sale_date', [$from, $to])->groupBy('client_doc')
+            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, SUM(module = \'VEN_ENC\' OR module = \'COB_DES\') parcels'), 'p')
+            ->joinSub($first, 'f', 'f.client_doc', '=', 'p.client_doc')
+            ->select(['p.client_doc', 'p.n', 'p.amount', 'p.last', 'p.client', 'p.parcels', 'f.f as first'])->get();
+        $tot = ['active' => 0, 'new' => 0, 'returning' => 0, 'people' => 0, 'companies' => 0, 'amount' => 0.0, 'company_amount' => 0.0];
+        $freq = ['1' => 0, '2' => 0, '3-5' => 0, '6-10' => 0, '11+' => 0];
+        foreach ($per as $c) {
+            $tot['active']++;
+            $isNew = $c->first >= $from;
+            $tot[$isNew ? 'new' : 'returning']++;
+            $co = strlen($c->client_doc) === 11;
+            $tot[$co ? 'companies' : 'people']++;
+            $tot['amount'] += (float) $c->amount;
+            if ($co) {
+                $tot['company_amount'] += (float) $c->amount;
+            }
+            $n = (int) $c->n;
+            $freq[$n === 1 ? '1' : ($n === 2 ? '2' : ($n <= 5 ? '3-5' : ($n <= 10 ? '6-10' : '11+')))]++;
+        }
+        $row = fn ($c) => ['doc' => $c->client_doc, 'name' => \App\Support\AuraSoftClients::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
+            'n' => (int) $c->n, 'parcels' => (int) ($c->parcels ?? 0), 'amount' => round((float) $c->amount, 2), 'last' => $c->last, 'first' => $c->first ?? null];
+        $top = $per->sortByDesc('amount')->take(15)->map($row)->values();
+        $topCompanies = $per->filter(fn ($c) => strlen($c->client_doc) === 11)->sortByDesc('amount')->take(10)->map($row)->values();
+
+        // New vs returning by week (Monday), inside the period.
+        $weeks = [];
+        $firstOf = $per->pluck('first', 'client_doc');
+        foreach ($sale()->whereBetween('sale_date', [$from, $to])->groupBy('client_doc', DB::raw('YEARWEEK(sale_date, 1)'))
+            ->selectRaw('client_doc, MIN(sale_date) d')->get() as $w) {
+            $wk = date('Y-m-d', strtotime('monday this week', strtotime($w->d)));
+            $weeks[$wk] ??= ['week' => $wk, 'new' => 0, 'returning' => 0];
+            $f = $firstOf[$w->client_doc] ?? null;
+            $isNewThatWeek = $f && date('Y-m-d', strtotime('monday this week', strtotime($f))) === $wk;
+            $weeks[$wk][$isNewThatWeek ? 'new' : 'returning']++;
+        }
+        ksort($weeks);
+
+        // Good customers who stopped: 3+ purchases up to 30 days before the end, none since.
+        $cut = date('Y-m-d', strtotime($to.' -30 days'));
+        $lost = DB::query()->fromSub($sale()->where('sale_date', '<=', $to)->groupBy('client_doc')
+            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, MIN(sale_date) first, SUM(module = \'VEN_ENC\' OR module = \'COB_DES\') parcels'), 'h')
+            ->where('n', '>=', 3)->where('last', '<', $cut)->orderByDesc('amount');
+        $lostCount = (clone $lost)->count();
+        $lostTop = $lost->limit(12)->get()->map($row)->values();
+
+        return [
+            'enabled' => true, 'from' => $from, 'to' => $to, 'available' => ['from' => $available->d1 ?? null, 'to' => $available->d2 ?? null],
+            'totals' => ['amount' => round($tot['amount'], 2), 'company_amount' => round($tot['company_amount'], 2), 'lost' => $lostCount,
+                'avg' => $tot['active'] ? round($tot['amount'] / $tot['active'], 2) : 0] + array_intersect_key($tot, array_flip(['active', 'new', 'returning', 'people', 'companies'])),
+            'passengers' => (int) DB::table('clients')->where('company_id', $cid)->where('client_type', 'passenger')->whereNull('deleted_at')->count(),
+            'frequency' => $freq, 'weeks' => array_values($weeks), 'top' => $top, 'top_companies' => $topCompanies, 'lost' => $lostTop,
+        ];
+    }
+
     public static function parcels(int $cid): array
     {
         $today = now()->toDateString();

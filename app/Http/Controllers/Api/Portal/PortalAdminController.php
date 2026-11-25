@@ -35,6 +35,8 @@ class PortalAdminController extends Controller
     {
         $user = $client->user_id ? PortalClient::find($client->user_id) : null;
         if (! $user && $create) {
+            // A passenger never has a portal (user's rule, 2026-11-24).
+            abort_if(($client->client_type ?? null) === 'passenger', 422, __('A passenger has no portal access.'));
             $createdId = LinkedUserService::provision((int) $client->company_id, 'customer', 'Customer', (string) $client->name, $client->email, $client->phone);
             $client->update(['user_id' => $createdId]);
             $user = PortalClient::find($createdId);

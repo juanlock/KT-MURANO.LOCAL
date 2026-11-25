@@ -357,5 +357,6 @@
     "No parcels were found in the \"Kardex de encomiendas por entregar\".": "No se encontraron encomiendas en el «Kardex de encomiendas por entregar».",
     "The \"Conciliación de documentos por cobrar\" is not imported: Murano works out what is left to collect from the \"Liquidación Detallada\". Upload that one.": "La «Conciliación de documentos por cobrar» no se importa: Murano calcula lo que falta cobrar con la «Liquidación Detallada». Suba esa.",
     "The file could not be read.": "No se pudo leer el archivo.",
+    "A passenger has no portal access.": "Un pasajero no tiene acceso al portal.",
     "The \"Liquidación Detallada\" is not imported yet: upload the \"Liquidación General\" or the \"Reporte producción por bus\".": "La «Liquidación Detallada» todavía no se importa: suba la «Liquidación General» o el «Reporte producción por bus»."
 }

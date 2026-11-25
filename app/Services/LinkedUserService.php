@@ -253,7 +253,8 @@ class LinkedUserService
      */
     public static function ensureForClient(Client $client, string $type = 'customer', string $roleName = 'Customer'): ?int
     {
-        if ($client->user_id || ! $client->company_id) {
+        // A passenger (client_type 'passenger', from AuraSoft; user's rule 2026-11-24) never gets a login / portal.
+        if ($client->user_id || ! $client->company_id || ($client->client_type ?? null) === 'passenger') {
             return null;
         }
         $client->user_id = self::provision((int) $client->company_id, $type, $roleName, (string) $client->name, $client->email, $client->phone);

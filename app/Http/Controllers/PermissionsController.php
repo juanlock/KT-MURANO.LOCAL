@@ -163,7 +163,7 @@ class PermissionsController extends BaseController
     }
 
     /** Roles -> "Dashboard tabs" (2026-11-19): the known tab keys only; empty = every tab the permissions allow (null). */
-    public const DASHBOARD_TABS = ['transport_daysales', 'transport_production', 'transport_pointsales', 'transport_cashbook', 'transport_aura_parcels', 'transport_departures', 'transport_outlook', 'transport_owner', 'transport_profit', 'transport_expenses',
+    public const DASHBOARD_TABS = ['transport_daysales', 'transport_production', 'transport_pointsales', 'transport_cashbook', 'transport_customers', 'transport_aura_parcels', 'transport_departures', 'transport_outlook', 'transport_owner', 'transport_profit', 'transport_expenses',
         'transport_indicators', 'transport_risks', 'transport_parcels', 'transport_claims', 'transport_monitor', 'transport'];
 
     private static function dashboardTabs($value): ?string

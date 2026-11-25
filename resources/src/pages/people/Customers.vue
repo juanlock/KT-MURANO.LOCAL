@@ -105,6 +105,8 @@
              the Sales list filtered to exactly the sales behind that number. -->
         <template v-if="column.key === 'name'">
           <a @click="router.push(`/customers/${record.id}/details`)">{{ record.name }}</a>
+          <!-- A passenger from AuraSoft: identified by DNI / RUC, never a portal (2026-11-24). -->
+          <a-tag v-if="record.client_type === 'passenger'" class="passenger-tag" color="purple">{{ locale === 'es' ? 'Pasajero' : 'Passenger' }}</a-tag>
         </template>
         <template v-else-if="column.key === 'total_amount'">
           <a @click="openSales(record)">{{ money(record.total_amount) }}</a>
@@ -177,7 +179,7 @@
                 <a-menu-item v-if="auth.customerOpeningBalanceEnabled" key="opening-balance">
                   <CalculatorOutlined /> {{ $t('Adjust_Opening_Balance') }}
                 </a-menu-item>
-                <a-menu-item key="portal">
+                <a-menu-item v-if="record.client_type !== 'passenger'" key="portal">
                   <KeyOutlined /> {{ $t('Portal_Client') }}
                 </a-menu-item>
                 <a-menu-item v-if="auth.can('Customers_edit')" key="edit">
@@ -407,7 +409,7 @@ import { useFormat } from '../../composables/useFormat';
 import { useAuthStore } from '../../stores/auth';
 import http from '../../lib/http';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { isSystem } = useSystemContext();
 const { money, roundMoney } = useFormat();
 const auth = useAuthStore();
