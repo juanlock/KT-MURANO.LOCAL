@@ -31,12 +31,14 @@
     .cix { background: #f9f0ff; color: #531dab; }
     .pt { display: block; }
     .foot { margin-top: 8px; color: #6b7280; font-size: 8px; }
+    .src { color: #4b5563; font-size: 8px; margin: -6px 0 8px; }
 </style>
 </head>
 <body>
 @if ($kind === 'production')
     <h1>Producción por bus</h1>
     <div class="sub">{{ $company }} · del {{ date('d/m/Y', strtotime($data['from'])) }} al {{ date('d/m/Y', strtotime($data['to'])) }}</div>
+    @if (!empty($source))<div class="src">{{ $source }}</div>@endif
     <table class="t">
         <thead>
             <tr><th rowspan="2">Bus</th><th rowspan="2">Servicio</th><th colspan="5" class="grp">Salidas de Lima</th><th colspan="5" class="grp">Salidas de Chiclayo</th>
@@ -76,6 +78,7 @@
 @else
     <h1>Reporte del día de ventas</h1>
     <div class="sub">{{ $company }} · {{ date('d/m/Y', strtotime($day['date'])) }}</div>
+    @if (!empty($source))<div class="src">{{ $source }}</div>@endif
     <table class="halves"><tr>
     @foreach (['lima' => 'Salidas de Lima', 'chiclayo' => 'Salidas de Chiclayo'] as $k => $title)
         @php $rows = $day[$k]; @endphp

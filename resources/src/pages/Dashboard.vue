@@ -94,74 +94,91 @@
         <!-- Mayte's two reports as boards (2026-11-23): the day's sales, Lima and Chiclayo side by side, and production per bus. -->
         <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales">
           <template #tab><CalendarOutlined /> {{ es ? 'Ventas del día' : "Day's sales" }}</template>
+          <ReportSourceBar board="transport_daysales" :range="rangeFields" />
           <TransportDaySalesPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production">
           <template #tab><TableOutlined /> {{ es ? 'Producción por bus' : 'Production per bus' }}</template>
+          <ReportSourceBar board="transport_production" :range="rangeFields" />
           <TransportProductionPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- AuraSoft's Liquidación General (2026-11-24): by point of sale and cashier, with the cash each one hands in. -->
         <a-tab-pane v-if="transportTabs.includes('transport_pointsales')" key="transport_pointsales">
           <template #tab><ShopOutlined /> {{ es ? 'Ventas por punto de venta' : 'Sales by point of sale' }}</template>
+          <ReportSourceBar board="transport_pointsales" :range="rangeFields" />
           <TransportPointSalesPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24). -->
         <a-tab-pane v-if="transportTabs.includes('transport_cashbook')" key="transport_cashbook">
           <template #tab><WalletOutlined /> {{ es ? 'Caja y clientes' : 'Cash and customers' }}</template>
+          <ReportSourceBar board="transport_cashbook" :range="rangeFields" />
           <TransportCashbookPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_customers')" key="transport_customers">
           <template #tab><TeamOutlined /> {{ es ? 'Clientes' : 'Customers' }}</template>
+          <ReportSourceBar board="transport_customers" :range="rangeFields" />
           <TransportCustomersPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_aura_parcels')" key="transport_aura_parcels">
           <template #tab><InboxOutlined /> {{ es ? 'Encomiendas AuraSoft' : 'AuraSoft parcels' }}</template>
+          <ReportSourceBar board="transport_aura_parcels" :range="rangeFields" />
           <TransportAuraParcelsPanel />
         </a-tab-pane>        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
+          <ReportSourceBar board="transport_departures" :range="rangeFields" />
           <TransportDeparturesPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_outlook')" key="transport_outlook">
           <template #tab><AimOutlined /> {{ es ? 'Mando operativo' : 'Operations outlook' }}</template>
+          <ReportSourceBar board="transport_outlook" :range="rangeFields" />
           <TransportOutlookPanel />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_owner')" key="transport_owner">
           <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
+          <ReportSourceBar board="transport_owner" :range="rangeFields" />
           <TransportOwnerPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_profit')" key="transport_profit">
           <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
+          <ReportSourceBar board="transport_profit" :range="rangeFields" />
           <TransportProfitPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
         <a-tab-pane v-if="transportTabs.includes('transport_expenses')" key="transport_expenses">
           <template #tab><WalletOutlined /> {{ es ? 'Gastos' : 'Expenses' }}</template>
+          <ReportSourceBar board="transport_expenses" :range="rangeFields" />
           <TransportExpensesPanel :range="rangeFields" />
         </a-tab-pane>
         <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
         <a-tab-pane v-if="transportTabs.includes('transport_indicators')" key="transport_indicators">
           <template #tab><BarChartOutlined /> {{ es ? 'Indicadores' : 'Indicators' }}</template>
+          <ReportSourceBar board="transport_indicators" :range="rangeFields" />
           <TransportIndicatorsPanel :range="rangeFields" view="profit" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_risks')" key="transport_risks">
           <template #tab><WarningOutlined /> {{ es ? 'Riesgos' : 'Risks' }}</template>
+          <ReportSourceBar board="transport_risks" :range="rangeFields" />
           <TransportIndicatorsPanel :range="rangeFields" view="risks" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_parcels')" key="transport_parcels">
           <template #tab><InboxOutlined /> {{ es ? 'Encomiendas' : 'Parcels' }}</template>
+          <ReportSourceBar board="transport_parcels" :range="rangeFields" />
           <TransportParcelsPanel :range="rangeFields" />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport_claims')" key="transport_claims">
           <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
+          <ReportSourceBar board="transport_claims" :range="period === 'all' ? null : rangeFields" />
           <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
         </a-tab-pane>
         <!-- Live: refreshes itself only while it is open. -->
         <a-tab-pane v-if="transportTabs.includes('transport_monitor')" key="transport_monitor" destroy-inactive-tab-pane>
           <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
+          <ReportSourceBar board="transport_monitor" :range="rangeFields" />
           <TransportLiveBoard />
         </a-tab-pane>
         <a-tab-pane v-if="transportTabs.includes('transport')" key="transport">
           <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
+          <ReportSourceBar board="transport" :range="rangeFields" />
           <TransportBoard :range="rangeFields" />
         </a-tab-pane>
         <!-- No "General" tab (user's request, 2026-11-11: it said nothing to a transport company and confused): with the
@@ -450,6 +467,7 @@ import TransportCashbookPanel from '../components/TransportCashbookPanel.vue';
 import TransportAuraParcelsPanel from '../components/TransportAuraParcelsPanel.vue';
 import TransportCustomersPanel from '../components/TransportCustomersPanel.vue';
 import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
+import ReportSourceBar from '../components/ReportSourceBar.vue';
 import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';

@@ -792,6 +792,42 @@ class TransportOperationsController extends Controller
         return response()->json(\App\Services\TransportAuraBoards::parcels($cid));
     }
 
+    /**
+     * Where each board's figures come from (user's request, 2026-11-25: "ponle títulos acorde a de dónde lo saca"): per AuraSoft
+     * file kind, the latest file uploaded (name, when, who) and the dates the boards hold from it. GET transport/report-sources
+     */
+    public function reportSources(Request $request)
+    {
+        $this->allow($request, 'transport_profit', 'transport_monitor', 'transport_fleet_board', 'transport_agency_view', 'forms_view', 'dashboard');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $held = [
+            'production' => DB::table('transport_aurasoft_rows')->where('company_id', $cid)->where('is_current', 1)->selectRaw('MIN(trip_date) d1, MAX(trip_date) d2')->first(),
+            'liquidation' => DB::table('transport_aurasoft_liquidations')->where('company_id', $cid)->where('is_current', 1)->selectRaw('MIN(sale_date) d1, MAX(sale_date) d2')->first(),
+            'detail' => DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)->selectRaw('MIN(sale_date) d1, MAX(sale_date) d2')->first(),
+            'parcels' => null,
+        ];
+        $out = [];
+        foreach (array_keys($held) as $kind) {
+            $last = DB::table('transport_aurasoft_imports as i')->leftJoin('users as u', 'u.id', '=', 'i.created_by')->where('i.company_id', $cid)
+                ->where('i.kind', $kind)
+                ->orderByDesc('i.id')->first(['i.original_name', 'i.created_at', 'i.period_from', 'i.period_to', 'u.username']);
+            $out[$kind] = [
+                'files' => $last ? 1 : 0,
+                'last_name' => $last->original_name ?? null, 'last_at' => $last->created_at ?? null, 'last_by' => $last->username ?? null,
+                'last_from' => $last->period_from ?? null, 'last_to' => $last->period_to ?? null,
+                'from' => $held[$kind]->d1 ?? ($last->period_from ?? null), 'to' => $held[$kind]->d2 ?? ($last->period_to ?? null),
+                // Every file's dates, oldest first: a gap between them = dates the boards fill from elsewhere (Mayte, 2026-11-25).
+                'periods' => DB::table('transport_aurasoft_imports')->where('company_id', $cid)->where('kind', $kind)->orderBy('period_from')
+                    ->get(['original_name as name', 'period_from as from', 'period_to as to']),
+            ];
+        }
+
+        return response()->json(['enabled' => true, 'sources' => $out]);
+    }
+
     /** "Reporte del día de ventas" (2026-11-23): a day, Lima's and Chiclayo's departures side by side. */
     public function daySales(Request $request)
     {
@@ -860,11 +896,13 @@ class TransportOperationsController extends Controller
         if ($request->input('format') === 'pdf') {
             if ($kind === 'daysales') {
                 $day = $P::daySales($cid, $request->input('date') ?: $to, $scope);
-                $html = view('pdf.transport_production', ['kind' => 'daysales', 'day' => $day, 'company' => $this->companyName($cid)])->render();
+                $source = $this->exportSource($request, $cid, 'Filtro: día '.date('d-m-Y', strtotime($day['date'])));
+                $html = view('pdf.transport_production', ['kind' => 'daysales', 'day' => $day, 'company' => $this->companyName($cid), 'source' => $source])->render();
                 $name = 'Reporte del dia ventas '.date('d-m-Y', strtotime($day['date'])).'.pdf';
             } else {
                 $data = $P::byBus($cid, $from, $to, $scope);
-                $html = view('pdf.transport_production', ['kind' => 'production', 'data' => $data, 'company' => $this->companyName($cid)])->render();
+                $source = $this->exportSource($request, $cid, 'Filtro: del '.date('d-m-Y', strtotime($from)).' al '.date('d-m-Y', strtotime($to)));
+                $html = view('pdf.transport_production', ['kind' => 'production', 'data' => $data, 'company' => $this->companyName($cid), 'source' => $source])->render();
                 $name = "Produccion por bus $stamp.pdf";
             }
 
@@ -873,11 +911,50 @@ class TransportOperationsController extends Controller
         }
 
         $book = $kind === 'daysales' ? $P::daySalesXlsx($cid, $from, $to, $scope) : $P::productionXlsx($cid, $from, $to, $scope);
+        // Where it comes from and the filter, in a "Fuente" sheet (her layout's sheets stay as they are).
+        $src = $book->createSheet();
+        $src->setTitle('Fuente');
+        $lines = [
+            [$kind === 'daysales' ? 'REPORTE DEL DIA VENTAS' : 'PRODUCCION POR BUS'],
+            ['Empresa', $this->companyName($cid)],
+            ['Fuente', self::SOURCE_TEXT],
+            ['Archivos AuraSoft', $this->lastAuraFile($cid)],
+            ['Filtro', 'del '.date('d-m-Y', strtotime($from)).' al '.date('d-m-Y', strtotime($to)).($kind === 'daysales' ? ' (una hoja por día)' : '')],
+            ['Agencias', $scope ? 'las agencias del usuario' : 'todas'],
+            ['Generado', now()->format('d-m-Y h:i A').' por '.($request->user('api')->username ?? '')],
+        ];
+        foreach ($lines as $i => $l) {
+            $src->fromArray($l, null, 'A'.($i + 1));
+        }
+        $src->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $src->getStyle('A2:A'.count($lines))->getFont()->setBold(true);
+        $src->getColumnDimension('A')->setWidth(18);
+        $src->getColumnDimension('B')->setWidth(110);
+        $book->setActiveSheetIndex(0);
         $name = ($kind === 'daysales' ? 'REPORTE DEL DIA VENTAS ' : 'PRODUCCION POR BUS ').$stamp.'.xlsx';
         $tmp = tempnam(sys_get_temp_dir(), 'tpx');
         (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save($tmp);
 
         return response()->download($tmp, $name, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])->deleteFileAfterSend(true);
+    }
+
+    private const SOURCE_TEXT = 'AuraSoft «Reporte producción por bus» (pasajeros, pasajes, encomiendas, exceso); en las fechas sin ese archivo, el reporte del día del cliente (solo pasajeros y monto, sin encomiendas ni exceso); combustible y peajes registrados en Murano';
+
+    /** The source line under a PDF's title (2026-11-25): where the figures come from, the latest file, the filter, who made it. */
+    private function exportSource(Request $request, int $cid, string $filter): string
+    {
+        return 'Fuente: '.self::SOURCE_TEXT.' · Archivos AuraSoft: '
+            .$this->lastAuraFile($cid).' · '.$filter.' · Generado '.now()->format('d-m-Y h:i A').' por '.($request->user('api')->username ?? '');
+    }
+
+    private function lastAuraFile(int $cid): string
+    {
+        // Every production file with the dates it covers: dates without a file are the ones without parcels and excess.
+        $files = DB::table('transport_aurasoft_imports')->where('company_id', $cid)->where('kind', 'production')->orderBy('period_from')
+            ->get(['original_name', 'created_at', 'period_from', 'period_to']);
+
+        return $files->isEmpty() ? 'ninguno' : $files->map(fn ($f) => $f->original_name.' (del '.date('d-m-Y', strtotime($f->period_from)).' al '
+            .date('d-m-Y', strtotime($f->period_to)).', subido '.date('d-m-Y', strtotime($f->created_at)).')')->implode('; ');
     }
 
     private function companyName(int $cid): string

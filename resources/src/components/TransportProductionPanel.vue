@@ -58,8 +58,16 @@
       <a-spin :spinning="busLoading">
         <a-table v-if="bus" class="pb-table" :columns="tripColumns" :data-source="bus.rows" :row-key="(r, i) => i" size="small" :pagination="false" bordered :scroll="{ y: 'calc(100vh - 220px)' }">
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'out_at'">{{ record.out ? dt(record.out.at) : '—' }}</template>
-            <template v-else-if="column.key === 'back_at'">{{ record.back ? dt(record.back.at) : '—' }}</template>
+            <!-- Where the departure's figures come from (2026-11-25): only AuraSoft's production report brings parcels and excess. -->
+            <template v-if="column.key === 'out_at' || column.key === 'back_at'">
+              <template v-if="record[column.key === 'out_at' ? 'out' : 'back']">
+                {{ dt(record[column.key === 'out_at' ? 'out' : 'back'].at) }}
+                <a-tooltip :title="srcHelp(record[column.key === 'out_at' ? 'out' : 'back'].source)">
+                  <span :class="['pb-src', 'pb-src-' + srcKey(record[column.key === 'out_at' ? 'out' : 'back'].source)]">{{ srcShort(record[column.key === 'out_at' ? 'out' : 'back'].source) }}</span>
+                </a-tooltip>
+              </template>
+              <template v-else>—</template>
+            </template>
             <template v-else-if="column.key === 'net'"><b :class="record.net < 0 ? 'pb-neg' : 'pb-pos'">{{ plain(record.net) }}</b></template>
             <!-- The round trip's fuel, typed by whoever runs the departures (2026-11-24: the one figure AuraSoft lacks). -->
             <template v-else-if="column.key === 'fuel'">
@@ -223,6 +231,13 @@ const tripColumns = computed(() => [
   { title: tr('Tolls', 'Peaje'), key: 'toll', dataIndex: 'toll', align: 'right', width: 70, money: true },
   { title: tr('Income - fuel - tolls', 'Ingr. - comb. - peaje'), key: 'net', dataIndex: 'net', align: 'right', width: 90, money: true },
 ]);
+const srcKey = s => (s === 'aurasoft' ? 'a' : s === 'report' ? 'r' : 'm');
+const srcShort = s => ({ a: 'AS', r: 'RD', m: 'M' })[srcKey(s)];
+const srcHelp = s => ({
+  a: tr('From AuraSoft\'s "Production per bus" report: passengers, tickets, parcels and excess.', 'Del «Reporte producción por bus» de AuraSoft: pasajeros, pasajes, encomiendas y exceso.'),
+  r: tr('From the client\'s daily report: passengers and amount only, no parcels or excess. Upload AuraSoft\'s production report for these dates to complete it.', 'Del reporte del día del cliente: solo pasajeros y monto, sin encomiendas ni exceso. Suba el «Reporte producción por bus» de AuraSoft de esas fechas para completarlo.'),
+  m: tr('Registered in Murano (POS / daily departures).', 'Registrada en Murano (POS / salidas del día).'),
+})[srcKey(s)];
 const tripLeaf = computed(() => tripColumns.value.flatMap(c => c.children || [c]));
 function tripTotal(c) {
   if (String(c.key).endsWith('_at')) return '';
@@ -240,6 +255,10 @@ function tripTotal(c) {
 .pb-pos { color: #15803d; }
 .pb-cat { font-size: 10.5px; opacity: 0.6; margin-left: 4px; }
 .pb-neg { color: #d03b3b; }
+.pb-src { display: inline-block; margin-left: 4px; padding: 0 4px; border-radius: 4px; font-size: 10px; line-height: 15px; font-weight: 600; cursor: help; }
+.pb-src-a { background: #e6f4ff; color: #0958d9; }
+.pb-src-r { background: #fff7e6; color: #d46b08; }
+.pb-src-m { background: #f0f0f0; color: #595959; }
 .pb-warn { color: #d97706; font-weight: 700; cursor: help; }
 .pb-note { font-size: 11.5px; opacity: 0.7; margin-top: 6px; }
 .pb-svc { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; margin: 6px 0; }

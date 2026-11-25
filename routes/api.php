@@ -836,6 +836,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/point-sales', 'pointSales');
         Route::get('/cashbook', 'cashbook');
         Route::get('/aura-parcels', 'auraParcels');
+        Route::get('/report-sources', 'reportSources');
         Route::get('/customers-board', 'customers');
         Route::get('/passengers', 'passengers');
         Route::get('/passengers/verify', 'passengersVerify');

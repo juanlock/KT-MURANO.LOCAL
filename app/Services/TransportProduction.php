@@ -294,7 +294,8 @@ class TransportProduction
             $sh->setCellValue('B1', self::companyTitle($cid))->mergeCells('B1:L1');
             $sh->setCellValue('A2', 'SALIDAS DE LIMA')->mergeCells('A2:L2')->setCellValue('N2', 'SALIDAS CHICLAYO')->mergeCells('N2:W2');
             $sh->fromArray(['BUS', 'PLACA', 'FECHA', 'HORARIO', 'RUTA', 'CNT ASI.', 'TOTAL PAX', 'TOTAL ENCO', 'TOTAL EXC', 'INGRESO LIMA', 'COMBUSTIBLE', 'PEAJE', null,
-                'FECHA', 'HORARIO', 'RUTA', 'CNT ASI.', 'TOTAL PAX', 'TOTAL ENCO', 'TOTAL EXC', 'INGRESO CIX', 'INGRESO TOTAL LIMA-CIX', 'MONTO LIMA+CIX-PEAJE-COMB'], null, 'A4');
+                'FECHA', 'HORARIO', 'RUTA', 'CNT ASI.', 'TOTAL PAX', 'TOTAL ENCO', 'TOTAL EXC', 'INGRESO CIX', 'INGRESO TOTAL LIMA-CIX', 'MONTO LIMA+CIX-PEAJE-COMB',
+                null, 'FUENTE LIMA', 'FUENTE CIX'], null, 'A4');
             $row = 5;
             $bus = preg_replace('/^Bus\s+/i', '', $b['bus']);
             foreach ($trips['rows'] as $t) {
@@ -305,6 +306,7 @@ class TransportProduction
                     $o['pax'] ?? null, $o['tickets'] ?? null, $o['parcels'] ?? null, $o['excess'] ?? null, $o['total'] ?? null, $t['fuel'] ?: null, $t['toll'] ?: null, null,
                     $k ? date('d/m/Y', strtotime($k['at'])) : null, $k ? date('h:iA', strtotime($k['at'])) : null, $k ? 'CHICLAYO / LIMA' : null,
                     $k['pax'] ?? null, $k['tickets'] ?? null, $k['parcels'] ?? null, $k['excess'] ?? null, $k['total'] ?? null, $t['income'], $t['net'],
+                    null, $o ? self::sourceLabel($o['source'] ?? null) : null, $k ? self::sourceLabel($k['source'] ?? null) : null,
                 ], null, 'A'.$row++);
             }
             $sh->setCellValue('A'.$row, 'TOTAL');
@@ -315,10 +317,28 @@ class TransportProduction
             $sh->getStyle('F5:F'.$row)->getNumberFormat()->setFormatCode('0');
             $sh->getStyle('Q5:Q'.$row)->getNumberFormat()->setFormatCode('0');
             $sh->getColumnDimension('M')->setWidth(2);
+            $sh->getColumnDimension('X')->setWidth(2);
+            $sh->getColumnDimension('Y')->setWidth(34);
+            $sh->getColumnDimension('Z')->setWidth(34);
+            $sh->getStyle('Y4:Z4')->getFont()->setBold(true);
         }
         $book->setActiveSheetIndex(0);
 
         return $book;
+    }
+
+    /**
+     * Where a departure's figures come from (2026-11-25, Mayte: "¿por qué el bus 22 no tiene encomiendas ni exceso antes del
+     * 19-11, de dónde sacó eso?"): only AuraSoft's «Reporte producción por bus» brings parcels and excess; a departure from the
+     * client's daily report has passengers and amount only.
+     */
+    public static function sourceLabel(?string $source): string
+    {
+        return match ($source) {
+            'aurasoft' => 'AuraSoft (Reporte producción por bus)',
+            'report' => 'Reporte del día (sin encomienda ni exceso)',
+            default => 'Murano (POS / salidas del día)',
+        };
     }
 
     /** "REPORTE DEL DIA VENTAS" as Mayte keeps it: one sheet per day ("22-11"), Lima on the left, Chiclayo on the right. */
