@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StorePage extends Model
 {
+    use \App\Models\Concerns\ScopedToStoreCompany; // the public storefront sees only its company (2026-11-25)
     use HasTranslations;
 
     /** Customer-facing copy that can be translated per locale. */

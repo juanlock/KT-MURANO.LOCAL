@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
  * middleware (EnsureStoreEnabled) and a company website's middleware (WebsiteCompany) bind 'store.company_id' for the
  * request; while it is bound, every query of the model is limited to that company. The admin panel, the API, the queue
  * and the console never bind it, so nothing changes there.
- * Used by Product, Category, SubCategory and Brand.
+ * Used by Product, Category, SubCategory, Brand and StorePage (the footers listed every company's pages).
  */
 trait ScopedToStoreCompany
 {
@@ -23,3 +23,4 @@ trait ScopedToStoreCompany
         });
     }
 }
+
