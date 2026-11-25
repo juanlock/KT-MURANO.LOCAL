@@ -84,7 +84,8 @@ if ($installed === true) {
     // own address /{url_path} (e.g. /kcoltech), not /online_store?company=ID.
     // Registered before the store so they also win when the store uses the root domain.
     foreach (\App\Support\WebsitePaths::all() as $sitePath => $siteCompany) {
-        Route::middleware(['web', 'request.safety', 'store.locale', 'website.company:'.$siteCompany.','.$sitePath])
+        // website.company first (2026-11-25): the store language needs to know whose website this is.
+        Route::middleware(['web', 'request.safety', 'website.company:'.$siteCompany.','.$sitePath, 'store.locale'])
             ->prefix($sitePath)->group(function () {
                 Route::get('/', [StoreFrontController::class, 'index']);
                 Route::get('/pages/{slug}', [StoreFrontController::class, 'page']);
