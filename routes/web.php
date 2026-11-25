@@ -114,11 +114,11 @@ if ($installed === true) {
                 // Use provided locale if supported, otherwise fallback to 'en'
                 $chosen = isset($supported[$locale]) ? $locale : 'en';
 
-                // Store in session
-                session(['locale' => $chosen]);
-
-                // Optionally persist for a year via cookie
-                Cookie::queue('locale', $chosen, 60 * 24 * 365, '/');
+                // This store's own choice (2026-11-25): keyed by the store's company, so the admin panel and the
+                // other companies' stores never change its language (SetStoreLocale).
+                $key = \App\Http\Middleware\SetStoreLocale::key();
+                session([$key => $chosen]);
+                Cookie::queue($key, $chosen, 60 * 24 * 365, '/');
 
                 return back();
             })->name('lang.switch');
