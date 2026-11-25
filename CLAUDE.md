@@ -1004,6 +1004,16 @@ the start of each session).
   store customer's company; a staff user's acting company) -- never
   `StoreSetting::first()`. Order-bound code uses
   `StoreSetting::forWarehouse($order->warehouse_id)`.
+- **The public storefront shows only its company (2026-11-25):** `/online_store/shop` listed every company's products
+  (651, prices included) and the footers other companies' pages. `App\Models\Concerns\ScopedToStoreCompany` (Product,
+  Category, SubCategory, Brand, StorePage) limits every query while `store.company_id` is bound -- by `EnsureStoreEnabled`
+  and `WebsiteCompany` only, never in the admin panel / API / console. A new storefront model with `company_id` uses it.
+  A link with `?category=` or `/product/{id}` opens that record's company store (`FrontPage::explicitCompanyId`).
+  **Each store opens in its own language** (`store_settings.language`; `SetStoreLocale`): the visitor's pick is kept per
+  store (`store_locale_{company}`), the shared `locale` session / cookie of the admin panel no longer decides it.
+  Shipping zones / methods have no `company_id` yet (install-wide): make them per company before a store uses them.
+  **HORDEX's store is live (2026-11-25):** `/hordex`, grocery template, Spanish, cash only (COD / pickup), 16 finished
+  products with basic drawn images (`files/company_1027/products/demo/`, to be replaced by Hordex's photos).
 - Website pages (front page with our website theme, CMS pages, gallery,
   contact) render with `WebsiteSetting::applyTo()` and `$website = true` (no
   cart / search / shop category bar / shop sign-in); shop pages keep the
