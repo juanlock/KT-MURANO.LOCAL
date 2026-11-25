@@ -19,11 +19,17 @@ class AuraSoftLiquidation
 {
     private const FIGURES = ['tickets', 'parcels', 'excess', 'collected', 'income', 'card', 'web', 'channel', 'delivery', 'cash_out', 'expenses', 'net'];
 
-    /** The sheet's first rows say what it is: production | liquidation | detail | null. */
+    /** The sheet's first rows say what it is: production | liquidation | detail | parcels | receivables | null. */
     public static function kindOf(array $data): ?string
     {
         foreach (array_slice($data, 0, 8) as $row) {
-            $line = mb_strtoupper(implode(' ', array_map(fn ($v) => (string) $v, array_slice($row, 0, 4))));
+            $line = mb_strtoupper(implode(' ', array_map(fn ($v) => (string) $v, array_slice($row, 0, 6))));
+            if (str_contains($line, 'KARDEX DE ENCOMIENDAS')) {
+                return 'parcels';
+            }
+            if (str_contains($line, 'CREDITOS Y COBRANZAS') || str_contains($line, 'CRÉDITOS Y COBRANZAS')) {
+                return 'receivables';
+            }
             if (str_contains($line, 'LIQUIDACIÓN DETALLADA') || str_contains($line, 'LIQUIDACION DETALLADA')) {
                 return 'detail';
             }

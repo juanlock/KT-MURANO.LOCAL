@@ -104,6 +104,15 @@
         <a-tab-pane v-if="transportTabs.includes('transport_pointsales')" key="transport_pointsales">
           <template #tab><ShopOutlined /> {{ es ? 'Ventas por punto de venta' : 'Sales by point of sale' }}</template>
           <TransportPointSalesPanel :range="rangeFields" />
+        </a-tab-pane>
+        <!-- AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24). -->
+        <a-tab-pane v-if="transportTabs.includes('transport_cashbook')" key="transport_cashbook">
+          <template #tab><WalletOutlined /> {{ es ? 'Caja y clientes' : 'Cash and customers' }}</template>
+          <TransportCashbookPanel :range="rangeFields" />
+        </a-tab-pane>
+        <a-tab-pane v-if="transportTabs.includes('transport_aura_parcels')" key="transport_aura_parcels">
+          <template #tab><InboxOutlined /> {{ es ? 'Encomiendas AuraSoft' : 'AuraSoft parcels' }}</template>
+          <TransportAuraParcelsPanel />
         </a-tab-pane>        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
           <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
           <TransportDeparturesPanel :range="rangeFields" />
@@ -433,6 +442,8 @@ import TransportParcelsPanel from '../components/TransportParcelsPanel.vue';
 import TransportProfitPanel from '../components/TransportProfitPanel.vue';
 import TransportProductionPanel from '../components/TransportProductionPanel.vue';
 import TransportPointSalesPanel from '../components/TransportPointSalesPanel.vue';
+import TransportCashbookPanel from '../components/TransportCashbookPanel.vue';
+import TransportAuraParcelsPanel from '../components/TransportAuraParcelsPanel.vue';
 import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
 import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
@@ -470,7 +481,7 @@ const es = computed(() => useUiStore().locale === 'es');
 const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
 // Roles -> "Dashboard tabs" (2026-11-19, Turismo: each role its own board): only those, when the role has a list.
 const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
-const transportPanels = computed(() => [profitPanel.value && 'transport_daysales', profitPanel.value && 'transport_production', profitPanel.value && 'transport_pointsales',departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
+const transportPanels = computed(() => [profitPanel.value && 'transport_daysales', profitPanel.value && 'transport_production', profitPanel.value && 'transport_pointsales', profitPanel.value && 'transport_cashbook', profitPanel.value && 'transport_aura_parcels', departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
   .filter(k => !roleTabs.value || roleTabs.value.includes(k)));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));

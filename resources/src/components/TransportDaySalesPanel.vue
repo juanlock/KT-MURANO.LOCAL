@@ -205,6 +205,16 @@ async function uploadAura(file) {
         `Liquidación general: ${r.rows_total} filas (${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban). Véala en «Ventas por punto de venta».`), 8);
       return false;
     }
+    // The Liquidación Detallada and the parcels kardex (2026-11-24): their own boards.
+    if (r.kind === 'detail') {
+      message.success(tr(`Detailed liquidation: ${r.rows_total} documents (${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there). See "Cash and customers" and "AuraSoft parcels".`,
+        `Liquidación detallada: ${r.rows_total} documentos (${r.rows_new} nuevos, ${r.rows_updated} actualizados, ${r.rows_same} ya estaban). Véala en «Caja y clientes» y «Encomiendas AuraSoft».`), 8);
+      return false;
+    }
+    if (r.kind === 'parcels') {
+      message.success(tr(`Parcels to deliver: ${r.rows_total} parcels. See "AuraSoft parcels".`, `Encomiendas por entregar: ${r.rows_total} encomiendas. Véalas en «Encomiendas AuraSoft».`), 8);
+      return false;
+    }
     // The board jumps to the file's last day; the modal opens on the file's period.
     if (r.period_to) day.value = r.period_to > dayjs().format('YYYY-MM-DD') ? null : r.period_to;
     load();

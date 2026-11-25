@@ -64,14 +64,16 @@ function set(f, t) {
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
-  border: 1px solid #d9d9d9;
+  /* Follows the theme (light / dark): no fixed white. */
+  border: 1px solid rgba(128, 128, 128, 0.35);
   border-radius: 6px;
-  background: #fff;
+  background: transparent;
   max-width: 100%;
 }
 .drf-label {
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.55);
+  color: inherit;
+  opacity: 0.6;
   white-space: nowrap;
 }
 .drf-date {

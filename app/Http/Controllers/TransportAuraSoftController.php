@@ -88,6 +88,23 @@ class TransportAuraSoftController extends Controller
 
             return response()->json($i);
         }
+        // A "Liquidación Detallada" (2026-11-24): what it held by module, cancelled documents, customers with DNI / RUC.
+        if ($i->kind === 'detail') {
+            $m = DB::table('transport_aurasoft_movements')->where('import_id', $id);
+            $i->totals = (clone $m)->selectRaw("COUNT(*) n, SUM(status = 'ANULADO') cancelled, SUM(CASE WHEN status = 'ANULADO' THEN ABS(total) ELSE 0 END) cancelled_amount,
+                COUNT(DISTINCT client_doc) clients, COUNT(DISTINCT point) points")->first();
+            $i->modules = (clone $m)->where(fn ($w) => $w->whereNull('status')->orWhere('status', '!=', 'ANULADO'))->groupBy('module')
+                ->selectRaw('module, COUNT(*) n, SUM(total) total')->orderByDesc('n')->get();
+
+            return response()->json($i);
+        }
+        if ($i->kind === 'parcels') {
+            $p = DB::table('transport_aurasoft_parcels')->where('import_id', $id);
+            $i->totals = (clone $p)->selectRaw("COUNT(*) n, SUM(amount) amount, SUM(pay = 'PD') to_collect, MIN(emitted_on) oldest, MAX(branch) branch")->first();
+            $i->statuses = (clone $p)->groupBy('status')->selectRaw('status, COUNT(*) n')->orderByDesc('n')->get();
+
+            return response()->json($i);
+        }
         $rows = DB::table('transport_aurasoft_rows')->where('import_id', $id);
         $i->channels = [];
         foreach ((clone $rows)->pluck('channels') as $json) {
@@ -111,6 +128,9 @@ class TransportAuraSoftController extends Controller
         abort_unless($kind, 404);
         if ($kind === 'liquidation') {
             return $this->liquidationRows($request, $cid, $id);
+        }
+        if ($kind === 'detail' || $kind === 'parcels') {
+            return $this->plainRows($request, $cid, $id, $kind);
         }
         $sortable = ['trip_date', 'plate', 'route', 'seats', 'ticket_income', 'parcel_income', 'production', 'action'];
         $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : 'trip_date';
@@ -161,6 +181,30 @@ class TransportAuraSoftController extends Controller
         }
 
         return response()->json(['rows' => $rows, 'totalRows' => $total, 'kind' => 'liquidation']);
+    }
+
+    /** A "Liquidación Detallada" (its new / changed documents) or a parcels kardex: the rows as they came. */
+    private function plainRows(Request $request, int $cid, int $id, string $kind)
+    {
+        $detail = $kind === 'detail';
+        $table = $detail ? 'transport_aurasoft_movements' : 'transport_aurasoft_parcels';
+        $sortable = $detail ? ['sale_date', 'point', 'cashier', 'module', 'client', 'total', 'status', 'action'] : ['emitted_on', 'origin', 'document', 'consignee', 'amount', 'status', 'point'];
+        $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : ($detail ? 'sale_date' : 'emitted_on');
+        $dir = strtolower((string) $request->input('SortType')) === 'desc' ? 'desc' : 'asc';
+        $s = trim((string) $request->input('search'));
+        $q = DB::table($table)->where('company_id', $cid)->where('import_id', $id)
+            ->when($detail && in_array($request->input('action'), ['new', 'updated'], true), fn ($q) => $q->where('action', $request->input('action')))
+            ->when($s !== '', fn ($q) => $q->where(fn ($w) => $detail
+                ? $w->where('point', 'like', "%$s%")->orWhere('cashier', 'like', "%$s%")->orWhere('client', 'like', "%$s%")->orWhere('client_doc', 'like', "%$s%")->orWhere('module', 'like', "%$s%")->orWhere('number', 'like', "%$s%")
+                : $w->where('document', 'like', "%$s%")->orWhere('consignee', 'like', "%$s%")->orWhere('sender', 'like', "%$s%")->orWhere('point', 'like', "%$s%")->orWhere('status', 'like', "%$s%")));
+        $total = (clone $q)->count();
+        $limit = max(1, min(500, (int) $request->input('limit', 50)));
+        $cols = $detail
+            ? ['id', 'sale_date', 'branch', 'point', 'cashier', 'module', 'doc_type', 'series', 'number', 'client_doc', 'client', 'bank', 'card_type', 'income', 'outflow', 'total', 'status', 'action', 'is_current']
+            : ['id', 'origin', 'emitted_on', 'doc_type', 'document', 'consignee', 'detail', 'amount', 'pay', 'sender', 'point', 'status', 'is_current'];
+        $rows = $q->orderBy($field, $dir)->orderBy('id')->forPage(max(1, (int) $request->input('page', 1)), $limit)->get($cols);
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total, 'kind' => $kind]);
     }
 
     public function file(Request $request, int $id)

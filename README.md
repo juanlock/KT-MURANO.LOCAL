@@ -203,6 +203,25 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-24 (Thundera)
+
+- **Mayte's reports from AuraSoft's files:** Ventas del día and Producción por bus fill in fuel per round trip (typed once,
+  shared half and half), the route's toll when none was recorded, the timetable's boarding points and the service type
+  (confort / premium); both download as Excel and PDF in her own layout. Ventas del día has **Subir AuraSoft**, **Archivos**
+  and **Completar** (after an upload: what the file brought, what changed, and the round trips still missing fuel).
+- **Every AuraSoft file through one button**, the kind detected from the file, nothing ever counted twice:
+  Reporte producción por bus, **Liquidación General** (tab **Ventas por punto de venta**: branch → point → cashier, how much
+  was sold online), **Liquidación Detallada** (tab **Caja y clientes**: how it was paid -- cash, Visa, Yape, web, RedBus --,
+  cancelled documents by cashier, cash expenses by point, the customers with DNI / RUC who buy most) and the **Kardex de
+  encomiendas por entregar** (tab **Encomiendas AuraSoft**: parcels to deliver by age and status, the late ones, and what is
+  left to collect at destination).
+- **Date filter:** "Semana pasada / Mes pasado / Año pasado" and a new **Día** button with a calendar and ‹ › arrows, part of
+  the standard filter everywhere; the start / end boxes follow the dark theme.
+- **Short names for the menu groups** when the menu sits in the top bar (Manage Menu → "Aa", with proposals).
+- **Transport boards with a Power BI look:** flat cards with an accent and a soft shadow, the period's trend under the
+  Indicators figures, AuraSoft's name instead of Jelaf.
+- Setup: `php artisan migrate` and `npm run build`.
+
 ### 2026-11-23 (Optimum)
 
 - **Turismo with real data, no demo:** the demo (trips, tickets, parcels, sales, demo people) was removed; the 19 real
@@ -277,27 +296,6 @@ Setup: `php artisan migrate`, `npm run build`.
 - **Company logins** opens by group (access and roles / other staff / customers) and loads much faster.
 - **Country from a list and phones with their country code** in every form; the company's country comes first and
   still sets the date format.
-- Setup: `php artisan migrate` and `npm run build`.
-
-### 2026-11-21 (Optimum)
-
-- **Distribución B2B now has the same screens, names and order as Hordex's earlier system.** Hordex's menu reads
-  Escritorio · Clientes · Proveedores · Productos · Compras · Facturas de Hordex · Facturas de Proveedores · Guías ·
-  Kardex · Control de Pagos · Reportes, with icons like the earlier ones; every screen's title sits in the top bar.
-- **Compras (new): goods received into the warehouse.** List, purchase detail and "Registrar Nueva Compra" as there;
-  only a "Compra" adds stock, Eliminar takes it back out. Hordex's 677 receipts are loaded.
-- **Facturas de Proveedores** (the screen called "Compras" before): row actions Cancelar / Ver / Anular / Borrar, the form
-  always on the right, "Vincular" brings the supplier's guides not invoiced yet; the next number is suggested.
-- **Clientes / Proveedores / Productos with the earlier cards**: label : value lines, the company name in Hordex's orange,
-  client addresses as a table, payment condition and withholding agent, a supplier's 3 contacts, a product's
-  Ajustar / Editar, recipe ("Insumos necesarios") and last kardex movements.
-- **RUC lookup (free service)** in Nuevo Cliente / Proveedor and on the card: fills the company name, SUNAT state and the
-  fiscal address. (Hordex's old lookup fails: SUNAT refuses automated reads.)
-- **Stock calculated right**: the earlier system left a phantom stock when a guide manufactured; Hordex's kardex was
-  recomputed (21 products change, a physical count with "Ajustar" is pending). A guide now manufactures the shortfall and
-  consumes the recipe's inputs, and each guide line shows a stock light (available / to prepare / no stock).
-- **Dashboard**: rebate cards show sales × % = rebate; fits one screen. Invoices got their payment terms and due dates.
-- **Everywhere**: list + detail screens open the detail as a modal on a phone; dropdown lists are never cut.
 - Setup: `php artisan migrate` and `npm run build`.
 
 ## Session protocols

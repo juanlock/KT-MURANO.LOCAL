@@ -529,12 +529,17 @@ the start of each session).
   payroll** -- when none of them can go, an **emergency pilot** is hired for that trip, paid per trip (user, 2026-11-19; demo
   `EMERGENCY_TRIP_RATE` S/ 200, ours). Company data from SUNAT (Req01, 2026-11-19): TURISMO CAUTIVO S.A.C., RUC 20601601282
   (`settings.vat_number`, shown as "RUC" on invoices and quotations), domicilio fiscal Cal. Los Insurgentes 221, Santiago de
-  Surco, Lima; activity 4922; electronic Factura / Boleta from SUNAT's free portal since 2019 (Murano does not issue to SUNAT). **~80 % of the tickets are sold
-  online by Jelaf / PeruBus** (`transport_tickets.channel` agency / jelaf / perubus / phone; such a ticket has no sale:
+  Surco, Lima; activity 4922; electronic Factura / Boleta from SUNAT's free portal since 2019 (Murano does not issue to SUNAT). **AuraSoft
+  (ex Jelaf) sells under ANOTHER legal entity:** EMPRESA DE TRANSPORTES Y TURISMO GUIAME SEÑOR CAUTIVO S.A.C., RUC 20514963887
+  (which one invoices is asked to Mayte, question adm_ruc). **~36 % of the ticket income is sold online** (AuraSoft's Liquidación
+  General 01-10..24-11-2026: Web 21.6 %, RedBus 10.2 %, Kupos 3.9 %; the earlier "~80 %" was the client's guess). Tickets come from
+  Jelaf / PeruBus (`transport_tickets.channel` agency / jelaf / perubus / phone; such a ticket has no sale:
   `sale_id` null; `settings.transport_channel_commission` JSON % per channel, unknown yet; **Jelaf is now called AuraSoft** (the client, 2026-11-23): in its
   "Reporte producción por bus" the column AURA SOFT = sold through AuraSoft itself, and NO REGISTRADO, REDBUS, KUPOS, CARRITOC,
-  KIOSCO = other sellers on it, like PeruBus; all are online sales channels. Its Excel is imported in Integración -> Producción
-  AuraSoft (`/integration/aurasoft`)); Jelaf also sends the passenger list
+  KIOSCO = other sellers on it, like PeruBus; all are online sales channels. Its Excels are imported in `/transport/aurasoft` (Archivos subidos; also the "Subir AuraSoft"
+  button of Ventas del día): "Reporte producción por bus" -> trips, "Liquidación General" -> `transport_aurasoft_liquidations`
+  (tab Ventas por punto de venta); the kind is detected from the file, a re-upload records what changed and never duplicates
+  (`App\Support\AuraSoftImport` / `AuraSoftLiquidation`). AuraSoft's addresses and tutorial links: project 34 task #209); Jelaf also sends the passenger list
   per trip -- how its data reaches us is settled with Jelaf (meeting the week of 2026-11-23). The dashboard opens on **Reporte de
   salidas** (Mayte and Julio's first board), then **Mando operativo** (`transport_outlook`, also `/transport/outlook`: upcoming
   departures red / amber / green against variable and full cost, booking curve, marketing focus by week). The demo sells

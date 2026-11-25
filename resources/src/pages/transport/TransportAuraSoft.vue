@@ -21,7 +21,7 @@
       <DataTable :crud="crud" :columns="columns" :row-click="r => pick(r.id)" compact-toolbar table-key="aurasoft-imports">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'created_at'">{{ dateTime(record.created_at) }}</template>
-          <template v-else-if="column.key === 'kind'"><span class="tag" :class="record.kind === 'liquidation' ? 't-liq' : 't-prod'">{{ kindLabel(record.kind) }}</span></template>
+          <template v-else-if="column.key === 'kind'"><span class="tag" :class="'t-k-' + (record.kind || 'production')">{{ kindLabel(record.kind) }}</span></template>
           <template v-else-if="column.key === 'period'"><span class="nowrap">{{ date(record.period_from) }} – {{ date(record.period_to) }}</span></template>
           <template v-else-if="column.key === 'rows'">
             {{ record.rows_total }}
@@ -75,6 +75,27 @@
           <div class="k"><div class="v">S/ {{ money(sel.totals?.expenses) }}</div><div class="t">{{ L('Expenses', 'Egresos') }}</div></div>
           <div class="k main"><div class="v">S/ {{ money(sel.totals?.net) }}</div><div class="t">{{ L('Net', 'Neto') }}</div></div>
         </div>
+        <!-- A Liquidación Detallada (2026-11-24): documents, cancelled ones, customers. -->
+        <div v-else-if="sel.kind === 'detail'" class="kpis">
+          <div class="k"><div class="v">{{ num(sel.rows_total) }}</div><div class="t">{{ L('Documents', 'Documentos') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ num(sel.rows_new) }}</div><div class="t">{{ L('New', 'Nuevos') }}</div></div>
+          <div class="k pick" :class="{ on: action === 'updated' }" @click="setAction('updated')"><div class="v c-upd">{{ num(sel.rows_updated) }}</div><div class="t">{{ L('Changed', 'Actualizados') }}</div></div>
+          <div class="k"><div class="v c-same">{{ num(sel.rows_same) }}</div><div class="t">{{ L('Already had', 'Ya estaban') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.totals?.points) }}</div><div class="t">{{ L('Points of sale', 'Puntos de venta') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.totals?.clients) }}</div><div class="t">{{ L('Customers (DNI / RUC)', 'Clientes (DNI / RUC)') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.totals?.cancelled) }}</div><div class="t">{{ L('Cancelled', 'Anulados') }}</div></div>
+          <div class="k"><div class="v">S/ {{ money(sel.totals?.cancelled_amount) }}</div><div class="t">{{ L('Cancelled S/', 'Anulado S/') }}</div></div>
+          <div class="k main"><div class="v">S/ {{ money(sel.ticket_income) }}</div><div class="t">{{ L('Tickets', 'Pasajes') }}</div></div>
+        </div>
+        <!-- A parcels kardex (2026-11-24): the parcels not delivered yet of one branch. -->
+        <div v-else-if="sel.kind === 'parcels'" class="kpis">
+          <div class="k"><div class="v">{{ sel.totals?.branch || '—' }}</div><div class="t">{{ L('Branch', 'Sucursal') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.rows_total) }}</div><div class="t">{{ L('Parcels to deliver', 'Encomiendas por entregar') }}</div></div>
+          <div class="k"><div class="v c-new">{{ num(sel.rows_new) }}</div><div class="t">{{ L('Not in the earlier list', 'No estaban antes') }}</div></div>
+          <div class="k"><div class="v">{{ num(sel.totals?.to_collect) }}</div><div class="t">{{ L('To collect at destination', 'Pago en destino') }}</div></div>
+          <div class="k"><div class="v">{{ date(sel.totals?.oldest) }}</div><div class="t">{{ L('Oldest', 'Más antigua') }}</div></div>
+          <div class="k main"><div class="v">S/ {{ money(sel.totals?.amount) }}</div><div class="t">{{ L('Amount', 'Importe') }}</div></div>
+        </div>
         <div v-else class="kpis">
           <div class="k"><div class="v">{{ sel.rows_total }}</div><div class="t">{{ L('Departures', 'Salidas') }}</div></div>
           <div class="k pick" :class="{ on: action === 'new' }" @click="setAction('new')"><div class="v c-new">{{ sel.rows_new }}</div><div class="t">{{ L('New', 'Nuevas') }}</div></div>
@@ -97,13 +118,18 @@
           <WarningOutlined /> {{ L('Rows left out', 'Filas no tomadas') }}: {{ sel.skipped.map(s => `${L('row', 'fila')} ${s.row} (${s.reason})`).join('; ') }}
         </div>
 
-        <DataTable :key="sel.kind" :crud="rowsCrud" :columns="sel.kind === 'liquidation' ? liqColumns : rowColumns" compact-toolbar
-          :table-key="sel.kind === 'liquidation' ? 'aurasoft-liq' : 'aurasoft-rows'">
+        <DataTable :key="sel.kind" :crud="rowsCrud" :columns="columnsFor(sel.kind)" compact-toolbar
+          :table-key="'aurasoft-' + (sel.kind || 'production')">
           <template #filters>
-            <a-segmented v-model:value="action" size="small" :options="actionOptions" @change="rowsCrud.fetchRows()" />
+            <a-segmented v-if="sel.kind !== 'parcels'" v-model:value="action" size="small" :options="sel.kind === 'detail' ? actionOptions.filter(o => o.value !== 'same') : actionOptions" @change="rowsCrud.fetchRows()" />
           </template>
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'sale_date'">{{ date(record.sale_date) }}</template>
+            <template v-else-if="column.key === 'emitted_on'">{{ date(record.emitted_on) }}</template>
+            <template v-else-if="column.key === 'doc'">{{ [record.series, record.number].filter(Boolean).join('-') }}</template>
+            <template v-else-if="column.det">{{ money(record[column.key]) }}</template>
+            <template v-else-if="column.key === 'module'">{{ moduleLabel(record.module) }}</template>
+            <template v-else-if="column.key === 'status' && record.status === 'ANULADO'"><span class="tag t-updated">{{ L('Cancelled', 'Anulado') }}</span></template>
             <template v-else-if="column.liq">{{ money(record[column.key]) }}<span
               v-if="record.before && ['income', 'net', 'tickets'].includes(column.key) && Number(record.before[column.key]) !== Number(record[column.key])"
               class="was"> ({{ money(record.before[column.key]) }})</span></template>
@@ -186,7 +212,45 @@ const rowColumns = computed(() => [
   { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 120 },
 ]);
 // AuraSoft's Liquidación General (2026-11-24): its own columns.
-const kindLabel = k => (k === 'liquidation' ? L('General liquidation', 'Liquidación general') : L('Production per bus', 'Producción por bus'));
+const kindLabel = k => ({
+  liquidation: L('General liquidation', 'Liquidación general'), detail: L('Detailed liquidation', 'Liquidación detallada'),
+  parcels: L('Parcels to deliver', 'Encomiendas por entregar'),
+}[k] || L('Production per bus', 'Producción por bus'));
+// AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24).
+const MODULES = {
+  PAS_ING: ['Tickets', 'Pasajes'], VEN_ENC: ['Parcels', 'Encomiendas'], COB_DES: ['Collected at destination', 'Cobro en destino'],
+  ENC_PAG: ['Parcel to collect at destination', 'Encomienda pago destino'], VEN_EXE: ['Excess', 'Exceso'], EGR_CPA: ['Cash expense', 'Egreso de caja'],
+  VEN_TAR: ['Ticket by card', 'Pasaje con tarjeta'], ENC_TAR: ['Parcel by card', 'Encomienda con tarjeta'], EXC_TAR: ['Excess by card', 'Exceso con tarjeta'],
+  WEB_EMI: ['Web ticket', 'Pasaje web'], RED_BUS: ['RedBus ticket', 'Pasaje RedBus'], DEL_EMI: ['Delivery ticket', 'Pasaje delivery'],
+  ING_CPA: ['Other cash income', 'Otro ingreso de caja'], NOT_CPA: ['Credit note', 'Nota de crédito'],
+};
+const moduleLabel = m => (MODULES[m] ? L(...MODULES[m]) : m);
+const detColumns = computed(() => [
+  { title: L('Date', 'Fecha'), key: 'sale_date', dataIndex: 'sale_date', sorter: true, width: 96 },
+  { title: L('Point of sale', 'Punto de venta'), key: 'point', dataIndex: 'point', sorter: true, width: 140, ellipsis: { showTitle: true } },
+  { title: L('Cashier', 'Cajero'), key: 'cashier', dataIndex: 'cashier', sorter: true, width: 150, ellipsis: { showTitle: true } },
+  { title: L('Kind', 'Tipo'), key: 'module', dataIndex: 'module', sorter: true, width: 170, ellipsis: { showTitle: true } },
+  { title: L('Document', 'Documento'), key: 'doc', dataIndex: 'number', width: 120 },
+  { title: L('DNI / RUC', 'DNI / RUC'), key: 'client_doc', dataIndex: 'client_doc', width: 110 },
+  { title: L('Customer', 'Cliente'), key: 'client', dataIndex: 'client', sorter: true, ellipsis: { showTitle: true } },
+  { title: L('Card', 'Tarjeta'), key: 'card_type', dataIndex: 'card_type', width: 100, ellipsis: true },
+  { title: L('Total', 'Total'), key: 'total', dataIndex: 'total', sorter: true, align: 'right', width: 90, det: true },
+  { title: L('Status', 'Estado'), key: 'status', dataIndex: 'status', sorter: true, width: 86 },
+  { title: L('In this file', 'En este archivo'), key: 'action', dataIndex: 'action', sorter: true, width: 104 },
+]);
+const parColumns = computed(() => [
+  { title: L('Issued', 'Emisión'), key: 'emitted_on', dataIndex: 'emitted_on', sorter: true, width: 96 },
+  { title: L('Agency', 'Agencia'), key: 'origin', dataIndex: 'origin', sorter: true, width: 110, ellipsis: true },
+  { title: L('Document', 'Documento'), key: 'document', dataIndex: 'document', sorter: true, width: 130 },
+  { title: L('Consignee', 'Consignado'), key: 'consignee', dataIndex: 'consignee', sorter: true, width: 200, ellipsis: { showTitle: true } },
+  { title: L('Contents', 'Detalle'), key: 'detail', dataIndex: 'detail', ellipsis: { showTitle: true } },
+  { title: L('Amount', 'Importe'), key: 'amount', dataIndex: 'amount', sorter: true, align: 'right', width: 84, det: true },
+  { title: 'C.P', key: 'pay', dataIndex: 'pay', width: 50 },
+  { title: L('Sender', 'Remitente'), key: 'sender', dataIndex: 'sender', width: 180, ellipsis: { showTitle: true } },
+  { title: L('Point of sale', 'Punto de venta'), key: 'point', dataIndex: 'point', sorter: true, width: 120, ellipsis: true },
+  { title: L('Status', 'Estado'), key: 'status', dataIndex: 'status', sorter: true, width: 150, ellipsis: true },
+]);
+const columnsFor = k => (k === 'liquidation' ? liqColumns.value : k === 'detail' ? detColumns.value : k === 'parcels' ? parColumns.value : rowColumns.value);
 const liqColumns = computed(() => [
   { title: L('Date', 'Fecha'), key: 'sale_date', dataIndex: 'sale_date', sorter: true, width: 100 },
   { title: L('Branch', 'Sucursal'), key: 'branch', dataIndex: 'branch', sorter: true, width: 110, ellipsis: { showTitle: true } },
@@ -224,7 +288,7 @@ async function upload(file) {
     const fd = new FormData();
     fd.append('file', file);
     const r = await http.postForm('transport/aurasoft', fd);
-    const what = r.kind === 'liquidation' ? L('rows', 'filas') : L('departures', 'salidas');
+    const what = { liquidation: L('rows', 'filas'), detail: L('documents', 'documentos'), parcels: L('parcels', 'encomiendas') }[r.kind] || L('departures', 'salidas');
     message.success(L(`${kindLabel(r.kind)}: ${r.rows_total} ${what}, ${r.rows_new} new, ${r.rows_updated} changed, ${r.rows_same} already there.`,
       `${kindLabel(r.kind)}: ${r.rows_total} ${what}, ${r.rows_new} nuevas, ${r.rows_updated} actualizadas, ${r.rows_same} ya estaban.`), 6);
     await crud.fetchRows();
@@ -271,10 +335,19 @@ async function exportRows(rec, kind) {
   busy.value = kind + rec.id;
   try {
     const all = [];
-    for (let page = 1; page < 50; page++) {
+    for (let page = 1; page < 400; page++) {
       const r = await http.get(`transport/aurasoft/${rec.id}/rows`, { page, limit: 500, SortField: 'trip_date', SortType: 'asc' });
       all.push(...(r.rows || []));
       if (all.length >= (r.totalRows || 0) || !(r.rows || []).length) break;
+    }
+    if (rec.kind === 'detail' || rec.kind === 'parcels') {
+      const cols = columnsFor(rec.kind).map(c => ({ ...c, exportValue: c.det ? r => Number(r[c.key] || 0)
+        : c.key === 'sale_date' || c.key === 'emitted_on' ? r => date(r[c.key]) : c.key === 'doc' ? r => [r.series, r.number].filter(Boolean).join('-')
+          : c.key === 'module' ? r => moduleLabel(r.module) : c.key === 'action' ? r => actionLabel(r.action) : undefined }));
+      const title = `AuraSoft ${kindLabel(rec.kind)} ${date(rec.period_from)} - ${date(rec.period_to)}`;
+      if (kind === 'pdf') await exportPdf(title, cols, all, { landscape: true });
+      else await exportExcel(title.replace(/[\\/:*?"<>|]/g, '-'), cols, all, {});
+      return;
     }
     const liq = rec.kind === 'liquidation';
     const cols = liq
@@ -334,8 +407,10 @@ onMounted(() => crud.fetchRows());
 .t-new { background: rgba(21, 128, 61, 0.14); color: #15803d; }
 .t-updated { background: rgba(180, 83, 9, 0.14); color: #b45309; }
 .t-same { background: rgba(128, 128, 128, 0.14); }
-.t-prod { background: rgba(58, 79, 196, 0.12); color: #3A4FC4; }
-.t-liq { background: rgba(15, 157, 138, 0.14); color: #0b7a6b; }
+.t-k-production { background: rgba(58, 79, 196, 0.12); color: #3A4FC4; }
+.t-k-liquidation { background: rgba(15, 157, 138, 0.14); color: #0b7a6b; }
+.t-k-detail { background: rgba(114, 46, 209, 0.12); color: #722ED1; }
+.t-k-parcels { background: rgba(180, 83, 9, 0.14); color: #b45309; }
 .was { opacity: 0.55; font-size: 11px; text-decoration: line-through; }
 .hint { opacity: 0.75; padding: 12px 4px; }
 .acts { display: inline-flex; gap: 2px; }

@@ -63,10 +63,14 @@ const period = computed(() => `${dayjs(data.value.from).format('DD/MM/YYYY')} �
 const tiles = computed(() => {
   const t = totals.value;
   const trips = t.trips_run || 0;
+  // Power BI cards (2026-11-24): the period's trend under margin, profit and income.
+  const pts = data.value.trend?.points || [];
+  const spark = f => (pts.length > 2 ? pts.map(f) : null);
   return [
-    { label: tr('Margin', 'Margen'), value: data.value.margin != null ? `${data.value.margin} %` : '—', help: tr('Profit over income.', 'Ganancia sobre ingresos.') },
-    { label: tr('Profit', 'Ganancia'), value: money(t.profit), help: `${period.value} · ${trips} ${tr('trips run', 'viajes realizados')}` },
-    { label: tr('Income', 'Ingresos'), value: money(t.income), help: `${tr('Tickets', 'Pasajes')} ${money(t.tickets_income)} · ${tr('Parcels', 'Encomiendas')} ${money(t.parcels_income)}` },
+    { label: tr('Margin', 'Margen'), value: data.value.margin != null ? `${data.value.margin} %` : '—', help: tr('Profit over income.', 'Ganancia sobre ingresos.'),
+      spark: spark(p => (p.income ? ((p.income - p.costs) / p.income) * 100 : 0)), sparkColor: GREEN },
+    { label: tr('Profit', 'Ganancia'), value: money(t.profit), help: `${period.value} · ${trips} ${tr('trips run', 'viajes realizados')}`, spark: spark(p => p.income - p.costs), sparkColor: GREEN },
+    { label: tr('Income', 'Ingresos'), value: money(t.income), help: `${tr('Tickets', 'Pasajes')} ${money(t.tickets_income)} · ${tr('Parcels', 'Encomiendas')} ${money(t.parcels_income)}`, spark: spark(p => p.income) },
     { label: tr('Occupancy', 'Ocupación'), value: t.occupancy != null ? `${t.occupancy} %` : '—', help: `${t.tickets || 0} ${tr('tickets', 'boletos')} · ${t.vip || 0} VIP` },
     { label: tr('Profit per trip', 'Ganancia por viaje'), value: money(trips ? t.profit / trips : 0) },
     { label: tr('Trips +/-', 'Viajes +/-'), value: `${t.gain_trips || 0} / ${t.loss_trips || 0}`, help: tr('With profit / with loss.', 'Con ganancia / con pérdida.') },

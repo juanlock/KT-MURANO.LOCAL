@@ -641,6 +641,32 @@ class TransportOperationsController extends Controller
         return response()->json(\App\Services\TransportPointSales::compute($cid, $from, $to));
     }
 
+    /** "Caja y clientes" (2026-11-24): AuraSoft's Liquidación Detallada -- cancellations, cash expenses, payments, customers. */
+    public function cashbook(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+        $from = $request->input('from') ?: now()->startOfMonth()->toDateString();
+        $to = $request->input('to') ?: now()->toDateString();
+
+        return response()->json(\App\Services\TransportAuraBoards::cashbook($cid, $from, $to));
+    }
+
+    /** "Encomiendas AuraSoft" (2026-11-24): parcels still to deliver (kardex) and what is left to collect at destination. */
+    public function auraParcels(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        if ($cid === 999 || ! ModuleFlags::enabled($cid, 'transport')) {
+            return response()->json(['enabled' => false]);
+        }
+
+        return response()->json(\App\Services\TransportAuraBoards::parcels($cid));
+    }
+
     /** "Reporte del día de ventas" (2026-11-23): a day, Lima's and Chiclayo's departures side by side. */
     public function daySales(Request $request)
     {

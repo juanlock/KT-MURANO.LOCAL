@@ -22,7 +22,8 @@ defineProps({ chart: { type: Object, required: true }, asTable: Boolean });
 </script>
 
 <style scoped>
-.tcb { border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 6px 8px 4px; min-width: 0; }
+/* Power BI visual (2026-11-24): a flat card with a soft shadow, the title on top. */
+.tcb { border: 1px solid rgba(128, 128, 128, 0.14); border-radius: 4px; padding: 6px 10px 4px; min-width: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07); }
 .tcb-head { display: flex; align-items: center; gap: 5px; line-height: 20px; }
 .tcb-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tcb-info { opacity: 0.45; font-size: 12px; cursor: help; }

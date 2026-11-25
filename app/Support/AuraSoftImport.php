@@ -31,15 +31,30 @@ class AuraSoftImport
     public static function run(int $companyId, UploadedFile $file, ?int $userId): object
     {
         // One upload button for AuraSoft's files (2026-11-24): the file's title says which report it is.
-        $data = IOFactory::load($file->getRealPath())->getSheet(0)->toArray(null, true, false, false);
-        $kind = AuraSoftLiquidation::kindOf($data);
+        // The first lines only (streamed): a "Liquidación Detallada" is too big to load whole just to see what it is.
+        $kind = null;
+        try {
+            $kind = AuraSoftLiquidation::kindOf(iterator_to_array(XlsxRows::read($file->getRealPath(), 8), false));
+        } catch (\Throwable $e) {
+            $kind = null;   // an old .xls: PhpSpreadsheet below
+        }
+        if ($kind === null) {
+            $kind = AuraSoftLiquidation::kindOf(IOFactory::load($file->getRealPath())->getSheet(0)->rangeToArray('A1:F8', null, true, false));
+        }
         if ($kind === 'liquidation') {
+            $data = IOFactory::load($file->getRealPath())->getSheet(0)->toArray(null, true, false, false);
+
             return AuraSoftLiquidation::run($companyId, $file, $userId, $data);
         }
         if ($kind === 'detail') {
-            throw new \RuntimeException(__('The "Liquidación Detallada" is not imported yet: upload the "Liquidación General" or the "Reporte producción por bus".'));
+            return AuraSoftDetail::run($companyId, $file, $userId);
         }
-        unset($data);
+        if ($kind === 'parcels') {
+            return AuraSoftParcels::run($companyId, $file, $userId);
+        }
+        if ($kind === 'receivables') {
+            throw new \RuntimeException(__('The "Conciliación de documentos por cobrar" is not imported: Murano works out what is left to collect from the "Liquidación Detallada". Upload that one.'));
+        }
         $parsed = self::parse($file->getRealPath());
         if (! $parsed['rows']) {
             throw new \RuntimeException(__('No departures were found in the file. Is it the AuraSoft "Reporte producción por bus"?'));
@@ -119,8 +134,19 @@ class AuraSoftImport
      */
     public static function remove(int $companyId, int $importId): void
     {
-        if (DB::table('transport_aurasoft_imports')->where('id', $importId)->value('kind') === 'liquidation') {
+        $kind = DB::table('transport_aurasoft_imports')->where('id', $importId)->value('kind');
+        if ($kind === 'liquidation') {
             AuraSoftLiquidation::remove($companyId, $importId);
+
+            return;
+        }
+        if ($kind === 'detail') {
+            AuraSoftDetail::remove($companyId, $importId);
+
+            return;
+        }
+        if ($kind === 'parcels') {
+            AuraSoftParcels::remove($companyId, $importId);
 
             return;
         }

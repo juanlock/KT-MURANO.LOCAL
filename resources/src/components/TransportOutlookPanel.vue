@@ -104,10 +104,10 @@ const { fit, measure } = useFitHeight(root);
 const CHROME = 16 + 58 + 84 + 30 + 34;
 const tableScroll = computed(() => (fit.value ? { x: 'max-content', y: Math.max(160, fit.value - CHROME) } : { x: 'max-content' }));
 
-const COLORS = { red: '#dc2626', amber: '#d97706', green: '#16a34a' };
+const COLORS = { red: '#D64550', amber: '#B08F00', green: '#1AAB40' }; // the dashboard's status colors (transportCharts.js)
 const CHANNEL = {
   agency: { color: '#118DFF', en: 'Agency', es: 'Agencia' },
-  jelaf: { color: '#8E2C9E', en: 'Jelaf', es: 'Jelaf' },
+  jelaf: { color: '#8E2C9E', en: 'AuraSoft', es: 'AuraSoft' }, // Jelaf is now called AuraSoft (2026-11-23)
   perubus: { color: '#E044A7', en: 'PeruBus', es: 'PeruBus' },
   phone: { color: '#B08F00', en: 'Phone', es: 'Teléfono' },
   unknown: { color: '#898781', en: 'Not recorded', es: 'Sin registrar' },

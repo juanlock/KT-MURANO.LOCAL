@@ -832,6 +832,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/production/export', 'productionExport');
         Route::get('/day-sales', 'daySales');
         Route::get('/point-sales', 'pointSales');
+        Route::get('/cashbook', 'cashbook');
+        Route::get('/aura-parcels', 'auraParcels');
     });
     // "Mando operativo" (2026-11-18): the coming departures, projected sales and whether they cover their costs.
     Route::get('transport/outlook', [\App\Http\Controllers\TransportOutlookController::class, 'index']);

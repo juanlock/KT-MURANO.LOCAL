@@ -63,7 +63,9 @@ const sparkArea = v => `${sparkLine(v)} L80,28 L0,28 Z`;
 
 <style scoped>
 .ts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: stretch; }
-.ts-item { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px; padding: 5px 10px; }
+/* Power BI cards (2026-11-24, every transport tab): a thin accent on the left and a soft shadow instead of a frame. */
+.ts-item { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(128, 128, 128, 0.14); border-left: 3px solid #118DFF;
+  border-radius: 4px; padding: 5px 10px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07); }
 .ts-level { font-size: 16px; }
 .ts-text { min-width: 0; flex: 1; }
 .ts-label { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; }
