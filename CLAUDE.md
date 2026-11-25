@@ -1012,6 +1012,10 @@ the start of each session).
   **Each store opens in its own language** (`store_settings.language`; `SetStoreLocale`): the visitor's pick is kept per
   store (`store_locale_{company}`), the shared `locale` session / cookie of the admin panel no longer decides it.
   Shipping zones / methods have no `company_id` yet (install-wide): make them per company before a store uses them.
+  **A store page is 404 unless its company is known, is not 999 and has the Store module on** (user's security rule,
+  2026-11-25: `/online_store` from a new PC / private window showed the install's own "StoreX" store; `EnsureStoreEnabled`).
+  The company comes from the website path, the domain, `?company=`, a category / product link, or the cookie
+  `store_company` (the last store visited, shared by the website and store pages, which use different session cookies).
   **HORDEX's store is live (2026-11-25):** `/hordex`, grocery template, Spanish, cash only (COD / pickup), 16 finished
   products with basic drawn images (`files/company_1027/products/demo/`, to be replaced by Hordex's photos).
 - Website pages (front page with our website theme, CMS pages, gallery,
