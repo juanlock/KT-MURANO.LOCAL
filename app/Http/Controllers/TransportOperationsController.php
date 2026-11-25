@@ -704,8 +704,80 @@ class TransportOperationsController extends Controller
         $sum = DB::table('transport_passengers')->where('company_id', $cid)
             ->selectRaw("COUNT(*) n, SUM(is_company) companies, SUM(phone IS NOT NULL) with_phone, SUM(doc IS NULL) no_doc,
                 SUM(kind = 'passenger') k_passenger, SUM(kind = 'parcel') k_parcel, SUM(kind = 'both') k_both")->first();
+        $sum->to_verify = \Illuminate\Support\Facades\Cache::remember("tp_verify_n:$cid", 600, fn () => DB::query()->fromSub($this->verifyNames($cid), 'v')->count());
 
         return response()->json(['rows' => $rows, 'totalRows' => $total, 'summary' => $sum]);
+    }
+
+    /**
+     * "Por verificar" (user, 2026-11-25): a name that AuraSoft's documents carry with more than one DNI / RUC ("M & M
+     * Repuestos" on 54 RUCs). Read only -- the imported data is never changed (not authorized: boards only).
+     */
+    /** A name as typed, without AuraSoft's stray commas ("S.A.,,"), for grouping only. */
+    private const VNAME = "TRIM(REPLACE(client, ',', ' '))";
+
+    private function verifyNames(int $cid, string $search = '')
+    {
+        $valid = "client_doc REGEXP '^([0-9]{8}|[0-9]{11})$' AND client_doc NOT REGEXP '^0+$'";
+        $live = "(status IS NULL OR status != 'ANULADO')";
+
+        return DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)
+            ->whereIn('module', ['PAS_ING', 'VEN_ENC', 'VEN_EXE', 'COB_DES', 'ENC_PAG'])
+            ->whereNotNull('client')->where('client', '!=', '')->whereRaw($valid)
+            ->when($search !== '', fn ($q) => ctype_digit($search)
+                ? $q->whereRaw(self::VNAME." IN (SELECT ".self::VNAME." FROM transport_aurasoft_movements WHERE company_id = ? AND is_current = 1 AND client_doc LIKE ?)", [$cid, "$search%"])
+                : $q->where('client', 'like', '%'.$search.'%'))
+            ->groupByRaw(self::VNAME)
+            ->havingRaw('COUNT(DISTINCT client_doc) > 1')
+            ->selectRaw("TRIM(REPLACE(client, ',', ' ')) name, COUNT(DISTINCT client_doc) docs,
+                COUNT(DISTINCT CASE WHEN LENGTH(client_doc) = 8 THEN client_doc END) dnis,
+                COUNT(DISTINCT CASE WHEN LENGTH(client_doc) = 11 THEN client_doc END) rucs,
+                SUM($live) documents, SUM(CASE WHEN $live THEN income ELSE 0 END) amount, MAX(sale_date) last_purchase");
+    }
+
+    /** Pasajeros -> Base de pasajeros -> "Por verificar": the names, and under each one its DNI / RUC numbers. */
+    public function passengersVerify(Request $request)
+    {
+        $this->allow($request, 'transport_profit');
+        $cid = (int) $this->resolveActingCompanyId($request);
+        abort_if($cid === 999, 422, __('Pick a company in the header first.'));
+        ModuleFlags::abortUnlessEnabled($cid, 'transport');
+        $sortable = ['name', 'docs', 'dnis', 'rucs', 'documents', 'amount', 'last_purchase'];
+        $field = in_array($request->input('SortField'), $sortable, true) ? $request->input('SortField') : 'docs';
+        $dir = strtolower((string) $request->input('SortType')) === 'asc' ? 'asc' : 'desc';
+        $q = DB::query()->fromSub($this->verifyNames($cid, trim((string) $request->input('search'))), 'v');
+        $total = (clone $q)->count();
+        $limit = max(1, min(200, (int) $request->input('limit', 50)));
+        $rows = $q->orderBy($field, $dir)->orderBy('name')->forPage(max(1, (int) $request->input('page', 1)), $limit)->get();
+        // Each name's numbers: how many documents and how much under it, and the name the base / SUNAT gives that number.
+        $names = $rows->pluck('name')->all();
+        $by = [];
+        if ($names) {
+            $docs = DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)
+                ->whereIn('module', ['PAS_ING', 'VEN_ENC', 'VEN_EXE', 'COB_DES', 'ENC_PAG'])
+                ->whereRaw("client_doc REGEXP '^([0-9]{8}|[0-9]{11})$' AND client_doc NOT REGEXP '^0+$'")
+                ->whereIn(DB::raw(self::VNAME), $names)
+                ->groupByRaw(self::VNAME.", client_doc")
+                ->selectRaw("TRIM(REPLACE(client, ',', ' ')) name, client_doc doc, SUM(status IS NULL OR status != 'ANULADO') documents,
+                    SUM(CASE WHEN status IS NULL OR status != 'ANULADO' THEN income ELSE 0 END) amount, MIN(sale_date) first_purchase, MAX(sale_date) last_purchase")
+                ->get();
+            $base = DB::table('transport_passengers')->where('company_id', $cid)->whereIn('doc', $docs->pluck('doc')->unique()->all() ?: ['-'])
+                ->get(['doc', 'name', 'sunat_name'])->keyBy('doc');
+            foreach ($docs as $d) {
+                $b = $base[$d->doc] ?? null;
+                $d->base_name = $b->name ?? null;
+                $d->sunat_name = $b->sunat_name ?? null;
+                $by[mb_strtoupper($d->name)][] = $d;
+            }
+        }
+        foreach ($rows as $r) {
+            $list = $by[mb_strtoupper($r->name)] ?? [];
+            usort($list, fn ($a, $b) => $b->documents <=> $a->documents ?: strcmp($a->doc, $b->doc));
+            $r->list = $list;
+            $r->key = md5($r->name);
+        }
+
+        return response()->json(['rows' => $rows, 'totalRows' => $total]);
     }
 
     /** "Encomiendas AuraSoft" (2026-11-24): parcels still to deliver (kardex) and what is left to collect at destination. */
