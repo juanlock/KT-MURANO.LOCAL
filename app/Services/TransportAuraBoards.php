@@ -22,6 +22,10 @@ class TransportAuraBoards
     private const SALE_MODULES = ['PAS_ING', 'VEN_ENC', 'VEN_EXE', 'COB_DES'];
     private const EXPENSE_MODULES = ['EGR_CPA', 'EGR_CEN'];
 
+    /** Tickets (tickets + excess) and parcels (sent + collected at destination) apart: counts and amounts. */
+    private const SPLIT = "SUM(module = 'PAS_ING' OR module = 'VEN_EXE') tickets, SUM(CASE WHEN module = 'PAS_ING' OR module = 'VEN_EXE' THEN income ELSE 0 END) t_amount,
+        SUM(module = 'VEN_ENC' OR module = 'COB_DES') parcels, SUM(CASE WHEN module = 'VEN_ENC' OR module = 'COB_DES' THEN income ELSE 0 END) p_amount";
+
     public static function cashbook(int $cid, string $from, string $to): array
     {
         $base = fn () => DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)->whereBetween('sale_date', [$from, $to]);
@@ -62,8 +66,12 @@ class TransportAuraBoards
 
         $clients = $active()->whereIn('module', self::SALE_MODULES)->whereNotNull('client_doc')->where('client_doc', '!=', '')
             ->groupBy('client_doc')->selectRaw('client_doc, MAX(client) client, COUNT(*) n, SUM(income) amount, SUM(module = \'VEN_ENC\' OR module = \'COB_DES\') parcels')
-            ->orderByDesc('amount')->limit(15)->get()
-            ->map(fn ($c) => ['doc' => $c->client_doc, 'name' => trim(str_replace(',', ' ', (string) $c->client)), 'company' => strlen($c->client_doc) === 11,
+            ->orderByDesc('amount')->limit(15)->get();
+        // The passenger base's name (SUNAT's for a RUC, else the one the documents carry most often).
+        $names = DB::table('transport_passengers')->where('company_id', $cid)->whereIn('doc', $clients->pluck('client_doc')->all() ?: ['-'])
+            ->pluck(DB::raw('COALESCE(sunat_name, name)'), 'doc');
+        $clients = $clients
+            ->map(fn ($c) => ['doc' => $c->client_doc, 'name' => $names[$c->client_doc] ?? \App\Support\AuraSoftPassengers::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
                 'n' => (int) $c->n, 'parcels' => (int) $c->parcels, 'amount' => round((float) $c->amount, 2)]);
         $kinds = $active()->whereIn('module', self::SALE_MODULES)->whereNotNull('client_doc')->where('client_doc', '!=', '')
             ->selectRaw('COUNT(DISTINCT CASE WHEN LENGTH(client_doc) = 11 THEN client_doc END) ruc, COUNT(DISTINCT CASE WHEN LENGTH(client_doc) = 8 THEN client_doc END) dni,
@@ -99,9 +107,9 @@ class TransportAuraBoards
         $available = DB::table('transport_aurasoft_movements')->where('company_id', $cid)->where('is_current', 1)->selectRaw('MIN(sale_date) d1, MAX(sale_date) d2')->first();
         $first = $sale()->groupBy('client_doc')->selectRaw('client_doc, MIN(sale_date) f');
         $per = DB::query()->fromSub($sale()->whereBetween('sale_date', [$from, $to])->groupBy('client_doc')
-            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, SUM(module = \'VEN_ENC\' OR module = \'COB_DES\') parcels'), 'p')
+            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, '.self::SPLIT), 'p')
             ->joinSub($first, 'f', 'f.client_doc', '=', 'p.client_doc')
-            ->select(['p.client_doc', 'p.n', 'p.amount', 'p.last', 'p.client', 'p.parcels', 'f.f as first'])->get();
+            ->select(['p.client_doc', 'p.n', 'p.amount', 'p.last', 'p.client', 'p.parcels', 'p.tickets', 'p.t_amount', 'p.p_amount', 'f.f as first'])->get();
         $tot = ['active' => 0, 'new' => 0, 'returning' => 0, 'people' => 0, 'companies' => 0, 'amount' => 0.0, 'company_amount' => 0.0];
         $freq = ['1' => 0, '2' => 0, '3-5' => 0, '6-10' => 0, '11+' => 0];
         foreach ($per as $c) {
@@ -117,8 +125,12 @@ class TransportAuraBoards
             $n = (int) $c->n;
             $freq[$n === 1 ? '1' : ($n === 2 ? '2' : ($n <= 5 ? '3-5' : ($n <= 10 ? '6-10' : '11+')))]++;
         }
-        $row = fn ($c) => ['doc' => $c->client_doc, 'name' => \App\Support\AuraSoftPassengers::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
-            'n' => (int) $c->n, 'parcels' => (int) ($c->parcels ?? 0), 'amount' => round((float) $c->amount, 2), 'last' => $c->last, 'first' => $c->first ?? null];
+        // The name each DNI / RUC carries most often (a typed-over name must not show twice): from the passenger base.
+        $baseNames = DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('doc')->pluck(DB::raw('COALESCE(sunat_name, name)'), 'doc');
+        $row = fn ($c) => ['doc' => $c->client_doc, 'name' => $baseNames[$c->client_doc] ?? \App\Support\AuraSoftPassengers::name((string) $c->client), 'company' => strlen($c->client_doc) === 11,
+            'n' => (int) $c->n, 'parcels' => (int) ($c->parcels ?? 0), 'amount' => round((float) $c->amount, 2), 'last' => $c->last, 'first' => $c->first ?? null,
+            // Tickets and parcels apart (user, 2026-11-24: "pasajes / encomiendas, no las juntes").
+            'tickets' => (int) ($c->tickets ?? 0), 't_amount' => round((float) ($c->t_amount ?? 0), 2), 'p_amount' => round((float) ($c->p_amount ?? 0), 2)];
         $top = $per->sortByDesc('amount')->take(15)->map($row)->values();
         $topCompanies = $per->filter(fn ($c) => strlen($c->client_doc) === 11)->sortByDesc('amount')->take(10)->map($row)->values();
 
@@ -138,7 +150,7 @@ class TransportAuraBoards
         // Good customers who stopped: 3+ purchases up to 30 days before the end, none since.
         $cut = date('Y-m-d', strtotime($to.' -30 days'));
         $lost = DB::query()->fromSub($sale()->where('sale_date', '<=', $to)->groupBy('client_doc')
-            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, MIN(sale_date) first, SUM(module = \'VEN_ENC\' OR module = \'COB_DES\') parcels'), 'h')
+            ->selectRaw('client_doc, COUNT(*) n, SUM(income) amount, MAX(sale_date) last, MAX(client) client, MIN(sale_date) first, '.self::SPLIT), 'h')
             ->where('n', '>=', 3)->where('last', '<', $cut)->orderByDesc('amount');
         $lostCount = (clone $lost)->count();
         $lostTop = $lost->limit(12)->get()->map($row)->values();

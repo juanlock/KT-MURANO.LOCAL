@@ -692,11 +692,12 @@ class TransportOperationsController extends Controller
             ->when(in_array($request->input('type'), ['passenger', 'parcel', 'both'], true), fn ($q) => $q->where('kind', $request->input('type')))
             ->when($s !== '', fn ($q) => ctype_digit($s)
                 ? $q->where(fn ($w) => $w->where('doc', 'like', "$s%")->orWhere('phone', 'like', "%$s%"))
-                : $q->where('name', 'like', '%'.$s.'%'));
+                : $q->where(fn ($w) => $w->where('name', 'like', '%'.$s.'%')->orWhere('sunat_name', 'like', '%'.$s.'%')));
         $total = (clone $q)->count();
         $limit = max(1, min(500, (int) $request->input('limit', 50)));
         $rows = $q->orderByRaw("$field IS NULL")->orderBy($field, $dir)->orderBy('id')->forPage(max(1, (int) $request->input('page', 1)), $limit)
-            ->get(['id', 'doc', 'name', 'is_company', 'kind', 'phone', 'phones', 'first_purchase', 'last_purchase', 'purchases', 'tickets', 'parcels', 'amount', 'online_tickets', 'last_online']);
+            // A company shows its SUNAT name (by RUC) once looked up; "aurasoft_name" = what the documents carried.
+            ->get(['id', 'doc', DB::raw('COALESCE(sunat_name, name) as name'), 'name as aurasoft_name', 'sunat_name', 'is_company', 'kind', 'phone', 'phones', 'first_purchase', 'last_purchase', 'purchases', 'tickets', 'parcels', 'amount', 'online_tickets', 'last_online']);
         foreach ($rows as $r) {
             $r->phones = json_decode((string) $r->phones, true) ?: [];
         }

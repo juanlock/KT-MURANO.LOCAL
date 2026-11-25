@@ -25,14 +25,18 @@
           <div class="cu-box">
             <div class="cu-h">{{ tr('Best customers in the period', 'Mejores clientes del período') }}</div>
             <table class="cu-t">
-              <thead><tr><th>{{ tr('Customer', 'Cliente') }}</th><th>{{ tr('Purch.', 'Compras') }}</th><th>{{ tr('Last', 'Última') }}</th><th>S/</th></tr></thead>
+              <!-- Tickets and parcels apart (user, 2026-11-24: "no las juntes"). -->
+              <thead>
+                <tr><th rowspan="2">{{ tr('Customer', 'Cliente') }}</th><th colspan="2" class="cu-grp">{{ tr('Tickets', 'Pasajes') }}</th><th colspan="2" class="cu-grp">{{ tr('Parcels', 'Encomiendas') }}</th><th rowspan="2">{{ tr('Last', 'Última') }}</th></tr>
+                <tr><th>{{ tr('Qty', 'Cant.') }}</th><th>S/</th><th>{{ tr('Qty', 'Cant.') }}</th><th>S/</th></tr>
+              </thead>
               <tbody>
                 <tr v-for="c in data.top" :key="c.doc">
                   <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}<span v-if="c.first >= data.from" class="cu-new">{{ tr('new', 'nuevo') }}</span>
                     <a v-if="c.phone" class="cu-wa" :href="`https://wa.me/${c.phone}`" target="_blank" rel="noopener" :title="'+' + c.phone"><WhatsAppOutlined /></a></td>
-                  <td class="cu-num">{{ c.n }}<span v-if="c.parcels" class="cu-mut"> · {{ c.parcels }} {{ tr('parc.', 'enc.') }}</span></td>
+                  <td class="cu-num">{{ c.tickets || '—' }}</td><td class="cu-num">{{ c.t_amount ? plain(c.t_amount) : '—' }}</td>
+                  <td class="cu-num">{{ c.parcels || '—' }}</td><td class="cu-num">{{ c.p_amount ? plain(c.p_amount) : '—' }}</td>
                   <td class="cu-num">{{ date(c.last) }}</td>
-                  <td class="cu-num"><b>{{ plain(c.amount) }}</b></td>
                 </tr>
               </tbody>
             </table>
@@ -45,12 +49,12 @@
             </div>
             <div v-if="!data.lost?.length" class="cu-mut">{{ tr('None.', 'Ninguno.') }}</div>
             <table v-else class="cu-t">
-              <thead><tr><th>{{ tr('Customer', 'Cliente') }}</th><th>{{ tr('Purch.', 'Compras') }}</th><th>{{ tr('Last', 'Última') }}</th><th>S/</th></tr></thead>
+              <thead><tr><th>{{ tr('Customer', 'Cliente') }}</th><th>{{ tr('Tickets', 'Pasajes') }}</th><th>{{ tr('Parcels', 'Encom.') }}</th><th>{{ tr('Last', 'Última') }}</th><th>S/</th></tr></thead>
               <tbody>
                 <tr v-for="c in data.lost" :key="c.doc">
                   <td class="cu-name"><span class="cu-tag" :class="c.company ? 'ruc' : 'dni'">{{ c.company ? 'RUC' : 'DNI' }}</span> {{ c.name || c.doc }}
                     <a v-if="c.phone" class="cu-wa" :href="`https://wa.me/${c.phone}`" target="_blank" rel="noopener" :title="'+' + c.phone"><WhatsAppOutlined /></a></td>
-                  <td class="cu-num">{{ c.n }}</td><td class="cu-num">{{ date(c.last) }}</td><td class="cu-num"><b>{{ plain(c.amount) }}</b></td>
+                  <td class="cu-num">{{ c.tickets || '—' }}</td><td class="cu-num">{{ c.parcels || '—' }}</td><td class="cu-num">{{ date(c.last) }}</td><td class="cu-num"><b>{{ plain(c.amount) }}</b></td>
                 </tr>
               </tbody>
             </table>
@@ -153,6 +157,7 @@ const weekOptions = computed(() => {
 .cu-tag.ruc { background: rgba(58, 79, 196, 0.14); color: #3A4FC4; }
 .cu-tag.dni { background: rgba(128, 128, 128, 0.16); }
 .cu-new { font-size: 10px; margin-left: 6px; padding: 0 4px; border-radius: 3px; background: rgba(230, 108, 55, 0.15); color: #C2410C; }
+.cu-t th.cu-grp { text-align: center; border-bottom: 1px solid rgba(128, 128, 128, 0.2); }
 .cu-wa { margin-left: 6px; color: #25D366; }
 .cu-note { font-size: 11.5px; opacity: 0.65; margin-top: 6px; }
 @media (max-width: 900px) { .cu-grid { grid-template-columns: 1fr; } .cu-box { max-height: none; } }

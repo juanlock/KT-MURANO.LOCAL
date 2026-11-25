@@ -46,6 +46,30 @@ class AuraSoftPassengers
         return strlen($d) >= 9 && strlen($d) <= 15 ? $d : '';
     }
 
+    /**
+     * The name of each DNI / RUC = the one its documents carry most often, the latest on a tie (2026-11-24: a cashier
+     * sometimes types a company's name over another's RUC -- "TRUCKS PARTS" on El Cumbe's RUC -- so the latest or the
+     * alphabetically last name is not reliable).
+     *
+     * @return array<string, string> doc => raw name
+     */
+    public static function namesByDoc(int $companyId, ?array $docs = null): array
+    {
+        $best = [];
+        $q = DB::table('transport_aurasoft_movements')->where('company_id', $companyId)->where('is_current', 1)
+            ->whereIn('module', self::MODULES)->whereNotNull('client_doc')->where('client_doc', '!=', '')->whereNotNull('client')->where('client', '!=', '')
+            ->when($docs !== null, fn ($w) => $w->whereIn('client_doc', $docs ?: ['-']))
+            ->groupBy('client_doc', 'client')->selectRaw('client_doc, client, COUNT(*) c, MAX(sale_date) d');
+        foreach ($q->cursor() as $r) {
+            $b = $best[$r->client_doc] ?? null;
+            if (! $b || $r->c > $b[1] || ($r->c == $b[1] && $r->d > $b[2])) {
+                $best[$r->client_doc] = [$r->client, (int) $r->c, $r->d];
+            }
+        }
+
+        return array_map(fn ($b) => $b[0], $best);
+    }
+
     /** passenger | parcel | both (2026-11-24): who travelled (tickets, online tickets) and who sent parcels. */
     public static function refreshKind(?int $companyId = null): void
     {
@@ -73,6 +97,7 @@ class AuraSoftPassengers
                 SUM((module = 'VEN_ENC' OR module = 'COB_DES' OR module = 'ENC_PAG') AND (status IS NULL OR status != 'ANULADO')) parcels,
                 SUM((module = 'PAS_ING' OR module = 'VEN_EXE') AND (status IS NULL OR status != 'ANULADO')) tickets")
             ->get();
+        $names = self::namesByDoc($companyId);
         $byDoc = DB::table('transport_passengers')->where('company_id', $companyId)->whereNotNull('doc')->pluck('id', 'doc');
         $nameOnly = DB::table('transport_passengers')->where('company_id', $companyId)->whereNull('doc')->pluck('id', 'name_key');
         $now = now();
@@ -82,7 +107,7 @@ class AuraSoftPassengers
             if (strlen($doc) < 8 || strlen($doc) > 11 || preg_match('/^0+$/', $doc)) {
                 continue;
             }
-            $name = self::name((string) $r->client) ?: $doc;
+            $name = self::name((string) ($names[(string) $r->client_doc] ?? $r->client)) ?: $doc;
             $key = self::nameKey($name);
             $vals = ['name' => $name, 'name_key' => $key, 'is_company' => strlen($doc) === 11, 'first_purchase' => $r->d1, 'last_purchase' => $r->d2,
                 'purchases' => (int) $r->n, 'parcels' => (int) $r->parcels, 'tickets' => (int) $r->tickets, 'amount' => round((float) $r->amount, 2), 'updated_at' => $now];

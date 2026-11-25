@@ -19,6 +19,9 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'name'">
             <span class="tag" :class="record.is_company ? 'ruc' : (record.doc ? 'dni' : 'nod')">{{ record.is_company ? 'RUC' : (record.doc ? 'DNI' : '—') }}</span> {{ record.name }}
+            <a-tooltip v-if="record.sunat_name && record.aurasoft_name !== record.sunat_name" :title="`${L('In AuraSoft', 'En AuraSoft')}: ${record.aurasoft_name}`">
+              <span class="sunat">SUNAT</span>
+            </a-tooltip>
           </template>
           <template v-else-if="column.key === 'phone'">
             <template v-if="record.phone">
@@ -91,6 +94,7 @@ onMounted(() => crud.fetchRows());
 .k-passenger { background: rgba(17, 141, 255, 0.12); color: #0b6fd0; }
 .k-parcel { background: rgba(230, 108, 55, 0.15); color: #C2410C; }
 .k-both { background: rgba(142, 44, 158, 0.14); color: #8E2C9E; }
+.sunat { font-size: 9px; margin-left: 4px; padding: 0 3px; border-radius: 3px; background: rgba(26, 171, 64, 0.14); color: #15803d; cursor: help; }
 .wa { color: #25D366; margin-right: 4px; }
 .muted { opacity: 0.55; }
 .n { font-variant-numeric: tabular-nums; }
