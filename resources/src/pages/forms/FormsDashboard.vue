@@ -28,7 +28,7 @@
               <a-select v-if="cx.forms.length > 1" v-model:value="contactForm" :options="contactFormOptions" allow-clear style="width: 320px; max-width: 100%"
                 :placeholder="es ? 'Todos los formularios de contacto' : 'Every contact form'" @change="loadContacts" />
               <span v-else class="fd-strong">{{ cx.forms[0].name }}</span>
-              <a v-if="contactOne" class="fd-small" @click="router.push(`/forms/${contactOne.id}/edit`)">
+              <a v-if="replyForm && replyForm.replies" class="fd-small" @click="openReplies()">
                 {{ es ? 'Respuestas automáticas' : 'Automatic replies' }}: {{ contactOne.replies_active }}/{{ contactOne.replies }} {{ es ? 'activas' : 'on' }}
               </a>
             </div>
@@ -44,8 +44,8 @@
                   <a-empty v-if="!cx.by_topic.length" :image="simple" :description="es ? 'Sin mensajes en el período' : 'No messages in the period'" />
                   <div v-for="t in cx.by_topic" :key="t.topic" class="fd-hot">
                     <span class="fd-hot-name">{{ t.topic === '—' ? (es ? 'Sin motivo' : 'No topic') : t.topic }}</span>
-                    <a-tooltip v-if="t.reply" :title="t.reply === 'active' ? (es ? 'Respuesta automática activa' : 'Automatic reply on') : (es ? 'Respuesta sugerida: revisar y activar en el formulario' : 'Suggested reply: review and turn on in the form')">
-                      <a-tag :color="t.reply === 'active' ? 'green' : 'gold'" class="fd-tag">{{ t.reply === 'active' ? (es ? 'Auto' : 'Auto') : (es ? 'Sugerida' : 'Draft') }}</a-tag>
+                    <a-tooltip v-if="t.reply" :title="t.reply === 'active' ? (es ? 'Respuesta automática activa (clic para verla)' : 'Automatic reply on (click to see it)') : (es ? 'Respuesta sugerida: clic para revisar el texto y activarla' : 'Suggested reply: click to review the text and turn it on')">
+                      <a-tag :color="t.reply === 'active' ? 'green' : 'gold'" class="fd-tag" style="cursor: pointer" @click="openReplies(t.topic)">{{ t.reply === 'active' ? (es ? 'Auto' : 'Auto') : (es ? 'Sugerida' : 'Draft') }}</a-tag>
                     </a-tooltip>
                     <a-progress :percent="t.percent" :format="() => t.count" size="small" style="flex: 0 0 40%; margin: 0" />
                   </div>
@@ -251,6 +251,44 @@
         </template>
       </a-spin>
     </a-modal>
+
+    <!-- Automatic replies by topic (user's rule, 2026-11-25): the business user reads the suggested text, adjusts it if
+         needed and turns it on HERE -- editing the form stays with the IT Admin (forms_manage). -->
+    <a-modal v-model:open="rp.open" :title="(es ? 'Respuestas automáticas' : 'Automatic replies') + (rp.form ? ' · ' + rp.form.name : '')"
+      :width="860" :footer="null" destroy-on-close>
+      <a-spin :spinning="rp.loading">
+        <a-row :gutter="14">
+          <a-col :xs="24" :md="8">
+            <div class="fd-muted" style="margin-bottom: 6px">{{ es ? 'Motivo del mensaje' : 'Message topic' }}</div>
+            <div v-for="r in rp.list" :key="r.topic" class="fd-rp-topic" :class="{ on: r.topic === rp.topic }" @click="pickReply(r.topic)">
+              <span class="fd-ellipsis">{{ r.topic }}</span>
+              <a-tag :color="r.active ? 'green' : 'gold'" class="fd-tag">{{ r.active ? (es ? 'Activa' : 'On') : (es ? 'Sugerida' : 'Suggested') }}</a-tag>
+            </div>
+          </a-col>
+          <a-col :xs="24" :md="16">
+            <template v-if="rp.edit">
+              <a-alert v-if="!rp.edit.active" type="warning" show-icon style="margin-bottom: 10px; padding: 4px 10px"
+                :message="es ? 'Sugerida: aún NO se envía. Revise el texto y actívela.' : 'Suggested: NOT sent yet. Review the text and turn it on.'" />
+              <a-alert v-else type="success" show-icon style="margin-bottom: 10px; padding: 4px 10px"
+                :message="es ? 'Activa: se envía sola a quien escribe por este motivo.' : 'On: it is sent by itself to whoever writes about this topic.'" />
+              <div class="fd-muted">{{ es ? 'Asunto del correo' : 'Email subject' }}</div>
+              <a-input v-model:value="rp.edit.subject" :disabled="!rp.canApprove" :maxlength="190" style="margin-bottom: 8px" />
+              <div class="fd-muted">{{ es ? 'Texto que recibirá la persona' : 'Text the person will receive' }}</div>
+              <a-textarea v-model:value="rp.edit.message" :disabled="!rp.canApprove" :auto-size="{ minRows: 8, maxRows: 16 }" :maxlength="5000" />
+              <div v-if="rp.canApprove" style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap">
+                <a-button v-if="rp.edit.active" danger :loading="rp.saving" @click="saveReply(false)">{{ es ? 'Desactivar' : 'Turn off' }}</a-button>
+                <a-button v-if="rp.edit.active" type="primary" :loading="rp.saving" @click="saveReply(true)">{{ es ? 'Guardar texto' : 'Save text' }}</a-button>
+                <template v-else>
+                  <a-button :loading="rp.saving" @click="saveReply(false)">{{ es ? 'Guardar sin activar' : 'Save, keep off' }}</a-button>
+                  <a-button type="primary" :loading="rp.saving" @click="saveReply(true)">{{ es ? 'Confirmar texto y activar' : 'Confirm text and turn on' }}</a-button>
+                </template>
+              </div>
+              <div v-else class="fd-muted" style="margin-top: 10px">{{ es ? 'Su rol solo puede ver estas respuestas.' : 'Your role can only view these replies.' }}</div>
+            </template>
+          </a-col>
+        </a-row>
+      </a-spin>
+    </a-modal>
   </div>
 </template>
 
@@ -430,6 +468,44 @@ const latestByForm = computed(() => {
 });
 const { dayMonthTime } = useFormat();
 const shortDate = x => (x ? dayMonthTime(x) : '');
+// The form whose automatic replies the window shows: the one picked, else the only one, else the first with replies.
+const replyForm = computed(() => contactOne.value || (cx.value.forms || []).find(f => f.replies) || null);
+const rp = ref({ open: false, loading: false, saving: false, form: null, list: [], topic: null, edit: null, canApprove: false });
+function pickReply(topic) {
+  const r = rp.value.list.find(x => x.topic === topic) || rp.value.list[0];
+  rp.value.topic = r ? r.topic : null;
+  rp.value.edit = r ? { ...r } : null;
+}
+async function openReplies(topic) {
+  const f = replyForm.value;
+  if (!f) return;
+  rp.value = { ...rp.value, open: true, loading: true, form: { id: f.id, name: f.name }, list: [], edit: null };
+  try {
+    const r = await http.get(`forms/${f.id}/topic-replies`);
+    rp.value.list = r.replies || [];
+    rp.value.canApprove = !!r.can_approve;
+    pickReply(topic || (rp.value.list.find(x => !x.active) || {}).topic);
+  } catch (e) { message.error(es.value ? 'No se pudieron cargar las respuestas' : 'Could not load the replies'); rp.value.open = false; }
+  rp.value.loading = false;
+}
+async function saveReply(active) {
+  const e = rp.value.edit;
+  if (!e || !String(e.subject || '').trim() || !String(e.message || '').trim()) {
+    message.warning(es.value ? 'El asunto y el texto no pueden quedar vacíos' : 'Subject and text cannot be empty');
+    return;
+  }
+  rp.value.saving = true;
+  try {
+    const r = await http.put(`forms/${rp.value.form.id}/topic-replies`, { topic: e.topic, subject: e.subject, message: e.message, active });
+    const i = rp.value.list.findIndex(x => x.topic === e.topic);
+    if (i >= 0) rp.value.list[i] = r.reply;
+    rp.value.edit = { ...r.reply };
+    message.success(active ? (es.value ? 'Respuesta activada' : 'Reply turned on') : (es.value ? 'Guardada, sin enviar' : 'Saved, not sent'));
+    loadContacts();
+  } catch (err) { message.error(err?.data?.message || (es.value ? 'No se pudo guardar' : 'Could not save')); }
+  rp.value.saving = false;
+}
+
 async function loadContacts() {
   try {
     cx.value = await http.get('forms/contacts', { form_id: contactForm.value || '', from: range.value?.[0], to: range.value?.[1] });
@@ -572,6 +648,9 @@ load();
 .fd-hot-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fd-lists { margin-bottom: 0; }
 .fd-tag { margin-inline-start: 6px; }
+.fd-rp-topic { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
+.fd-rp-topic:hover { background: rgba(128, 128, 128, 0.1); }
+.fd-rp-topic.on { background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.12); font-weight: 600; }
 .fd-muted { opacity: 0.55; }
 .fd-small { font-size: 12px; }
 .fd-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

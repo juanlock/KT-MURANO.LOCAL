@@ -763,6 +763,8 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::post('/{id}/duplicate', 'duplicate')->whereNumber('id');
         Route::post('/{id}/share-email', 'shareEmail')->whereNumber('id');
         Route::post('/{id}/logo', 'uploadLogo')->whereNumber('id');
+        Route::get('/{id}/topic-replies', 'topicReplies')->whereNumber('id');
+        Route::put('/{id}/topic-replies', 'saveTopicReply')->whereNumber('id');
         Route::delete('/{id}', 'destroy')->whereNumber('id');
         Route::get('/{id}/submissions', 'submissions')->whereNumber('id');
         Route::get('/{id}/group', 'group')->whereNumber('id');

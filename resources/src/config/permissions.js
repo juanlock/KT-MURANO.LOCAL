@@ -1631,6 +1631,11 @@ export const PERMISSION_GROUPS = [
                 "v": "forms_manage",
                 "l": "Forms_Manage",
                 "f": "Build, publish and delete forms and submissions"
+            },
+            {
+                "v": "forms_replies",
+                "l": "Forms_Replies",
+                "f": "Review and turn on the suggested automatic replies (without editing the form)"
             }
         ]
     },

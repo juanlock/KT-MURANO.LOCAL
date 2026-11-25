@@ -1,4 +1,6 @@
 {
+    "You do not have permission to approve automatic replies.": "No tiene permiso para aprobar respuestas automáticas.",
+    "This topic has no automatic reply.": "Este motivo no tiene respuesta automática.",
     "The invoice is already cancelled.": "La factura ya está anulada.",
     "The invoice has payments: remove them first.": "La factura tiene cobros: quítelos primero.",
     "The invoice is cancelled.": "La factura está anulada.",

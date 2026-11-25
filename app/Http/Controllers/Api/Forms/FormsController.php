@@ -514,6 +514,48 @@ class FormsController extends Controller
         return $k;
     }
 
+    /**
+     * GET forms/{id}/topic-replies -- the automatic reply of each topic (suggested = off), for the dashboard's window
+     * (user's rule, 2026-11-25: the business user confirms the text and turns it on there, never by editing the form).
+     */
+    public function topicReplies(Request $request, int $id)
+    {
+        $this->can($request, 'forms_view');
+        $f = $this->form($request, $id);
+        $s = FormSchema::settings(json_decode((string) $f->settings, true));
+        $user = $request->user('api');
+
+        return response()->json([
+            'form' => ['id' => $f->id, 'name' => $f->name],
+            'replies' => collect($s['topic_replies'])->map(fn ($r, $t) => ['topic' => (string) $t] + $r)->values()->all(),
+            'can_approve' => HelpdeskAccess::can($user, 'forms_replies') || HelpdeskAccess::can($user, 'forms_manage'),
+        ]);
+    }
+
+    /** PUT forms/{id}/topic-replies {topic, subject, message, active} -- only that topic's reply changes. */
+    public function saveTopicReply(Request $request, int $id)
+    {
+        $user = $request->user('api');
+        abort_unless(HelpdeskAccess::can($user, 'forms_replies') || HelpdeskAccess::can($user, 'forms_manage'), 403,
+            __('You do not have permission to approve automatic replies.'));
+        $f = $this->form($request, $id);
+        $v = $request->validate([
+            'topic' => 'required|string|max:120',
+            'subject' => 'required|string|max:190',
+            'message' => 'required|string|max:5000',
+            'active' => 'required|boolean',
+        ]);
+        $saved = json_decode((string) $f->settings, true) ?: [];
+        $s = FormSchema::settings($saved);
+        abort_unless(array_key_exists($v['topic'], $s['topic_replies']), 404, __('This topic has no automatic reply.'));
+        $saved['topic_replies'] = $s['topic_replies'];
+        $saved['topic_replies'][$v['topic']] = ['subject' => mb_substr(trim(strip_tags($v['subject'])), 0, 190), 'message' => trim($v['message']), 'active' => (bool) $v['active']];
+        // Only topic_replies is touched; every other saved setting stays exactly as it was.
+        DB::table('forms')->where('id', $f->id)->update(['settings' => json_encode($saved), 'updated_at' => now()]);
+
+        return response()->json(['reply' => ['topic' => $v['topic']] + $saved['topic_replies'][$v['topic']]]);
+    }
+
     public function show(Request $request, int $id)
     {
         $this->can($request, 'forms_view');
