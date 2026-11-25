@@ -41,8 +41,21 @@ class FrontPage
             return $id;
         }
         $q = (int) $request->query('company', 0);
+        if ($q > 0 && \App\Models\Company::whereKey($q)->whereNull('deleted_at')->exists()) {
+            return $q;
+        }
+        // A shared link to a category or a product opens its company's store (2026-11-25: /online_store/shop?category=71,
+        // Hordex's, opened the default English store with 0 products). The record's own company, read without scopes.
+        if (($cat = (int) $request->query('category', 0)) > 0) {
+            return ((int) \Illuminate\Support\Facades\DB::table('categories')->where('id', $cat)->value('company_id')) ?: null;
+        }
+        $route = $request->route();
+        if ($route && in_array($route->getName(), ['store.product.show', 'store.product.questions', 'store.product.reviews'], true)
+            && ($pid = (int) $route->parameter('id')) > 0) {
+            return ((int) \Illuminate\Support\Facades\DB::table('products')->where('id', $pid)->value('company_id')) ?: null;
+        }
 
-        return $q > 0 && \App\Models\Company::whereKey($q)->whereNull('deleted_at')->exists() ? $q : null;
+        return null;
     }
 
     /** The imported front page as a response, or null (-> section-built page). */
