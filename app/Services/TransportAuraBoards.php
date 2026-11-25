@@ -153,6 +153,7 @@ class TransportAuraBoards
                 'avg' => $tot['active'] ? round($tot['amount'] / $tot['active'], 2) : 0] + array_intersect_key($tot, array_flip(['active', 'new', 'returning', 'people', 'companies'])),
             'passengers' => (int) DB::table('transport_passengers')->where('company_id', $cid)->count(),
             'with_phone' => (int) DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('phone')->count(),
+            'kinds' => DB::table('transport_passengers')->where('company_id', $cid)->groupBy('kind')->pluck(DB::raw('COUNT(*)'), 'kind'),
             'frequency' => $freq, 'weeks' => array_values($weeks), 'top' => $top, 'top_companies' => $topCompanies, 'lost' => $lostTop,
         ];
     }

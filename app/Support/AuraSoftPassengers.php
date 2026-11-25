@@ -46,6 +46,13 @@ class AuraSoftPassengers
         return strlen($d) >= 9 && strlen($d) <= 15 ? $d : '';
     }
 
+    /** passenger | parcel | both (2026-11-24): who travelled (tickets, online tickets) and who sent parcels. */
+    public static function refreshKind(?int $companyId = null): void
+    {
+        DB::table('transport_passengers')->when($companyId, fn ($q) => $q->where('company_id', $companyId))->update(['kind' => DB::raw(
+            "CASE WHEN parcels > 0 AND (tickets > 0 OR online_tickets > 0) THEN 'both' WHEN parcels > 0 THEN 'parcel' ELSE 'passenger' END")]);
+    }
+
     public static function name(string $raw): string
     {
         return mb_substr(trim(preg_replace('/\s+/', ' ', str_replace(',', ' ', $raw))), 0, 190);
@@ -63,7 +70,8 @@ class AuraSoftPassengers
                 MIN(sale_date) d1, MAX(sale_date) d2,
                 SUM(status IS NULL OR status != 'ANULADO') n,
                 SUM(CASE WHEN status IS NULL OR status != 'ANULADO' THEN income ELSE 0 END) amount,
-                SUM((module = 'VEN_ENC' OR module = 'COB_DES' OR module = 'ENC_PAG') AND (status IS NULL OR status != 'ANULADO')) parcels")
+                SUM((module = 'VEN_ENC' OR module = 'COB_DES' OR module = 'ENC_PAG') AND (status IS NULL OR status != 'ANULADO')) parcels,
+                SUM((module = 'PAS_ING' OR module = 'VEN_EXE') AND (status IS NULL OR status != 'ANULADO')) tickets")
             ->get();
         $byDoc = DB::table('transport_passengers')->where('company_id', $companyId)->whereNotNull('doc')->pluck('id', 'doc');
         $nameOnly = DB::table('transport_passengers')->where('company_id', $companyId)->whereNull('doc')->pluck('id', 'name_key');
@@ -77,7 +85,7 @@ class AuraSoftPassengers
             $name = self::name((string) $r->client) ?: $doc;
             $key = self::nameKey($name);
             $vals = ['name' => $name, 'name_key' => $key, 'is_company' => strlen($doc) === 11, 'first_purchase' => $r->d1, 'last_purchase' => $r->d2,
-                'purchases' => (int) $r->n, 'parcels' => (int) $r->parcels, 'amount' => round((float) $r->amount, 2), 'updated_at' => $now];
+                'purchases' => (int) $r->n, 'parcels' => (int) $r->parcels, 'tickets' => (int) $r->tickets, 'amount' => round((float) $r->amount, 2), 'updated_at' => $now];
             $id = $byDoc[$doc] ?? null;
             if (! $id && $key !== '' && isset($nameOnly[$key])) {
                 $id = $nameOnly[$key];                       // known by name + phone: it gets its DNI now
@@ -99,6 +107,8 @@ class AuraSoftPassengers
         if ($ins) {
             DB::table('transport_passengers')->insertOrIgnore($ins);
         }
+
+        self::refreshKind($companyId);
 
         return ['new' => $new, 'updated' => $updated];
     }
@@ -164,6 +174,8 @@ class AuraSoftPassengers
         if ($ins) {
             DB::table('transport_passengers')->insert($ins);
         }
+
+        self::refreshKind($companyId);
 
         return ['matched' => $matched, 'added' => $added, 'records' => count($records)];
     }

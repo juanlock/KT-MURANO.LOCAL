@@ -104,6 +104,8 @@ const tiles = computed(() => {
     { label: tr('New', 'Nuevos'), value: num(t.new), help: tr('First purchase ever in this period.', 'Primera compra en este período.') },
     { label: tr('Returning', 'Volvieron'), value: num(t.returning) },
     { label: tr('People / companies', 'Personas / empresas'), value: `${num(t.people)} / ${num(t.companies)}` },
+    { label: tr('Travel and send', 'Viajan y envían'), value: num(data.value.kinds?.both),
+      help: `${tr('In the passenger base', 'En la base de pasajeros')}: ${num(data.value.kinds?.passenger)} ${tr('only travel', 'solo viajan')}, ${num(data.value.kinds?.parcel)} ${tr('only send parcels', 'solo envían encomiendas')}, ${num(data.value.kinds?.both)} ${tr('both', 'ambos')}.` },
     { label: tr('Spend per customer', 'Gasto por cliente'), value: money(t.avg || 0) },
     { label: tr('Companies (RUC)', 'Empresas (RUC)'), value: money(t.company_amount || 0) },
     { label: tr('To win back', 'Por recuperar'), value: num(t.lost), help: tr('Good customers who stopped buying.', 'Buenos clientes que dejaron de comprar.') },
