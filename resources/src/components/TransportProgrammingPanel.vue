@@ -25,45 +25,96 @@
     </div>
 
     <a-spin :spinning="loading">
-      <div class="pg-grid">
-        <div v-for="d in data.days" :key="d.date" class="pg-day" :class="{ past: d.past, today: d.today }">
-          <div class="pg-dh">
+      <!-- Two bands (user, 2026-11-26): LIMA → CHICLAYO on top, CHICLAYO → LIMA below, the days as columns. Each day is the
+           Excel's grid: the service / bus on the left, the time under the terminal it leaves from (CAVASSA, PZ NORTE,
+           OLIVOS -- CIX, LAMBAYEQUE), and under it a thin bar of the seats sold (that date, that hour). -->
+      <div class="pg-wrap">
+        <div class="pg-grid pg-heads">
+          <div v-for="d in data.days" :key="d.date" class="pg-dh" :class="{ past: d.past, today: d.today }">
             <div class="pg-dname">{{ d.label }}<span v-if="d.today" class="pg-tag-today">{{ L('today', 'hoy') }}</span></div>
             <div class="pg-dsub">
-              <template v-if="d.past">{{ d.sold }} {{ L('pax', 'pax') }} · {{ pct(d.sold, d.seats) }}</template>
+              <template v-if="d.past">{{ d.sold }} pax · {{ pct(d.sold, d.seats) }}</template>
               <template v-else>{{ d.sold }} {{ L('sold', 'vend.') }} → {{ d.forecast }} · {{ pct(d.forecast, d.seats) }}</template>
             </div>
-            <div class="pg-dbar"><i :style="{ width: w(d.past ? d.sold : d.forecast, d.seats) }" /></div>
-          </div>
-          <div class="pg-dbody">
-            <template v-for="side in SIDES" :key="side.key">
-              <div class="pg-side">
-                <span>{{ L(side.en, side.es) }}</span>
-                <small>{{ d.sides?.[side.key]?.departures || 0 }}</small>
-                <a v-if="canAdd(d)" class="pg-add" :title="L('Add a departure', 'Agregar salida')" @click="openAdd(d, side.key)"><PlusOutlined /></a>
-              </div>
-              <div
-                v-for="x in d.departures.filter(x => x.side === side.key)" :key="x.key" class="pg-card"
-                :class="[cls(x, d), { removed: x.removed, planonly: x.source === 'plan', outplan: x.source === 'jelaf' }]" @click="open(x, d)"
-              >
-                <div class="pg-l1">
-                  <b class="pg-time">{{ ampm(x.time) }}</b>
-                  <span class="pg-bus" :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : L('bus?', 'bus ?') }}</span>
-                  <span v-if="x.tag" class="pg-svc">{{ x.tag }}</span>
-                  <WarningFilled v-if="x.alerts.length" class="pg-warn" />
-                  <span v-if="x.added" class="pg-flag">{{ L('Reinf.', 'Refuerzo') }}</span>
-                  <span v-else-if="x.changed" class="pg-flag">{{ L('Changed', 'Cambio') }}</span>
-                </div>
-                <div class="pg-l2">
-                  <div class="pg-bar">
-                    <i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" />
-                  </div>
-                  <span class="pg-num">{{ x.sold }}<template v-if="!d.past && x.forecast !== x.sold">→{{ x.forecast }}</template><small v-if="x.seats">/{{ x.seats }}</small></span>
-                </div>
-              </div>
-            </template>
           </div>
         </div>
+        <template v-for="side in SIDES" :key="side.key">
+          <div class="pg-band"><span>{{ L(side.en, side.es) }}</span></div>
+          <div class="pg-grid pg-lists">
+            <div v-for="d in data.days" :key="d.date + side.key" class="pg-col" :class="{ past: d.past, today: d.today }">
+              <div class="pg-tr pg-th" :style="cols(side.key)">
+                <span />
+                <span v-for="t in tcols(side.key)" :key="t" :title="t">{{ short(t) }}</span>
+              </div>
+              <div
+                v-for="x in d.departures.filter(x => x.side === side.key)" :key="x.key" class="pg-row-d"
+                :class="[cls(x, d), { removed: x.removed, planonly: x.source === 'plan' }]" @click="open(x, d)"
+              >
+                <div class="pg-tr" :style="cols(side.key)">
+                  <span class="pg-who" :title="(x.bus || '') + (x.tag ? ' · ' + x.tag : '')">
+                    <b :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : '—' }}</b>
+                    <small v-if="x.tag">{{ x.tag }}</small>
+                  </span>
+                  <span v-for="t in tcols(side.key)" :key="t" class="pg-t" :class="{ on: stopTime(x, t, side.key) }">
+                    {{ stopTime(x, t, side.key) ? hm12(stopTime(x, t, side.key)) : '' }}
+                  </span>
+                </div>
+                <div class="pg-l2">
+                  <div class="pg-bar"><i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" /></div>
+                  <span class="pg-num">{{ x.sold }}<template v-if="!d.past && x.forecast !== x.sold">→<b>{{ x.forecast }}</b></template><small v-if="x.seats">/{{ x.seats }}</small></span>
+                  <WarningFilled v-if="x.alerts.length" class="pg-warn" />
+                  <span v-if="x.added" class="pg-flag">{{ L('Reinf.', 'Ref.') }}</span>
+                  <span v-else-if="x.changed" class="pg-flag">{{ L('Chg.', 'Cambio') }}</span>
+                </div>
+              </div>
+              <a v-if="canAdd(d)" class="pg-add" @click="openAdd(d, side.key)"><PlusOutlined /> {{ L('departure', 'salida') }}</a>
+            </div>
+          </div>
+        </template>
+        <!-- The price helper under each day, as in the Excel: the plan's prices and what Jelaf's tickets were sold at. -->
+        <div class="pg-grid pg-prices">
+          <div v-for="d in data.days" :key="d.date + 'p'" class="pg-col" :class="{ today: d.today }">
+            <template v-if="Object.keys(d.prices || {}).length">
+              <div v-for="(cls2, rk) in d.prices" :key="rk" class="pg-price">
+                <b>{{ rk }}</b> <span v-for="(v, c) in cls2" :key="c">{{ c === 'SOFACAMA' ? 'Sofa' : c === 'SEMICAMA' ? 'Semi' : c }} {{ v !== null && v !== '' ? 'S/' + v : '—' }}</span>
+              </div>
+            </template>
+            <div v-else class="pg-price muted">{{ L('No plan price', 'Sin precio en el plan') }}</div>
+            <div class="pg-price paid" :title="L('Average price of the tickets sold for that day (Jelaf)', 'Precio promedio de los pasajes vendidos para ese día (Jelaf)')">
+              {{ L('Sold at', 'Cobrado') }}: <span>LIM {{ d.paid?.lima ? 'S/' + Math.round(d.paid.lima) : '—' }}</span> <span>CIX {{ d.paid?.chiclayo ? 'S/' + Math.round(d.paid.chiclayo) : '—' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- The buses, to help pick one (user, 2026-11-26): use, where each one is, what keeps it off the road. -->
+      <div class="pg-buses">
+        <div class="pg-band pg-band-b"><span>{{ L('BUSES', 'BUSES') }}</span>
+          <a-segmented v-model:value="busSort" size="small" :options="busSortOptions" class="pg-bsort" />
+        </div>
+        <table class="pg-btable">
+          <thead>
+            <tr>
+              <th>Bus</th><th class="r">{{ L('Seats', 'Asientos') }}</th><th>{{ L('Where it is', 'Dónde está') }}</th><th>{{ L('Last trip', 'Último viaje') }}</th>
+              <th class="r">{{ L('Trips 30 d', 'Viajes 30 d') }}</th><th>{{ L('Occupancy 30 d', 'Ocupación 30 d') }}</th><th class="r">{{ L('This week', 'Esta semana') }}</th><th>{{ L('Status', 'Estado') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="b in buses" :key="b.id" :class="{ bad: !b.ok }">
+              <td><b>{{ b.name }}</b> <small>{{ b.plate }}</small></td>
+              <td class="r">{{ b.seats || '—' }}</td>
+              <td>{{ b.where ? (b.where === 'LIMA' ? 'Lima' : b.where.charAt(0) + b.where.slice(1).toLowerCase()) : '—' }}<small v-if="b.idle_days !== null"> · {{ b.idle_days === 0 ? L('today', 'hoy') : L(`${b.idle_days} d ago`, `hace ${b.idle_days} d`) }}</small></td>
+              <td><small>{{ b.last ? fmt.dateTime(b.last) : '—' }} {{ b.last_route || '' }}</small></td>
+              <td class="r">{{ b.trips }}</td>
+              <td><div class="pg-occ"><div class="pg-bar"><i class="sd" :style="{ width: b.occupancy !== null ? Math.min(100, Math.round(b.occupancy * 100)) + '%' : '0%' }" /></div><span>{{ b.occupancy !== null ? Math.round(b.occupancy * 100) + ' %' : '—' }}</span></div></td>
+              <td class="r">{{ b.week_sure }}<small v-if="b.week_usual" :title="L('in the base timetable', 'en el horario base')"> +{{ b.week_usual }}</small></td>
+              <td>
+                <span v-if="!b.alerts.length" class="pg-ok">{{ L('Available', 'Disponible') }}</span>
+                <span v-for="(a, i) in b.alerts" :key="i" class="pg-al" :class="a[0]">{{ a[1] }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </a-spin>
 
@@ -102,7 +153,10 @@
             <div class="pg-row">
               <a-form-item :label="L('Bus', 'Bus')" style="flex: 1"><a-select v-model:value="edit.vehicle_id" :options="busOptions" allow-clear show-search option-filter-prop="label" /></a-form-item>
               <a-form-item :label="L('Time', 'Hora')" style="width: 90px"><a-input v-model:value="edit.time" placeholder="18:30" /></a-form-item>
-              <a-form-item :label="L('Service', 'Servicio')" style="width: 110px"><a-select v-model:value="edit.tag" :options="tagOptions" allow-clear /></a-form-item>
+            </div>
+            <div class="pg-row">
+              <a-form-item :label="L('Leaves from', 'Sale de')" style="flex: 1"><a-select v-model:value="edit.terminal" :options="terminalOptions(sel.side)" /></a-form-item>
+              <a-form-item :label="L('Service', 'Servicio')" style="width: 130px"><a-select v-model:value="edit.tag" :options="tagOptions" allow-clear /></a-form-item>
             </div>
             <a-form-item :label="L('Note (why)', 'Nota (por qué)')"><a-input v-model:value="edit.note" :maxlength="250" /></a-form-item>
             <div class="pg-actions">
@@ -150,7 +204,7 @@ const ui = useUiStore();
 const es = computed(() => String(ui.locale || 'en').startsWith('es'));
 const L = (e, s) => (es.value ? s : e);
 const fmt = useFormat();
-const SIDES = [{ key: 'lima', en: 'From Lima', es: 'Desde Lima' }, { key: 'chiclayo', en: 'From the north', es: 'Desde el norte' }];
+const SIDES = [{ key: 'lima', en: 'LIMA → CHICLAYO', es: 'LIMA → CHICLAYO' }, { key: 'chiclayo', en: 'CHICLAYO → LIMA', es: 'CHICLAYO → LIMA' }];
 const sideName = k => SIDES.find(x => x.key === k) || SIDES[0];
 
 const today = dayjs().format('YYYY-MM-DD');
@@ -187,14 +241,34 @@ const busOptions = computed(() => sortByLabel((data.value.vehicles || []).map(v 
 const tagOptions = computed(() => (data.value.tags || []).map(t => ({ value: t, label: t })));
 const terminalOptions = side => (data.value.terminals?.[side] || []).map(t => ({ value: t, label: t }));
 
+// The terminal columns of a side, as the Excel has them.
+const tcols = side => data.value.terminal_cols?.[side] || [];
+// A departure's time per column; one leaving from a terminal without a column shows its time in the first one.
+const stopTime = (x, t, side) => x.stops?.[t]?.time || (t === tcols(side)[0] && !tcols(side).some(c => x.stops?.[c]?.time) ? x.time : null);
+const cols = side => ({ gridTemplateColumns: `minmax(0, 1.25fr) repeat(${tcols(side).length}, minmax(0, 1fr))` });
+const SHORT = { CAVASSA: 'CAV', 'PZ NORTE': 'PZN', OLIVOS: 'OLI', CIX: 'CIX', LAMBAYEQUE: 'LAMB' };
+const short = t => SHORT[t] || t.charAt(0) + t.slice(1, 6).toLowerCase();
+// "18:30" -> "6:30" (evening departures; a morning one keeps its "a").
+const hm12 = t => { const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')}${h < 12 ? 'a' : ''}`; };
+
+// ---- the buses
+const busSort = ref('most');
+const busSortOptions = computed(() => [{ value: 'most', label: L('Most used', 'Más usados') }, { value: 'least', label: L('Least used', 'Menos usados') },
+  { value: 'where', label: L('By place', 'Por lugar') }, { value: 'status', label: L('Status', 'Estado') }]);
+const buses = computed(() => {
+  const list = [...(data.value.buses || [])];
+  const by = { most: (a, b) => b.trips - a.trips, least: (a, b) => a.trips - b.trips, where: (a, b) => String(a.where).localeCompare(String(b.where)) || b.trips - a.trips,
+    status: (a, b) => Number(a.ok) - Number(b.ok) || b.alerts.length - a.alerts.length };
+  return list.sort(by[busSort.value]);
+});
 // ---- one departure
 const sel = ref(null);
 const selDay = ref(null);
-const edit = reactive({ vehicle_id: null, time: '', tag: null, note: '' });
+const edit = reactive({ vehicle_id: null, time: '', tag: null, terminal: null, note: '' });
 const saving = ref(false);
 function open(x, d) {
   sel.value = x; selDay.value = d;
-  Object.assign(edit, { vehicle_id: x.vehicle_id || null, time: x.time || '', tag: x.tag || null, note: x.note || '' });
+  Object.assign(edit, { vehicle_id: x.vehicle_id || null, time: x.time || '', tag: x.tag || null, terminal: x.terminal || null, note: x.note || '' });
 }
 async function post(body) {
   saving.value = true;
@@ -202,7 +276,7 @@ async function post(body) {
   saving.value = false;
 }
 function save(action) {
-  post({ day: selDay.value.date, action, slot_id: sel.value.slot_id, side: sel.value.side, vehicle_id: edit.vehicle_id, time: edit.time, tag: edit.tag, note: edit.note });
+  post({ day: selDay.value.date, action, slot_id: sel.value.slot_id, side: sel.value.side, vehicle_id: edit.vehicle_id, time: edit.time, tag: edit.tag, terminal: edit.terminal, note: edit.note });
 }
 function reinforce() {
   // A reinforcement next to this departure: same side, terminal and service, a quarter of an hour later.
@@ -255,46 +329,91 @@ async function exportWeek() {
 .pg-tools { display: flex; align-items: center; gap: 8px; }
 .pg-at { font-size: 11.5px; color: #667085; }
 
-.pg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.pg-day { border: 1px solid var(--line); border-radius: 10px; background: #fafbfd; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-.pg-day.today { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange); }
-.pg-day.past { opacity: .78; }
-.pg-dh { background: linear-gradient(100deg, var(--navy), var(--navy2)); color: #fff; padding: 5px 8px 6px; }
-.pg-day.today .pg-dh { background: linear-gradient(180deg, var(--orange2), var(--orange)); }
+/* Light layout (2026-11-26, "muy cargada"): no boxes nor side lines -- day heads, two route bands, rows split by a hairline. */
+.pg-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.pg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.pg-heads { background: linear-gradient(100deg, var(--navy), var(--navy2)); }
+.pg-dh { color: #fff; padding: 6px 10px 7px; border-left: 1px solid rgba(255, 255, 255, .12); }
+.pg-dh:first-child { border-left: none; }
+.pg-dh.today { background: linear-gradient(180deg, var(--orange2), var(--orange)); }
+.pg-dh.past { opacity: .75; }
 .pg-dname { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .pg-tag-today { font-size: 10px; text-transform: uppercase; background: rgba(255, 255, 255, .25); border-radius: 4px; padding: 0 4px; }
 .pg-dsub { font-size: 11px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pg-dbar { height: 3px; background: rgba(255, 255, 255, .25); border-radius: 2px; margin-top: 3px; }
-.pg-dbar i { display: block; height: 100%; background: var(--orange2); border-radius: 2px; }
-.pg-day.today .pg-dbar i { background: #fff; }
-.pg-dbody { padding: 4px; overflow-y: auto; max-height: calc(100vh - 360px); min-height: 220px; }
-.pg-side { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--orange); margin: 4px 2px 3px; }
-.pg-side small { color: #98a2b3; font-weight: 600; }
-.pg-add { margin-left: auto; color: var(--navy2); }
-.pg-card { background: #fff; border: 1px solid var(--line); border-left: 3px solid #98a2b3; border-radius: 6px; padding: 3px 5px 4px; margin-bottom: 3px; cursor: pointer; transition: box-shadow .15s, transform .15s; }
-.pg-card:hover { box-shadow: 0 2px 8px rgba(21, 45, 74, .14); transform: translateY(-1px); }
-.pg-card.st-ok { border-left-color: #2e9e5b; }
-.pg-card.st-hi { border-left-color: var(--orange); background: #fffaf3; }
-.pg-card.st-lo { border-left-color: #8aa0bd; }
-.pg-card.st-bad { border-left-color: #d92d20; background: #fff6f5; }
-.pg-card.planonly { border-style: dashed; border-left-style: solid; }
-.pg-card.removed { opacity: .5; text-decoration: line-through; }
-.pg-l1 { display: flex; align-items: center; gap: 4px; font-size: 11.5px; white-space: nowrap; overflow: hidden; }
+.pg-band { display: flex; align-items: center; gap: 10px; padding: 5px 12px; background: #f6f8fb; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.pg-band span { font-size: 12px; font-weight: 800; letter-spacing: .12em; color: var(--navy); }
+.pg-band::after { content: ''; flex: 1; height: 2px; background: linear-gradient(90deg, var(--orange), transparent); border-radius: 2px; }
+.pg-lists { max-height: calc(50vh - 120px); min-height: 160px; overflow-y: auto; }
+.pg-col { border-left: 1px solid #f0f2f5; padding: 2px 0 4px; min-width: 0; }
+.pg-col:first-child { border-left: none; }
+.pg-col.today { background: #fffaf2; }
+.pg-col.past { opacity: .72; }
+.pg-row-d { padding: 4px 9px 5px; cursor: pointer; border-bottom: 1px solid #f2f4f7; transition: background-color .15s; }
+.pg-row-d:hover { background: #eef3fa; }
+.pg-row-d.planonly .pg-time { color: #98a2b3; }
+.pg-row-d.removed { opacity: .45; text-decoration: line-through; }
+.pg-l1 { display: flex; align-items: center; gap: 5px; font-size: 11.5px; white-space: nowrap; overflow: hidden; }
 .pg-time { color: var(--navy); font-size: 12px; }
 .pg-bus { font-weight: 600; color: #344054; }
-.pg-bus.tentative { font-weight: 500; color: #667085; font-style: italic; }
-.pg-bus.none { color: #b42318; font-weight: 500; }
-.pg-svc { font-size: 9.5px; background: #eef2f7; color: var(--navy2); border-radius: 3px; padding: 0 3px; overflow: hidden; text-overflow: ellipsis; }
+.pg-bus.tentative { font-weight: 500; color: #8a94a6; font-style: italic; }
+.pg-bus.none { color: #c0c6d0; }
+.pg-svc { font-size: 9.5px; color: #7b8798; letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; }
 .pg-warn { color: #d92d20; font-size: 11px; }
 .pg-flag { font-size: 9.5px; background: var(--orange); color: #fff; border-radius: 3px; padding: 0 3px; }
-.pg-l2 { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
-.pg-bar { position: relative; flex: 1; height: 6px; background: #edf1f6; border-radius: 3px; overflow: hidden; }
-.pg-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
-.pg-bar .fc { background: rgba(242, 140, 19, .35); }
+.pg-l2 { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.pg-bar { position: relative; flex: 1; height: 4px; background: #eef1f5; border-radius: 2px; overflow: hidden; }
+.pg-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.pg-bar .fc { background: #c9d5e4; }
 .pg-bar .sd { background: var(--navy2); }
-.pg-num { font-size: 11px; color: #344054; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pg-num small { color: #98a2b3; }
-
+.pg-num { font-size: 11px; color: #667085; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-num small { color: #b0b8c4; }
+.pg-num b { color: #344054; }
+/* What to do, in colour only: orange = reinforce, slate = low, red = bus clash. */
+.st-hi .pg-bar .fc { background: rgba(242, 140, 19, .45); }
+.st-hi .pg-bar .sd { background: var(--orange); }
+.st-hi .pg-num b { color: #c46a06; }
+.st-lo .pg-bar .sd { background: #9fb0c6; }
+.st-lo .pg-num b { color: #7b8ba3; }
+.st-bad .pg-time { color: #d92d20; }
+.pg-add { display: block; padding: 3px 9px; font-size: 11px; color: #98a2b3; }
+.pg-add:hover { color: var(--orange); }
+/* The day's grid like the Excel: service / bus, then a column per terminal. */
+.pg-tr { display: grid; align-items: center; column-gap: 2px; }
+.pg-th { padding: 3px 9px 2px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #98a2b3; border-bottom: 1px solid #eef1f5; }
+.pg-th span { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-who { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.pg-who b { font-size: 11.5px; color: #344054; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-who b.tentative { font-weight: 500; color: #8a94a6; font-style: italic; }
+.pg-who b.none { color: #c0c6d0; }
+.pg-who small { font-size: 9px; color: #8a94a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-t { text-align: center; font-size: 11.5px; color: transparent; font-variant-numeric: tabular-nums; }
+.pg-t.on { color: var(--navy); font-weight: 600; }
+.st-bad .pg-t.on { color: #d92d20; }
+.pg-row-d.planonly .pg-t.on { color: #98a2b3; }
+.pg-prices { border-top: 1px solid var(--line); background: #fbfcfe; }
+.pg-prices .pg-col { padding: 4px 9px 5px; }
+.pg-price { font-size: 10.5px; color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-price b { color: var(--navy); }
+.pg-price span + span { margin-left: 4px; }
+.pg-price.muted { color: #b0b8c4; }
+.pg-price.paid { color: #c46a06; }
+.pg-buses { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.pg-band-b { border-top: none; }
+.pg-bsort { margin-left: auto; order: 3; }
+.pg-band-b::after { order: 2; }
+.pg-btable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pg-btable th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #98a2b3; padding: 5px 10px; border-bottom: 1px solid var(--line); font-weight: 700; }
+.pg-btable td { padding: 4px 10px; border-bottom: 1px solid #f2f4f7; color: #344054; }
+.pg-btable td small { color: #98a2b3; }
+.pg-btable .r { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-btable tr.bad td { background: #fff8f7; }
+.pg-btable tr:hover td { background: #f5f8fc; }
+.pg-occ { display: flex; align-items: center; gap: 6px; max-width: 160px; }
+.pg-occ span { font-size: 11px; color: #667085; min-width: 34px; }
+.pg-ok { font-size: 11px; color: #1f7a45; }
+.pg-al { font-size: 10.5px; border-radius: 4px; padding: 0 5px; margin-right: 4px; }
+.pg-al.bad { background: #fde8e8; color: #b42318; }
+.pg-al.warn { background: #fff1e0; color: #b45f06; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
@@ -304,5 +423,5 @@ async function exportWeek() {
 .pg-row { display: flex; gap: 8px; }
 .pg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .pg-hint { margin-top: 8px; font-size: 12px; color: #667085; }
-@media (max-width: 900px) { .pg-grid { grid-template-columns: 1fr; } .pg-dbody { max-height: none; } }
+@media (max-width: 900px) { .pg-grid { grid-template-columns: 1fr; } .pg-lists { max-height: none; } }
 </style>

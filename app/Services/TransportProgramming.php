@@ -121,6 +121,7 @@ class TransportProgramming
                     $c->vehicle_id && $o['vehicle_id'] = $c->vehicle_id;
                     $c->time && $o['time'] = substr((string) $c->time, 0, 5);
                     $c->tag && $o['tag'] = $c->tag;
+                    $c->terminal && $o['terminal'] = $c->terminal;
                 }
                 unset($o);
             }
@@ -137,11 +138,57 @@ class TransportProgramming
             ->selectRaw('travel_date, programacion, MIN(departure_time) t, MAX(origin) origin, MAX(destination) destination, MAX(plate) plate, MAX(vehicle_id) vehicle_id,
                 COUNT(*) sold, SUM(boarded = 1) boarded, SUM(amount) amount, GROUP_CONCAT(DISTINCT boarding_point ORDER BY boarding_point SEPARATOR ", ") points')
             ->get();
+        // Passengers per boarding terminal of each departure (Jelaf's EMBARQUE), on the plan's terminal names.
+        $byPoint = [];
+        foreach (DB::table('transport_boardings')->where('company_id', $cid)->whereBetween('travel_date', [$from, $to])
+            ->groupBy('travel_date', 'programacion', 'boarding_point')->selectRaw('travel_date, programacion, boarding_point, COUNT(*) n')->get() as $b) {
+            $t = self::terminal($b->boarding_point);
+            if ($t) {
+                $byPoint[$b->travel_date][$b->programacion][$t] = ($byPoint[$b->travel_date][$b->programacion][$t] ?? 0) + (int) $b->n;
+            }
+        }
         $out = [];
         foreach ($rows as $r) {
-            $out[$r->travel_date][] = ['programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
+            $out[$r->travel_date][] = ['by_point' => $byPoint[$r->travel_date][$r->programacion] ?? [], 'programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
                 'origin' => $r->origin, 'destination' => $r->destination, 'plate' => $r->plate, 'vehicle_id' => $r->vehicle_id ? (int) $r->vehicle_id : null,
                 'sold' => (int) $r->sold, 'boarded' => (int) $r->boarded, 'amount' => round((float) $r->amount, 2), 'points' => $r->points];
+        }
+
+        return $out;
+    }
+
+    /** The terminal columns of each side, as Operaciones' Excel has them. */
+    public const TERMINAL_COLS = ['lima' => ['CAVASSA', 'PZ NORTE', 'OLIVOS'], 'chiclayo' => ['CIX', 'LAMBAYEQUE']];
+
+    /** Jelaf's boarding point -> the plan's terminal name ("TER. PZA LOS OLIVOS" -> OLIVOS); stops on the way -> their city. */
+    public static function terminal(?string $point): ?string
+    {
+        $p = strtoupper(trim((string) $point));
+        if ($p === '') {
+            return null;
+        }
+
+        return match (true) {
+            str_contains($p, 'CAVAS') => 'CAVASSA',
+            str_contains($p, 'NORTE') => 'PZ NORTE',
+            str_contains($p, 'OLIVOS') => 'OLIVOS',
+            str_contains($p, 'CIX') || str_contains($p, 'CHICLAYO') => 'CIX',
+            str_contains($p, 'LAMBAYEQ') => 'LAMBAYEQUE',
+            default => $p,
+        };
+    }
+
+    /** The day's prices of the plan: route key (CIX / TRUX) => seat class => price. */
+    private static function prices(int $cid, ?array $plan, string $day): array
+    {
+        if (! $plan) {
+            return [];
+        }
+        $q = DB::table('transport_schedule_prices')->where('company_id', $cid)->where('plan_id', $plan['id']);
+        $plan['kind'] === 'season' ? $q->where('day', $day) : $q->where('day_type', Carbon::parse($day)->isSunday() ? 'sunday' : 'weekday');
+        $out = [];
+        foreach ($q->get() as $r) {
+            $out[$r->route_key][$r->seat_class] = $r->price !== null ? (float) $r->price : $r->price_text;
         }
 
         return $out;
@@ -232,7 +279,20 @@ class TransportProgramming
                 if ($left !== null && $pct !== null && ! ($p['removed'] ?? false)) {
                     $suggest = $pct >= self::HIGH ? 'reinforce' : ($pct < self::LOW ? 'low' : null);
                 }
+                // Where it boards, like the Excel: the time under each terminal (plan's terminal + its boardings), with Jelaf's
+                // passengers per terminal; a departure only in Jelaf shows its terminals with the departure time on the first.
+                $stops = [];
+                if ($p) {
+                    $stops[$p['terminal']] = ['time' => $time, 'pax' => 0];
+                    foreach ($p['boardings'] ?? [] as $b) {
+                        isset($stops[$b['terminal']]) || $stops[$b['terminal']] = ['time' => substr((string) $b['time'], 0, 5), 'pax' => 0];
+                    }
+                }
+                foreach (($j['by_point'] ?? []) as $t => $n) {
+                    $stops[$t] = ['time' => $stops[$t]['time'] ?? (! $p && ! $stops ? $time : null), 'pax' => $n];
+                }
                 $deps[] = [
+                    'stops' => $stops,
                     'key' => $day.'|'.($p['slot_id'] ?? '').'|'.($p['change_id'] ?? '').'|'.($j['programacion'] ?? ''),
                     'side' => $side, 'time' => $time, 'terminal' => $p['terminal'] ?? null, 'tag' => $p['tag'] ?? null,
                     'vehicle_id' => $vid, 'bus_from' => $busFrom, 'bus' => $v['name'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'plate' => $v['plate'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'seats' => $seats,
@@ -253,8 +313,15 @@ class TransportProgramming
                     $all[$d['vehicle_id']][] = [strtotime($day.' '.$d['time']), $d['side'], $i, $k];
                 }
             }
+            // The day's prices: the plan's (Operaciones' Excel) and what Jelaf's tickets were sold at, per side.
+            $paid = [];
+            foreach (['lima', 'chiclayo'] as $sd) {
+                $sel = array_filter($jDeps, fn ($j) => $j['side'] === $sd && $j['sold'] > 0);
+                $n = array_sum(array_column($sel, 'sold'));
+                $paid[$sd] = $n ? round(array_sum(array_column($sel, 'amount')) / $n, 2) : null;
+            }
             $days[$i] = ['date' => $day, 'label' => self::DAY_NAMES[$date->isoWeekday()].' '.$date->format('d'), 'past' => $day < $today, 'today' => $day === $today,
-                'days_left' => $left, 'plan' => $plan['plan'], 'departures' => $deps];
+                'days_left' => $left, 'plan' => $plan['plan'], 'departures' => $deps, 'prices' => self::prices($cid, $plan['plan'], $day), 'paid' => $paid];
         }
         // Bus checks across the week.
         foreach ($all as $vid => $list) {
@@ -293,10 +360,79 @@ class TransportProgramming
         unset($d);
         $last = DB::table('transport_jelaf_runs')->where('company_id', $cid)->where('report', 'ahead')->where('status', 'ok')->orderByDesc('id')->value('finished_at');
 
-        return ['from' => $from, 'to' => $to, 'today' => $today, 'days' => array_values($days), 'summary' => $sum,
+        return ['buses' => self::buses($cid, $vehicles, $days, $today), 'terminal_cols' => self::TERMINAL_COLS,
+            'from' => $from, 'to' => $to, 'today' => $today, 'days' => array_values($days), 'summary' => $sum,
             'thresholds' => ['high' => self::HIGH, 'low' => self::LOW], 'ahead_at' => $last,
             'vehicles' => array_values($vehicles), 'tags' => ['EJEC', 'EJEC VIP', 'PREM', 'MASTER', 'TRUX', 'R', 'OPC'],
             'terminals' => ['lima' => TransportSchedule::TERMINALS_LIMA, 'chiclayo' => TransportSchedule::TERMINALS_CIX]];
+    }
+
+    /**
+     * The buses, to help pick one (user, 2026-11-26): the last 30 days from Jelaf (departures, passengers, occupancy, last
+     * trip and where it ended = where the bus is), its departures this week, and what keeps it off the road (not active,
+     * an open workshop job, papers due within 15 days).
+     */
+    private static function buses(int $cid, array $vehicles, array $days, string $today): array
+    {
+        $rows = DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('vehicle_id')
+            ->whereBetween('travel_date', [now()->subDays(30)->toDateString(), now()->subDay()->toDateString()])
+            ->groupBy('vehicle_id', 'travel_date', 'programacion')
+            ->selectRaw('vehicle_id, travel_date, programacion, MIN(departure_time) t, MAX(destination) dest, MAX(origin) orig, COUNT(*) pax, SUM(amount) amount')->get();
+        $stats = [];
+        foreach ($rows as $r) {
+            $s = &$stats[$r->vehicle_id];
+            $s['trips'] = ($s['trips'] ?? 0) + 1;
+            $s['pax'] = ($s['pax'] ?? 0) + (int) $r->pax;
+            $s['amount'] = ($s['amount'] ?? 0) + (float) $r->amount;
+            $at = $r->travel_date.' '.$r->t;
+            if (! isset($s['last']) || $at > $s['last']) {
+                $s['last'] = $at;
+                $s['where'] = $r->dest;
+                $s['last_route'] = $r->orig.' → '.$r->dest;
+            }
+            unset($s);
+        }
+        $week = [];
+        foreach ($days as $d) {
+            foreach ($d['departures'] as $x) {
+                if ($x['vehicle_id'] && ! $x['removed']) {
+                    $k = $x['bus_from'] === 'base' ? 'usual' : 'sure';
+                    $week[$x['vehicle_id']][$k] = ($week[$x['vehicle_id']][$k] ?? 0) + 1;
+                }
+            }
+        }
+        $ids = array_keys($vehicles);
+        $open = DB::table('vehicle_maintenances')->whereIn('vehicle_id', $ids ?: [0])->whereNull('deleted_at')
+            ->whereNotIn('status', ['done', 'completed', 'cancelled', 'canceled'])->where('service_date', '<=', now()->addDays(14)->toDateString())
+            ->get(['vehicle_id', 'title', 'service_date'])->groupBy('vehicle_id');
+        $papers = DB::table('vehicles')->whereIn('id', $ids ?: [0])->get(['id', 'status', 'insurance_expiry', 'inspection_expiry', 'registration_expiry'])->keyBy('id');
+        $soon = now()->addDays(15)->toDateString();
+        $out = [];
+        foreach ($vehicles as $id => $v) {
+            $s = $stats[$id] ?? [];
+            $alerts = [];
+            $p = $papers[$id] ?? null;
+            if ($p && $p->status && $p->status !== 'active') {
+                $alerts[] = ['bad', 'Fuera de servicio ('.$p->status.')'];
+            }
+            foreach ($open[$id] ?? [] as $m) {
+                $alerts[] = ['bad', 'Taller: '.$m->title.' ('.Carbon::parse($m->service_date)->format('d-m').')'];
+            }
+            foreach (['insurance_expiry' => 'Seguro', 'inspection_expiry' => 'Revisión técnica', 'registration_expiry' => 'Tarjeta'] as $f => $name) {
+                if ($p && $p->$f && $p->$f <= $soon) {
+                    $alerts[] = [$p->$f < $today ? 'bad' : 'warn', $name.($p->$f < $today ? ' vencido ' : ' vence ').Carbon::parse($p->$f)->format('d-m')];
+                }
+            }
+            $trips = $s['trips'] ?? 0;
+            $out[] = ['id' => $id, 'name' => $v['name'], 'plate' => $v['plate'], 'seats' => $v['seats'], 'trips' => $trips, 'pax' => $s['pax'] ?? 0,
+                'occupancy' => $trips && $v['seats'] ? round(($s['pax'] ?? 0) / ($trips * $v['seats']), 3) : null, 'amount' => round($s['amount'] ?? 0, 2),
+                'last' => $s['last'] ?? null, 'where' => $s['where'] ?? null, 'last_route' => $s['last_route'] ?? null,
+                'idle_days' => isset($s['last']) ? (int) Carbon::parse(substr($s['last'], 0, 10))->diffInDays(Carbon::parse($today)) : null,
+                'week_sure' => $week[$id]['sure'] ?? 0, 'week_usual' => $week[$id]['usual'] ?? 0, 'alerts' => $alerts,
+                'ok' => ! collect($alerts)->contains(fn ($a) => $a[0] === 'bad')];
+        }
+
+        return $out;
     }
 
     /** A date's change on top of the plan: add (reinforcement), remove, change (bus / time / tag); undo = delete it. */
