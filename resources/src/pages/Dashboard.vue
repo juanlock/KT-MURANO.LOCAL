@@ -136,6 +136,11 @@
               <TransportAuraParcelsPanel />
               <ReportSourceBar board="transport_aura_parcels" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
+            <!-- Programación (2026-11-26): the week's departures with the seats sold, the forecast and the date's changes. -->
+            <a-tab-pane v-if="transportTabs.includes('transport_programming')" key="transport_programming" :tab="tabLabel('transport_programming')">
+              <TransportProgrammingPanel />
+              <ReportSourceBar board="transport_programming" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures" :tab="tabLabel('transport_departures')">
               <TransportDeparturesPanel :range="rangeFields" />
               <ReportSourceBar board="transport_departures" :range="rangeFields" class="bt-source" />
@@ -472,6 +477,7 @@ import TransportCashbookPanel from '../components/TransportCashbookPanel.vue';
 import TransportAuraParcelsPanel from '../components/TransportAuraParcelsPanel.vue';
 import TransportCustomersPanel from '../components/TransportCustomersPanel.vue';
 import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
+import TransportProgrammingPanel from '../components/TransportProgrammingPanel.vue';
 import ReportSourceBar from '../components/ReportSourceBar.vue';
 import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';
@@ -508,6 +514,9 @@ const es = computed(() => useUiStore().locale === 'es');
 // Same order as the tabs (the owner's reading order, 2026-11-11); the first one the user has opens by default.
 const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
 // Roles -> "Dashboard tabs" (2026-11-19, Turismo: each role its own board): only those, when the role has a list.
+// Programación (2026-11-26, the user: every role sees it): any transport role.
+const programmingPanel = computed(() => show('transport_programming') && auth.moduleEnabled('transport')
+  && ['transport_view', 'transport_profit', 'transport_schedule', 'transport_monitor', 'transport_manage'].some(p => auth.can(p)));
 const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
 // The boards grouped by what they are about (user's request, 2026-11-26: "ordenamos los tabs por grupo o entidad"), in this
 // order; the first board the user has opens by default.
@@ -515,14 +524,14 @@ const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && aut
 const TAB_GROUPS = [
   { key: 'mgmt', en: 'Management', es: 'Gerencia', tabs: ['transport_owner', 'transport_profit', 'transport_indicators', 'transport_risks', 'transport_outlook'] },
   { key: 'admin', en: 'Administration', es: 'Administración', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers', 'transport_expenses'] },
-  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_departures', 'transport_monitor', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims'] },
+  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_programming', 'transport_departures', 'transport_monitor', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims'] },
 ];
 const TAB_LABELS = {
   transport_owner: ['Summary', 'Resumen'], transport_profit: ['Profit', 'Rentabilidad'], transport_indicators: ['Indicators', 'Indicadores'],
   transport_risks: ['Risks', 'Riesgos'], transport_outlook: ['Outlook', 'Mando'],
   transport_daysales: ['Sales', 'Ventas'], transport_pointsales: ['Points of sale', 'Pto. venta'], transport_cashbook: ['Cash', 'Caja'],
   transport_customers: ['Customers', 'Clientes'], transport_expenses: ['Expenses', 'Gastos'],
-  transport_production: ['Production', 'Producción'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['Control', 'Control'],
+  transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['Control', 'Control'],
   transport: ['Transport', 'Transporte'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
   transport_claims: ['Complaints', 'Reclamos'],
 };
@@ -539,7 +548,7 @@ const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
-  transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_departures: () => departuresPanel.value,
+  transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_programming: () => programmingPanel.value, transport_departures: () => departuresPanel.value,
   transport_outlook: () => outlookPanel.value, transport_monitor: () => monitorPanel.value, transport: () => transportBoard.value,
   transport_owner: () => ownerPanel.value, transport_profit: () => profitPanel.value, transport_expenses: () => profitPanel.value,
   transport_indicators: () => profitPanel.value, transport_risks: () => profitPanel.value, transport_aura_parcels: () => profitPanel.value,
@@ -1081,7 +1090,8 @@ onMounted(load);
 .bt-style-d .bt-tab:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .bt-style-d .bt-tab.active { background: linear-gradient(180deg, #f9a83a, #f28c13); color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(242, 140, 19, 0.45); }
 .bt-style-d .bt-body { border-radius: 12px; border-color: #e3e8ef; box-shadow: 0 6px 20px rgba(21, 45, 74, 0.08); }
-@media (max-width: 1420px) { .bt-style-d .bt-tab { padding: 5px 6px; } }
+@media (max-width: 1500px) { .bt-style-d .bt-tab { padding: 5px 5px; font-size: 12px; } .bt-style-d .bt-group { padding: 0 4px; } }
+@media (max-width: 1400px) { .bt-style-d .bt-tab { padding: 5px 4px; font-size: 11.5px; } .bt-style-d .bt-group-label { letter-spacing: .1em; } }
 .board-mode .transport-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 10px; padding: 4px; border-radius: 10px; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.07);
 }

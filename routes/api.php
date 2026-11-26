@@ -857,6 +857,13 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/history', 'history');
         Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
     });
+    // Dashboard board "Programación" (2026-11-26): the week with the seats sold, forecast and the date's changes.
+    Route::prefix('transport/programming')->controller(\App\Http\Controllers\TransportProgrammingController::class)->group(function () {
+        Route::get('/', 'week');
+        Route::get('/export', 'export');
+        Route::post('/changes', 'change');
+        Route::delete('/changes/{id}', 'undo')->whereNumber('id');
+    });
     // Programación de buses (2026-11-25): the base timetable and the season plans Operaciones made in Excel.
     Route::prefix('transport/schedule')->controller(\App\Http\Controllers\TransportScheduleController::class)->group(function () {
         Route::get('/', 'index');

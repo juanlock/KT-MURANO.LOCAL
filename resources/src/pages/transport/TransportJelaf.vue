@@ -70,13 +70,15 @@ const info = ref(null);
 const busy = ref('');
 const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
 const today = dayjs().format('YYYY-MM-DD');
-const form = reactive({ production: { from: dayjs().subtract(2, 'day').format('YYYY-MM-DD'), to: today }, boarding: { from: yesterday, to: today } });
+const form = reactive({ production: { from: dayjs().subtract(2, 'day').format('YYYY-MM-DD'), to: today }, boarding: { from: yesterday, to: today },
+  ahead: { from: dayjs().add(1, 'day').format('YYYY-MM-DD'), to: dayjs().add(14, 'day').format('YYYY-MM-DD') } });
 
 const statusLabel = s => ({ ok: L('OK', 'Correcto'), nodata: L('No data', 'Sin datos'), failed: L('Failed', 'Falló'), running: L('Running', 'Corriendo') }[s] || s);
 const detail = r => {
   const s = r.summary || {};
   if (r.status === 'failed') return r.message || '';
   if (r.report === 'production') return L(`new ${s.new ?? 0}, changed ${s.changed ?? 0}, same ${s.same ?? 0}`, `nuevas ${s.new ?? 0}, cambiadas ${s.changed ?? 0}, iguales ${s.same ?? 0}`);
+  if (r.report === 'ahead') return L(` days,  tickets sold so far,  departures`, ` días,  pasajes vendidos a hoy,  salidas`);
   if (r.report === 'boarding') return L(`${s.days ?? 0} days, ${s.departures ?? 0} departures, ${s.no_show ?? 0} not boarded, S/ ${num(s.amount)}`,
     `${s.days ?? 0} días, ${s.departures ?? 0} salidas, ${s.no_show ?? 0} no embarcados, S/ ${num(s.amount)}`);
   return r.message || '';

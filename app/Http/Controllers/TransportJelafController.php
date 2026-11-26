@@ -40,7 +40,7 @@ class TransportJelafController extends Controller
             $last = DB::table('transport_jelaf_runs')->where('company_id', $cid)->where('report', $key)->orderByDesc('id')->first();
             $lastOk = DB::table('transport_jelaf_runs')->where('company_id', $cid)->where('report', $key)->where('status', 'ok')->orderByDesc('id')->first();
             $reports[] = ['key' => $key, 'name' => $name, 'what' => $what, 'last' => $last, 'last_ok' => $lastOk,
-                'max_days' => $key === 'boarding' ? 7 : 31];
+                'max_days' => in_array($key, ['boarding', 'ahead'], true) ? 14 : 31];
         }
 
         return ['reports' => $reports, 'login_ready' => JelafClient::envFile() !== null, 'night_at' => '22:00'];
@@ -74,8 +74,13 @@ class TransportJelafController extends Controller
     {
         $cid = $this->company($request);
         $d = $request->validate(['report' => 'required|in:'.implode(',', array_keys(JelafSync::REPORTS)), 'from' => 'required|date', 'to' => 'required|date|after_or_equal:from']);
-        abort_if($d['to'] > now()->toDateString(), 422, __('The range cannot end in the future.'));
-        $max = $d['report'] === 'boarding' ? 7 : 31;
+        if ($d['report'] === 'ahead') {
+            // Seats sold ahead: from today up to 14 days on.
+            abort_if($d['from'] < now()->toDateString() || $d['to'] > now()->addDays(14)->toDateString(), 422, __('Between today and 14 days ahead.'));
+        } else {
+            abort_if($d['to'] > now()->toDateString(), 422, __('The range cannot end in the future.'));
+        }
+        $max = in_array($d['report'], ['boarding', 'ahead'], true) ? 14 : 31;
         abort_if((strtotime($d['to']) - strtotime($d['from'])) / 86400 + 1 > $max, 422, __('Up to :n days at a time.', ['n' => $max]));
         abort_unless(JelafClient::envFile(), 422, __('The Jelaf login is not set on this server.'));
         @set_time_limit(600);

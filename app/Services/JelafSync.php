@@ -6,14 +6,15 @@ use App\Support\AuraSoftImport;
 use App\Support\AuraSoftPassengers;
 use App\Support\JelafClient;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Throwable;
 
 /**
- * Jelaf automÃ¡tico (2026-11-26, Turismo Cautivo; Julio's data): the reports Murano imports from Jelaf / AuraSoft, run by the
- * 22:00 scheduler and from IntegraciÃ³n -> Jelaf automÃ¡tico at any moment. Every run is a transport_jelaf_runs row.
- *  - production: "Reporte producciÃ³n por bus" (resumido F1, every company) of the range, imported with AuraSoftImport;
+ * Jelaf automático (2026-11-26, Turismo Cautivo; Julio's data): the reports Murano imports from Jelaf / AuraSoft, run by the
+ * 22:00 scheduler and from Integración -> Jelaf automático at any moment. Every run is a transport_jelaf_runs row.
+ *  - production: "Reporte producción por bus" (resumido F1, every company) of the range, imported with AuraSoftImport;
  *  - boarding:   "Control de Embarque" Resumen + Detalle of each travel day (one file per day and report), the Detalle
  *                imported into transport_boardings (a day's import replaces that day).
  * Each downloaded file is kept: KT-TOOLS/files/turismo/JELAF_INTEGRACION on a PC, storage/app/jelaf/archive on the server.
@@ -21,8 +22,9 @@ use Throwable;
 class JelafSync
 {
     public const REPORTS = [
-        'production' => ['ProducciÃ³n por bus', 'Una fila por salida: bus, ruta, hora, pasajes por canal, encomiendas y exceso. Llena ProducciÃ³n por bus, Ventas del dÃ­a, Reporte de salidas y Resumen del negocio.'],
-        'boarding' => ['Control de Embarque', 'Un pasajero por fila: bus y salida, asiento, vendedor, fecha y hora de venta, boleto, monto, si embarcÃ³ y dÃ³nde. Para no embarcados, ocupaciÃ³n real y puntos de embarque.'],
+        'production' => ['Producción por bus', 'Una fila por salida: bus, ruta, hora, pasajes por canal, encomiendas y exceso. Llena Producción por bus, Ventas del día, Reporte de salidas y Resumen del negocio.'],
+        'boarding' => ['Control de Embarque', 'Un pasajero por fila: bus y salida, asiento, vendedor, fecha y hora de venta, boleto, monto, si embarcó y dónde. Para no embarcados, ocupación real y puntos de embarque.'],
+        'ahead' => ['Pasajes vendidos por adelantado', 'El Control de Embarque de los próximos 14 días: lo vendido hasta hoy en cada salida. Llena el tablero Programación.'],
     ];
 
     public static function companyId(): int
@@ -56,7 +58,7 @@ class JelafSync
                 $dir = self::archiveDir('01 Produccion por Bus/Nocturno');
                 $file = $dir.'/ProduccionParaBus '.$from.'_'.$to.' resumido F1 (bajado '.now()->format('Y-m-d H-i').').xlsx';
                 if (! $client->productionPerBus($from, $to, $file)) {
-                    return $done('nodata', 0, 0, [], 'Jelaf: no hay datos en el perÃ­odo.');
+                    return $done('nodata', 0, 0, [], 'Jelaf: no hay datos en el período.');
                 }
                 $copy = storage_path('app/jelaf/'.basename($file));
                 @mkdir(dirname($copy), 0775, true);
@@ -90,6 +92,30 @@ class JelafSync
                 $p = TransportPassengers::rebuild($cid);
                 $sum['tickets_linked'] = $p['tickets_linked'];
                 $say("passengers: {$p['tickets_linked']} of {$p['tickets']} tickets linked, online sales {$p['online_linked']} of {$p['online']}");
+
+                return $done($rows ? 'ok' : 'nodata', $files, $rows, $sum);
+            }
+
+            // Seats sold ahead (2026-11-26, the Programación board): the Detalle of the next days, what is sold so far.
+            if ($report === 'ahead') {
+                $dir = self::archiveDir('06 Control de Embarque/Descargado_Jelaf_ControlEmbarqueDetalle');
+                $files = $rows = 0;
+                $sum = ['days' => 0, 'tickets' => 0, 'departures' => 0];
+                for ($d = strtotime($from); $d <= strtotime($to); $d += 86400) {
+                    $day = date('Y-m-d', $d);
+                    $file = "$dir/ControlEmbarqueDetalle_NombrePasajero-$day.xlsx";
+                    $client->boarding('detalle', $day, $file) && $files++;
+                    $res = is_file($file) ? self::importBoardingFile($cid, $file, $day) : ['rows' => 0, 'departures' => 0];
+                    $rows += $res['rows'];
+                    $sum['tickets'] += $res['rows'];
+                    $sum['departures'] += $res['departures'];
+                    $sum['days']++;
+                    $say("ahead $day: {$res['rows']} tickets sold so far on {$res['departures']} departures");
+                    if ($d < strtotime($to)) {
+                        sleep(3);
+                    }
+                }
+                Cache::forget("transport_programming_curve_$cid");
 
                 return $done($rows ? 'ok' : 'nodata', $files, $rows, $sum);
             }

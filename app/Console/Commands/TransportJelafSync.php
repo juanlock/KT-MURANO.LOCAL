@@ -11,12 +11,12 @@ use Illuminate\Console\Command;
  * yesterday and today (a day still running is replaced the next night) -- each one recorded in transport_jelaf_runs (the
  * history of Integración -> Jelaf automático, where the same can be run by hand). Log: storage/logs/jelaf-sync-YYYY-MM-DD.log.
  *
- *   php artisan transport:jelaf-sync [--company=] [--days=3] [--only=production|boarding]
+ *   php artisan transport:jelaf-sync [--company=] [--days=3] [--only=production|boarding|ahead]
  */
 class TransportJelafSync extends Command
 {
     protected $signature = 'transport:jelaf-sync {--company= : company id (default: Turismo Cautivo)} {--days=3 : Producción por bus: days back, today included}
-        {--only= : production | boarding}';
+        {--only= : production | boarding | ahead}';
 
     protected $description = 'Download and import the Jelaf / AuraSoft reports of the last days (Turismo Cautivo).';
 
@@ -38,6 +38,8 @@ class TransportJelafSync extends Command
         $plan = [
             'production' => [now()->subDays($days - 1)->toDateString(), now()->toDateString()],
             'boarding' => [now()->subDay()->toDateString(), now()->toDateString()],
+            // Programación board (2026-11-26): what is sold so far for the next 14 days.
+            'ahead' => [now()->addDay()->toDateString(), now()->addDays(14)->toDateString()],
         ];
         $only = $this->option('only');
         $failed = false;
