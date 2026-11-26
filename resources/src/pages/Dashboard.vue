@@ -94,108 +94,98 @@
     <div v-else class="dash-blocks" :class="{ 'only-tabs': boardMode && transportTab !== 'transport_general' }">
       <!-- ================= Transport: one tab per panel, the board by default (2026-11-04).
            A tab loads its panel the first time it opens. No bar with only one panel. ========= -->
-      <a-tabs
-        v-if="transportTabs.length" v-model:active-key="transportTab" class="transport-tabs" size="middle"
-        :tab-bar-style="transportTabs.length < 2 ? { display: 'none' } : undefined"
-        :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }"
-      >
-        <!-- In the order the owner reads them (user's request, 2026-11-11), the first one opens by default: how the business
-             goes, where the money comes from and what puts it at risk, then the day's operation. -->
-        <!-- Turismo, 2026-11-18: the departures report is the first board the owner and accounting need; then the predictive
-             "Mando operativo" (upcoming departures at risk, where to push marketing). -->
-        <!-- Mayte's two reports as boards (2026-11-23): the day's sales, Lima and Chiclayo side by side, and production per bus. -->
-        <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales">
-          <template #tab><CalendarOutlined /> {{ es ? 'Ventas del día' : "Day's sales" }}</template>
-          <ReportSourceBar board="transport_daysales" :range="rangeFields" />
-          <TransportDaySalesPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production">
-          <template #tab><TableOutlined /> {{ es ? 'Producción por bus' : 'Production per bus' }}</template>
-          <ReportSourceBar board="transport_production" :range="rangeFields" />
-          <TransportProductionPanel :range="rangeFields" />
-        </a-tab-pane>
-        <!-- AuraSoft's Liquidación General (2026-11-24): by point of sale and cashier, with the cash each one hands in. -->
-        <a-tab-pane v-if="transportTabs.includes('transport_pointsales')" key="transport_pointsales">
-          <template #tab><ShopOutlined /> {{ es ? 'Ventas por punto de venta' : 'Sales by point of sale' }}</template>
-          <ReportSourceBar board="transport_pointsales" :range="rangeFields" />
-          <TransportPointSalesPanel :range="rangeFields" />
-        </a-tab-pane>
-        <!-- AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24). -->
-        <a-tab-pane v-if="transportTabs.includes('transport_cashbook')" key="transport_cashbook">
-          <template #tab><WalletOutlined /> {{ es ? 'Caja y clientes' : 'Cash and customers' }}</template>
-          <ReportSourceBar board="transport_cashbook" :range="rangeFields" />
-          <TransportCashbookPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_customers')" key="transport_customers">
-          <template #tab><TeamOutlined /> {{ es ? 'Clientes' : 'Customers' }}</template>
-          <ReportSourceBar board="transport_customers" :range="rangeFields" />
-          <TransportCustomersPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_aura_parcels')" key="transport_aura_parcels">
-          <template #tab><InboxOutlined /> {{ es ? 'Encomiendas AuraSoft' : 'AuraSoft parcels' }}</template>
-          <ReportSourceBar board="transport_aura_parcels" :range="rangeFields" />
-          <TransportAuraParcelsPanel />
-        </a-tab-pane>        <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures">
-          <template #tab><ScheduleOutlined /> {{ es ? 'Reporte de salidas' : 'Departures report' }}</template>
-          <ReportSourceBar board="transport_departures" :range="rangeFields" />
-          <TransportDeparturesPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_outlook')" key="transport_outlook">
-          <template #tab><AimOutlined /> {{ es ? 'Mando operativo' : 'Operations outlook' }}</template>
-          <ReportSourceBar board="transport_outlook" :range="rangeFields" />
-          <TransportOutlookPanel />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_owner')" key="transport_owner">
-          <template #tab><FundOutlined /> {{ es ? 'Resumen del negocio' : 'Business summary' }}</template>
-          <ReportSourceBar board="transport_owner" :range="rangeFields" />
-          <TransportOwnerPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_profit')" key="transport_profit">
-          <template #tab><LineChartOutlined /> {{ es ? 'Rentabilidad por ruta' : 'Profit by route' }}</template>
-          <ReportSourceBar board="transport_profit" :range="rangeFields" />
-          <TransportProfitPanel :range="rangeFields" />
-        </a-tab-pane>
-        <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
-        <a-tab-pane v-if="transportTabs.includes('transport_expenses')" key="transport_expenses">
-          <template #tab><WalletOutlined /> {{ es ? 'Gastos' : 'Expenses' }}</template>
-          <ReportSourceBar board="transport_expenses" :range="rangeFields" />
-          <TransportExpensesPanel :range="rangeFields" />
-        </a-tab-pane>
-        <!-- Goes with "Profit by route": same permission and same on / off switch in System Settings -> Dashboard. -->
-        <a-tab-pane v-if="transportTabs.includes('transport_indicators')" key="transport_indicators">
-          <template #tab><BarChartOutlined /> {{ es ? 'Indicadores' : 'Indicators' }}</template>
-          <ReportSourceBar board="transport_indicators" :range="rangeFields" />
-          <TransportIndicatorsPanel :range="rangeFields" view="profit" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_risks')" key="transport_risks">
-          <template #tab><WarningOutlined /> {{ es ? 'Riesgos' : 'Risks' }}</template>
-          <ReportSourceBar board="transport_risks" :range="rangeFields" />
-          <TransportIndicatorsPanel :range="rangeFields" view="risks" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_parcels')" key="transport_parcels">
-          <template #tab><InboxOutlined /> {{ es ? 'Encomiendas' : 'Parcels' }}</template>
-          <ReportSourceBar board="transport_parcels" :range="rangeFields" />
-          <TransportParcelsPanel :range="rangeFields" />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport_claims')" key="transport_claims">
-          <template #tab><AuditOutlined /> {{ es ? 'Reclamos' : 'Complaints' }}</template>
-          <ReportSourceBar board="transport_claims" :range="period === 'all' ? null : rangeFields" />
-          <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
-        </a-tab-pane>
-        <!-- Live: refreshes itself only while it is open. -->
-        <a-tab-pane v-if="transportTabs.includes('transport_monitor')" key="transport_monitor" destroy-inactive-tab-pane>
-          <template #tab><EnvironmentOutlined /> {{ es ? 'Tablero de control' : 'Control board' }}</template>
-          <ReportSourceBar board="transport_monitor" :range="rangeFields" />
-          <TransportLiveBoard />
-        </a-tab-pane>
-        <a-tab-pane v-if="transportTabs.includes('transport')" key="transport">
-          <template #tab><CarOutlined /> {{ es ? 'Tablero de transporte' : 'Transport board' }}</template>
-          <ReportSourceBar board="transport" :range="rangeFields" />
-          <TransportBoard :range="rangeFields" />
-        </a-tab-pane>
-        <!-- No "General" tab (user's request, 2026-11-11: it said nothing to a transport company and confused): with the
-             transport panels, the rest of the dashboard (sales, stock...) is not shown. -->
-      </a-tabs>
+      <!-- Boards grouped by what they are about, as folder tabs on a strip, the open board on white inside a bordered card, no
+           icons, every tab in sight (user's rules, 2026-11-26). The source line goes UNDER each board. -->
+      <div v-if="transportTabs.length" class="board-tabs" :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }">
+        <div v-if="transportTabs.length > 1" class="bt-bar" role="tablist">
+          <div v-for="g in tabGroups" :key="g.key" class="bt-group">
+            <div class="bt-group-label">{{ g.label }}</div>
+            <div class="bt-group-tabs">
+              <button
+                v-for="k in g.tabs" :key="k" type="button" role="tab" class="bt-tab" :class="{ active: transportTab === k }"
+                :aria-selected="transportTab === k" @click="transportTab = k"
+              >{{ tabLabel(k) }}</button>
+            </div>
+          </div>
+        </div>
+        <div class="bt-body" :class="{ alone: transportTabs.length < 2 }">
+          <a-tabs v-model:active-key="transportTab" class="transport-tabs" :tab-bar-style="{ display: 'none' }">
+            <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales" :tab="tabLabel('transport_daysales')">
+              <TransportDaySalesPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_daysales" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production" :tab="tabLabel('transport_production')">
+              <TransportProductionPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_production" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <!-- AuraSoft's Liquidación General (2026-11-24): by point of sale and cashier, with the cash each one hands in. -->
+            <a-tab-pane v-if="transportTabs.includes('transport_pointsales')" key="transport_pointsales" :tab="tabLabel('transport_pointsales')">
+              <TransportPointSalesPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_pointsales" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <!-- AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24). -->
+            <a-tab-pane v-if="transportTabs.includes('transport_cashbook')" key="transport_cashbook" :tab="tabLabel('transport_cashbook')">
+              <TransportCashbookPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_cashbook" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_customers')" key="transport_customers" :tab="tabLabel('transport_customers')">
+              <TransportCustomersPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_customers" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_aura_parcels')" key="transport_aura_parcels" :tab="tabLabel('transport_aura_parcels')">
+              <TransportAuraParcelsPanel />
+              <ReportSourceBar board="transport_aura_parcels" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures" :tab="tabLabel('transport_departures')">
+              <TransportDeparturesPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_departures" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_outlook')" key="transport_outlook" :tab="tabLabel('transport_outlook')">
+              <TransportOutlookPanel />
+              <ReportSourceBar board="transport_outlook" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_owner')" key="transport_owner" :tab="tabLabel('transport_owner')">
+              <TransportOwnerPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_owner" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_profit')" key="transport_profit" :tab="tabLabel('transport_profit')">
+              <TransportProfitPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_profit" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
+            <a-tab-pane v-if="transportTabs.includes('transport_expenses')" key="transport_expenses" :tab="tabLabel('transport_expenses')">
+              <TransportExpensesPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_expenses" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_indicators')" key="transport_indicators" :tab="tabLabel('transport_indicators')">
+              <TransportIndicatorsPanel :range="rangeFields" view="profit" />
+              <ReportSourceBar board="transport_indicators" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_risks')" key="transport_risks" :tab="tabLabel('transport_risks')">
+              <TransportIndicatorsPanel :range="rangeFields" view="risks" />
+              <ReportSourceBar board="transport_risks" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_parcels')" key="transport_parcels" :tab="tabLabel('transport_parcels')">
+              <TransportParcelsPanel :range="rangeFields" />
+              <ReportSourceBar board="transport_parcels" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_claims')" key="transport_claims" :tab="tabLabel('transport_claims')">
+              <TransportClaimsPanel :range="period === 'all' ? null : rangeFields" />
+              <ReportSourceBar board="transport_claims" :range="period === 'all' ? null : rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <!-- Live: refreshes itself only while it is open. -->
+            <a-tab-pane v-if="transportTabs.includes('transport_monitor')" key="transport_monitor" :tab="tabLabel('transport_monitor')" destroy-inactive-tab-pane>
+              <TransportLiveBoard />
+              <ReportSourceBar board="transport_monitor" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport')" key="transport" :tab="tabLabel('transport')">
+              <TransportBoard :range="rangeFields" />
+              <ReportSourceBar board="transport" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <!-- No "General" tab (user's request, 2026-11-11): with the transport panels, the rest of the dashboard is not shown. -->
+          </a-tabs>
+        </div>
+      </div>
 
       <!-- ================= Stat cards (legacy's two rows of four) ========= -->
       <!-- Cards share the row: as many as there are, max 6 per row (then wrap). -->
@@ -519,8 +509,39 @@ const es = computed(() => useUiStore().locale === 'es');
 const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnabled('transport') && (auth.can('transport_outlook') || auth.can('transport_profit')));
 // Roles -> "Dashboard tabs" (2026-11-19, Turismo: each role its own board): only those, when the role has a list.
 const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
-const transportPanels = computed(() => [profitPanel.value && 'transport_daysales', profitPanel.value && 'transport_production', profitPanel.value && 'transport_pointsales', profitPanel.value && 'transport_cashbook', profitPanel.value && 'transport_customers', profitPanel.value && 'transport_aura_parcels', departuresPanel.value && 'transport_departures', outlookPanel.value && 'transport_outlook', ownerPanel.value && 'transport_owner', profitPanel.value && 'transport_profit', profitPanel.value && 'transport_expenses', profitPanel.value && 'transport_indicators', profitPanel.value && 'transport_risks', parcelsPanel.value && 'transport_parcels', claimsPanel.value && 'transport_claims', monitorPanel.value && 'transport_monitor', transportBoard.value && 'transport'].filter(Boolean)
+// The boards grouped by what they are about (user's request, 2026-11-26: "ordenamos los tabs por grupo o entidad"), in this
+// order; the first board the user has opens by default.
+const TAB_GROUPS = [
+  { key: 'sales', en: 'Sales', es: 'Ventas', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers'] },
+  { key: 'money', en: 'Finance', es: 'Finanzas', tabs: ['transport_owner', 'transport_profit', 'transport_expenses', 'transport_indicators', 'transport_risks'] },
+  { key: 'ops', en: 'Operations', es: 'Operación', tabs: ['transport_production', 'transport_departures', 'transport_outlook', 'transport_monitor', 'transport'] },
+  { key: 'parcels', en: 'Parcels', es: 'Encomiendas', tabs: ['transport_aura_parcels', 'transport_parcels'] },
+  { key: 'quality', en: 'Quality', es: 'Calidad', tabs: ['transport_claims'] },
+];
+const TAB_LABELS = {
+  transport_daysales: ["Day's sales", 'Ventas del día'], transport_pointsales: ['By point of sale', 'Por punto de venta'],
+  transport_cashbook: ['Cash and customers', 'Caja y clientes'], transport_customers: ['Customers', 'Clientes'],
+  transport_production: ['Production per bus', 'Producción por bus'], transport_departures: ['Departures report', 'Reporte de salidas'],
+  transport_outlook: ['Operations outlook', 'Mando operativo'], transport_monitor: ['Control board', 'Tablero de control'],
+  transport: ['Transport board', 'Tablero de transporte'], transport_owner: ['Business summary', 'Resumen del negocio'],
+  transport_profit: ['Profit by route', 'Rentabilidad por ruta'], transport_expenses: ['Expenses', 'Gastos'],
+  transport_indicators: ['Indicators', 'Indicadores'], transport_risks: ['Risks', 'Riesgos'],
+  transport_aura_parcels: ['AuraSoft parcels', 'Encomiendas AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
+  transport_claims: ['Complaints', 'Reclamos'],
+};
+const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
+const panelOn = {
+  transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
+  transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_departures: () => departuresPanel.value,
+  transport_outlook: () => outlookPanel.value, transport_monitor: () => monitorPanel.value, transport: () => transportBoard.value,
+  transport_owner: () => ownerPanel.value, transport_profit: () => profitPanel.value, transport_expenses: () => profitPanel.value,
+  transport_indicators: () => profitPanel.value, transport_risks: () => profitPanel.value, transport_aura_parcels: () => profitPanel.value,
+  transport_parcels: () => parcelsPanel.value, transport_claims: () => claimsPanel.value,
+};
+const transportPanels = computed(() => TAB_GROUPS.flatMap(g => g.tabs).filter(k => panelOn[k]())
   .filter(k => !roleTabs.value || roleTabs.value.includes(k)));
+const tabGroups = computed(() => TAB_GROUPS.map(g => ({ key: g.key, label: es.value ? g.es : g.en, tabs: g.tabs.filter(k => transportPanels.value.includes(k)) }))
+  .filter(g => g.tabs.length));
 const boardMode = computed(() => transportPanels.value.length > 0);
 const transportTabs = computed(() => (boardMode.value ? [...transportPanels.value] : []));
 // ?tab=transport_outlook (a role's home page or a link) opens that tab.
@@ -990,7 +1011,38 @@ onMounted(load);
   margin-bottom: 10px; gap: 8px; padding: 8px 10px; border-radius: 10px; align-items: center;
   background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.04); border: 1px solid rgba(var(--app-primary-rgb, 22, 119, 255), 0.12);
 }
-.board-mode .dash-blocks.only-tabs > :not(.transport-tabs) { display: none !important; }
+.board-mode .dash-blocks.only-tabs > :not(.board-tabs) { display: none !important; }
+/* Boards as folder tabs (2026-11-26): groups on a tinted strip, the open tab white and joined to the white, bordered board. */
+.board-tabs { --bt-line: #dfe5ee; --bt-pri: rgb(var(--app-primary-rgb, 22, 119, 255)); }
+.bt-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 0; padding: 6px 10px 0; border: 1px solid var(--bt-line);
+  border-bottom: none; border-radius: 12px 12px 0 0; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.06);
+}
+.bt-group { display: flex; flex-direction: column; padding: 0 8px; }
+.bt-group + .bt-group { border-left: 1px solid rgba(0, 0, 0, 0.08); }
+.bt-group:first-child { padding-left: 0; }
+.bt-group-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(0, 0, 0, 0.4);
+  line-height: 14px; padding: 0 8px 2px;
+}
+.bt-group-tabs { display: flex; flex-wrap: wrap; gap: 1px; }
+.bt-tab {
+  position: relative; border: 1px solid transparent; border-bottom: none; background: transparent; cursor: pointer;
+  padding: 6px 8px 7px; font-size: 13px; line-height: 18px; color: rgba(0, 0, 0, 0.68); border-radius: 8px 8px 0 0;
+  transition: background-color .15s, color .15s; margin-bottom: -1px;
+}
+.bt-tab:hover { background: rgba(255, 255, 255, 0.7); color: var(--bt-pri); }
+.bt-tab.active {
+  background: #fff; color: var(--bt-pri); font-weight: 600; border-color: var(--bt-line); z-index: 1;
+  box-shadow: inset 0 3px 0 var(--bt-pri);
+}
+.bt-body {
+  background: #fff; border: 1px solid var(--bt-line); border-radius: 0 0 12px 12px; padding: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+.bt-body.alone { border-radius: 12px; }
+.bt-body :deep(.ant-tabs-content-holder) { padding: 0; }
+.bt-source { margin-top: 10px; }
 .board-mode .transport-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 10px; padding: 4px; border-radius: 10px; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.07);
 }
