@@ -16,13 +16,17 @@
  *   - Google Drive: <archive>\..\KT-TOOLS = G:\My Drive\Bck_WEBSITE-LOCAL\KT-MURANO\Versions\KT-TOOLS (.env BACKUP_ARCHIVE_DIR)
  *   - OneDrive:     %OneDrive%\A_WEBSITES-LOCAL\KT-MURANO.LOCAL\KT-TOOLS = D:\NetLock\OneDrive\... (.env KT_TOOLS_ONEDRIVE)
  *
+ *   $toolsMode = 'merge' -- (user's request, 2026-11-26: another PC stays off for days) brings down from the clouds every file this
+ *                           PC lacks or holds older, never deletes anything here and never writes in a cloud; then a 'push'
+ *                           leaves the clouds = everything of both PCs. See what differs first: protocol_tools_compare.php.
+ *
  *   php artisan tinker --execute="$toolsMode = 'pull'; require '<repo>\database\scripts\protocol_tools_sync.php';"
  *
  * Everything in KT-TOOLS travels (backups, Temp, .env_modelo, reports) except desktop.ini; KT-TOOLS is not in git
  * (2026-11-17). Company material lives in KT-TOOLS\files\<company>\.
  */
 
-$mode = ($toolsMode ?? null) === 'push' ? 'push' : (($toolsMode ?? null) === 'pull' ? 'pull' : null);
+$mode = in_array($toolsMode ?? null, ['push', 'pull', 'merge'], true) ? $toolsMode : null;
 if (! $mode) {
     echo "KT-TOOLS sync: say \$toolsMode = 'push' (Pa Llevar / A Dormir) or 'pull' (Wake-up) -- nothing done.\n";
 
@@ -171,6 +175,34 @@ if ($mode === 'push') {
     }
     @mkdir(dirname($stateFile), 0775, true);
     file_put_contents($stateFile, json_encode(['pc' => gethostname(), 'at' => $at, 'synced_at' => time()]));
+
+    return;
+}
+
+// ------------------------------------------------------------------ merge: bring down what this PC lacks / has older; delete nothing
+if ($mode === 'merge') {
+    [$lf] = $scan($local);
+    $lfCi = [];
+    foreach ($lf as $rel => $v) {
+        $lfCi[mb_strtolower($rel)] = $v;
+    }
+    foreach ($clouds as $name => $cloud) {
+        [$cf] = $scan($cloud);
+        $down = $failed = 0;
+        foreach ($cf as $rel => $v) {
+            $mine = $lfCi[mb_strtolower($rel)] ?? null;
+            if ($mine && ($same($mine, $v) || $mine[1] >= $v[1] - 2)) {
+                continue;
+            }
+            if ($copy($abs($cloud, $rel), $abs($local, $rel))) {
+                $down++;
+                $lfCi[mb_strtolower($rel)] = $v;
+            } else {
+                $failed++;
+            }
+        }
+        echo "KT-TOOLS merge <- $name: down $down".($failed ? ", FAILED $failed" : '')." (nothing deleted here, nothing written there)\n";
+    }
 
     return;
 }

@@ -9,7 +9,14 @@
       </div>
 
       <!-- "Business summary" follows the filter too since 2026-11-12 (user's request; hidden there 11-11 when it changed nothing). -->
-      <a-space wrap :size="boardMode ? 8 : 12" class="dash-filters">
+      <!-- One height for every control, groups apart, "Todos" first on its own, a Reset at the end and the bar centred when
+           nothing else shares the row (user's rules, 2026-11-26). -->
+      <div class="dash-filters">
+        <div class="df-all" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset('all')">
+          <a-button :type="period === 'all' ? 'primary' : 'default'" :disabled="loading" @click="period = 'all'; load()">
+            {{ $t(ALL_PRESET.labelKey) }}<StarFilled v-if="savedDatePreset === 'all'" class="def-star" />
+          </a-button>
+        </div>
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
         <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
@@ -21,11 +28,11 @@
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
           <!-- "Día" (2026-11-24): a calendar day, ‹ › to move it; between the dates and "All". -->
-          <DayPresetControl :active="period === 'day'" :single="period === 'today'" :disabled="loading" :size="boardMode ? 'small' : undefined"
+          <DayPresetControl :active="period === 'day'" :single="period === 'today'" :disabled="loading"
             @pick="period = 'day'; load()" />
           <div class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
-            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" :size="boardMode ? 'small' : undefined" @change="load()">
-              <a-radio-button v-for="p in RANGE_PRESETS" :key="p.value" :value="p.value">
+            <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
+              <a-radio-button v-for="p in PERIOD_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
               </a-radio-button>
             </a-radio-group>
@@ -46,7 +53,6 @@
           <a-select
             v-model:value="warehouseId"
             class="wh-select"
-            :size="boardMode ? 'small' : undefined"
             :options="warehouseOptions"
             @change="load()"
           />
@@ -55,11 +61,17 @@
         <div v-if="currencyVisible" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
           <ViewCurrencySelect class="wh-select" />
         </div>
-        <a-button type="primary" :loading="loading" :size="boardMode ? 'small' : undefined" :title="$t('Refresh')" @click="load()">
-          <template #icon><ReloadOutlined /></template>
-          <template v-if="!boardMode">{{ $t('Refresh') }}</template>
-        </a-button>
-      </a-space>
+        <div class="df-actions">
+          <a-button type="primary" :loading="loading" :title="$t('Refresh')" @click="load()">
+            <template #icon><ReloadOutlined /></template>
+            <template v-if="!boardMode">{{ $t('Refresh') }}</template>
+          </a-button>
+          <!-- Reset = the user's own defaults (★), else today and every location. -->
+          <a-button :disabled="loading" :title="es ? 'Volver a los filtros por defecto' : 'Back to the default filters'" @click="resetFilters">
+            <template #icon><UndoOutlined /></template>{{ es ? 'Restablecer' : 'Reset' }}
+          </a-button>
+        </div>
+      </div>
     </div>
 
     <!-- Demo-data notice -->
@@ -435,6 +447,9 @@ import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
 import DayPresetControl from '../components/DayPresetControl.vue';
 // "Día" has its own control (DayPresetControl); the buttons are the ranges.
 const RANGE_PRESETS = DATE_PRESETS.filter(p => p.value !== 'day');
+// "Todos" stands apart on the left (2026-11-26); the phone's dropdown keeps the whole list.
+const ALL_PRESET = RANGE_PRESETS.find(p => p.value === 'all') || { value: 'all', labelKey: 'All' };
+const PERIOD_PRESETS = RANGE_PRESETS.filter(p => p.value !== 'all');
 import DateRangeFields from '../components/DateRangeFields.vue';
 import {
   ReloadOutlined, ShoppingCartOutlined, ShoppingOutlined, RollbackOutlined,
@@ -551,6 +566,12 @@ if (defaults.value.period) {
 }
 const period = ref(startPreset('today'));
 const warehouseId = ref(defaults.value.warehouse_id ?? '');
+/** Reset (2026-11-26): the user's defaults (★), else today and every location. */
+function resetFilters() {
+  period.value = startPreset('today');
+  warehouseId.value = defaults.value.warehouse_id ?? '';
+  load();
+}
 // The currency choice is shared by every report page: only start from the
 // default when nothing was picked yet this session.
 if (defaults.value.currency_id != null && viewCurrencyId.value == null) viewCurrencyId.value = defaults.value.currency_id;
@@ -956,10 +977,17 @@ onMounted(load);
 /* The blocks in the company's order (CSS order), 16px apart. */
 /* The tab names the panel: little chrome, the content in front. */
 .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
+/* Every board's tab always in sight (user's rule, 2026-11-26: "son tableros"): a second row when one is not enough, never the
+   "..." menu that hides them. */
+.transport-tabs :deep(.ant-tabs-nav-wrap) { overflow: visible !important; white-space: normal; }
+.transport-tabs :deep(.ant-tabs-nav-wrap::before),
+.transport-tabs :deep(.ant-tabs-nav-wrap::after) { display: none !important; }
+.transport-tabs :deep(.ant-tabs-nav-list) { flex-wrap: wrap; row-gap: 4px; transform: none !important; }
+.transport-tabs :deep(.ant-tabs-nav-operations) { display: none !important; }
 /* Board mode (transport), 2026-11-13 "se ve cargado": the filters in their own light bar, the tabs as pills on a tinted
    strip in the company's colour (--app-primary-rgb), the open one filled; a little more air between them. */
 .board-mode .page-header {
-  margin-bottom: 10px; gap: 8px; padding: 6px 10px; border-radius: 10px;
+  margin-bottom: 10px; gap: 8px; padding: 8px 10px; border-radius: 10px; align-items: center;
   background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.04); border: 1px solid rgba(var(--app-primary-rgb, 22, 119, 255), 0.12);
 }
 .board-mode .dash-blocks.only-tabs > :not(.transport-tabs) { display: none !important; }
@@ -1106,6 +1134,20 @@ onMounted(load);
 .range-value {
   font-size: 13px;
 }
+/* The filter bar (2026-11-26): every control 32 px high, the groups apart (Todos | dates | Día | periods | location | actions),
+   centred when nothing else shares its row. */
+.dash-filters {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; flex: 1 1 auto;
+}
+.dash-filters > .df-all { margin-right: 6px; }
+.dash-filters > .preset-wrap { margin: 0 6px; gap: 10px; align-items: center; }
+.dash-filters .df-actions { display: inline-flex; gap: 6px; margin-left: 6px; }
+.dash-filters :deep(.ant-btn:not(.ant-btn-sm)),
+.dash-filters :deep(.ant-radio-button-wrapper),
+.dash-filters :deep(.ant-select-single .ant-select-selector),
+.dash-filters :deep(.drf) { height: 32px; }
+.dash-filters :deep(.ant-radio-button-wrapper) { line-height: 30px; }
+.dash-filters :deep(.drf) { display: inline-flex; align-items: center; box-sizing: border-box; }
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -1477,10 +1519,13 @@ onMounted(load);
     flex-direction: column;
     align-items: stretch !important;
   }
-  .dash-filters :deep(.ant-space-item) {
+  .dash-filters > * {
     width: 100%;
     min-width: 0;
+    margin: 0 !important;
   }
+  .dash-filters > .df-all { display: none; }
+  .dash-filters .df-actions { display: flex; gap: 8px; }
   .range-card :deep(.ant-card-body) {
     justify-content: space-between;
   }
