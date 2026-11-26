@@ -11,7 +11,7 @@
       </div>
       <div class="pg-chips">
         <span class="pg-chip c-hi" :title="L('Forecast at 90 % of the seats or more', 'Pronóstico de 90 % de los asientos o más')"><b>{{ s.reinforce }}</b> {{ L('reinforce', 'reforzar') }}</span>
-        <span class="pg-chip c-lo" :title="L('Forecast under 30 % of the seats', 'Pronóstico bajo 30 % de los asientos')"><b>{{ s.low }}</b> {{ L('low', 'baja ocup.') }}</span>
+        <span class="pg-chip c-bad" :title="L('Under 80 % of the seats (sold for past days, forecast for the next ones)', 'Bajo 80 % de los asientos (vendido en días pasados, pronóstico en los próximos)')"><b>{{ s.under || 0 }}</b> {{ L('under 80 %', 'bajo 80 %') }}</span>
         <span class="pg-chip" :class="s.conflicts ? 'c-bad' : 'c-ok'"><b>{{ s.conflicts }}</b> {{ L('bus clashes', 'choques') }}</span>
         <span class="pg-chip c-plain" :title="L('In the plan, nothing sold / not open in Jelaf yet', 'En el plan, sin ventas / aún no abierta en Jelaf')"><b>{{ s.plan_only }}</b> {{ L('plan only', 'solo plan') }}</span>
         <span class="pg-chip c-plain" :title="L('Open in Jelaf, not in the plan', 'Abierta en Jelaf, no está en el plan')"><b>{{ s.jelaf_only }}</b> {{ L('Jelaf only', 'fuera de plan') }}</span>
@@ -128,6 +128,24 @@
             : L(`about ${sel.forecast} passengers expected for ${sel.seats} seats: merge with a near departure or use a smaller bus.`, `se esperan unos ${sel.forecast} pasajeros para ${sel.seats} asientos: juntar con una salida cercana o usar un bus más chico.`) }}
         </div>
         <a-alert v-for="(a, i) in sel.alerts" :key="i" type="error" show-icon :message="a" style="margin-bottom: 6px; padding: 4px 10px" />
+        <!-- The bar explained (2026-11-26): the seats sold by channel, who sold them at the agencies and where they board. -->
+        <div class="pg-h">{{ L('Tickets sold', 'Pasajes vendidos') }}: {{ sel.sold }}<template v-if="sel.seats"> / {{ sel.seats }} {{ L('seats', 'asientos') }} ({{ pct(sel.sold, sel.seats) }})</template></div>
+        <div v-if="channelRows.length" class="pg-ch">
+          <div class="pg-chbar">
+            <i v-for="c in channelRows" :key="c.key" :style="{ width: (sel.seats ? c.n / sel.seats : c.n / sel.sold) * 100 + '%', background: c.color }" :title="`${c.key} ${c.n}`" />
+          </div>
+          <div v-for="c in channelRows" :key="c.key">
+            <div class="pg-chrow"><span class="dot" :style="{ background: c.color }" /><span>{{ c.label }}</span><b class="r">{{ c.n }}</b><span class="r">S/ {{ money(c.amount) }}</span></div>
+            <div v-if="c.key === 'Agencia' && Object.keys(sel.sellers || {}).length" class="pg-sellers">
+              {{ Object.entries(sel.sellers).map(([k, v]) => `${k} ${v}`).join(' · ') }}
+            </div>
+          </div>
+          <div v-if="Object.keys(sel.by_point || {}).length" class="pg-sellers" style="margin-left: 0; margin-top: 6px">
+            <b>{{ L('Boarding at', 'Embarcan en') }}:</b> {{ Object.entries(sel.by_point).map(([k, v]) => `${k} ${v}`).join(' · ') }}
+          </div>
+          <div class="pg-sellers" style="margin-left: 0">{{ L('Source: Jelaf, Control de Embarque (one row per passenger).', 'Fuente: Jelaf, Control de Embarque (una fila por pasajero).') }}</div>
+        </div>
+        <div v-else class="pg-sellers" style="margin-left: 0">{{ L('Nothing sold yet in Jelaf.', 'Aún sin ventas en Jelaf.') }}</div>
         <dl class="pg-dl">
           <dt>{{ L('Bus', 'Bus') }}</dt>
           <dd>{{ sel.bus || L('not assigned yet', 'aún sin asignar') }}<small v-if="sel.plate"> · {{ sel.plate }}</small>
@@ -228,14 +246,14 @@ const busNo = b => String(b).replace(/^Bus\s+/i, '');
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const w = (a, b) => (b ? `${Math.min(100, Math.round((a / b) * 100))}%` : '0%');
 const money = v => Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Colour = the share of the seats: sold for a past day / today, the forecast for one to come (the user, 2026-11-26):
+// under 80 % red, 80-89 % green, 90 % or more orange (reinforce); a bus clash marks the time red.
+const occ = (x, d) => (x.seats ? (d.past || d.today ? x.sold : x.forecast) / x.seats : null);
 function cls(x, d) {
-  if (x.alerts.length) return 'st-bad';
-  if (x.suggest === 'reinforce') return 'st-hi';
-  if (x.suggest === 'low') return 'st-lo';
-  const p = x.seats ? (d.past ? x.sold : x.forecast) / x.seats : null;
-  return p === null ? 'st-na' : 'st-ok';
-}
-const canAdd = d => data.value.can_edit && !d.past;
+  const o = occ(x, d);
+  const lvl = o === null ? 'st-na' : o >= (data.value.thresholds?.high ?? 0.9) ? 'st-hi' : o >= (data.value.thresholds?.red ?? 0.8) ? 'st-ok' : 'st-red';
+  return x.alerts.length ? `${lvl} st-bad` : lvl;
+}const canAdd = d => data.value.can_edit && !d.past;
 
 const busOptions = computed(() => sortByLabel((data.value.vehicles || []).map(v => ({ value: v.id, label: `${v.name}${v.seats ? ` · ${v.seats} as.` : ''}${v.plate ? ` · ${v.plate}` : ''}` }))));
 const tagOptions = computed(() => (data.value.tags || []).map(t => ({ value: t, label: t })));
@@ -261,6 +279,13 @@ const buses = computed(() => {
     status: (a, b) => Number(a.ok) - Number(b.ok) || b.alerts.length - a.alerts.length };
   return list.sort(by[busSort.value]);
 });
+// Sales channels of the open departure, the agency first.
+const CHANNELS = { Agencia: ['Agency', 'Agencia', '#152d4a'], Web: ['Web', 'Web', '#f28c13'], RedBus: ['RedBus', 'RedBus', '#d92d20'],
+  PeruBus: ['PeruBus', 'PeruBus', '#7a5af8'], Kupos: ['Kupos Peru', 'Kupos Perú', '#0ba5ec'], Kiosco: ['Kiosk', 'Kiosco', '#2e9e5b'], Carritoc: ['Carritoc', 'Carritoc', '#98a2b3'] };
+const channelRows = computed(() => Object.entries(sel.value?.channels || {})
+  .map(([key, v]) => ({ key, n: v.n, amount: v.amount, label: L((CHANNELS[key] || [key, key])[0], (CHANNELS[key] || [key, key])[1]), color: (CHANNELS[key] || [0, 0, '#98a2b3'])[2] }))
+  .sort((a, b) => (a.key === 'Agencia' ? -1 : b.key === 'Agencia' ? 1 : b.n - a.n)));
+
 // ---- one departure
 const sel = ref(null);
 const selDay = ref(null);
@@ -414,6 +439,21 @@ async function exportWeek() {
 .pg-al { font-size: 10.5px; border-radius: 4px; padding: 0 5px; margin-right: 4px; }
 .pg-al.bad { background: #fde8e8; color: #b42318; }
 .pg-al.warn { background: #fff1e0; color: #b45f06; }
+/* Bar colours by the share of the seats. */
+.st-ok .pg-bar .sd { background: #2e9e5b; }
+.st-ok .pg-bar .fc { background: rgba(46, 158, 91, .3); }
+.st-ok .pg-num b { color: #1f7a45; }
+.st-red .pg-bar .sd { background: #d92d20; }
+.st-red .pg-bar .fc { background: rgba(217, 45, 32, .25); }
+.st-red .pg-num b { color: #b42318; }
+.pg-ch { margin: 6px 0 10px; }
+.pg-chbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #eef1f5; margin-bottom: 6px; }
+.pg-chbar i { display: block; height: 100%; }
+.pg-chrow { display: grid; grid-template-columns: 12px 1fr 50px 80px; gap: 6px; align-items: center; font-size: 12.5px; padding: 2px 0; }
+.pg-chrow .dot { width: 10px; height: 10px; border-radius: 3px; }
+.pg-chrow .r { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-sellers { font-size: 11.5px; color: #667085; margin: 2px 0 0 18px; }
+.pg-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #98a2b3; margin: 10px 0 4px; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }

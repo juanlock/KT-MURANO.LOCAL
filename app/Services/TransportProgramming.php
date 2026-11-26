@@ -28,6 +28,9 @@ class TransportProgramming
 
     public const LOW = 0.3;
 
+    /** Under this share of the seats a departure shows red (the user, 2026-11-26). */
+    public const RED = 0.8;
+
     private const DAY_NAMES = [1 => 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
     public static function side(?string $origin): string
@@ -147,9 +150,25 @@ class TransportProgramming
                 $byPoint[$b->travel_date][$b->programacion][$t] = ($byPoint[$b->travel_date][$b->programacion][$t] ?? 0) + (int) $b->n;
             }
         }
+        // Tickets per sales channel of each departure (the user, 2026-11-26: "cuántos son por web, agencia..."): Jelaf's
+        // USUARIO is the online channel (Web, RedBus, Kupos Peru, the kiosk) or the agency cashier who sold it.
+        $channels = $sellers = [];
+        foreach (DB::table('transport_boardings')->where('company_id', $cid)->whereBetween('travel_date', [$from, $to])
+            ->groupBy('travel_date', 'programacion', 'seller')->selectRaw('travel_date, programacion, seller, COUNT(*) n, SUM(amount) a')->get() as $b) {
+            $ch = self::channel($b->seller);
+            $c = &$channels[$b->travel_date][$b->programacion][$ch];
+            $c = ['n' => ($c['n'] ?? 0) + (int) $b->n, 'amount' => round(($c['amount'] ?? 0) + (float) $b->a, 2)];
+            unset($c);
+            if ($ch === 'Agencia') {
+                $sellers[$b->travel_date][$b->programacion][trim((string) $b->seller) ?: '—'] = (int) $b->n;
+            }
+        }
         $out = [];
         foreach ($rows as $r) {
-            $out[$r->travel_date][] = ['by_point' => $byPoint[$r->travel_date][$r->programacion] ?? [], 'programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
+            $sl = $sellers[$r->travel_date][$r->programacion] ?? [];
+            arsort($sl);
+            $out[$r->travel_date][] = ['channels' => $channels[$r->travel_date][$r->programacion] ?? [], 'sellers' => array_slice($sl, 0, 8, true),
+                'by_point' => $byPoint[$r->travel_date][$r->programacion] ?? [], 'programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
                 'origin' => $r->origin, 'destination' => $r->destination, 'plate' => $r->plate, 'vehicle_id' => $r->vehicle_id ? (int) $r->vehicle_id : null,
                 'sold' => (int) $r->sold, 'boarded' => (int) $r->boarded, 'amount' => round((float) $r->amount, 2), 'points' => $r->points];
         }
@@ -175,6 +194,22 @@ class TransportProgramming
             str_contains($p, 'CIX') || str_contains($p, 'CHICLAYO') => 'CIX',
             str_contains($p, 'LAMBAYEQ') => 'LAMBAYEQUE',
             default => $p,
+        };
+    }
+
+    /** Jelaf's seller -> its sales channel: the online ones by name, anything else is an agency's cashier. */
+    public static function channel(?string $seller): string
+    {
+        $s = strtoupper(str_replace(' ', '', (string) $seller));
+
+        return match (true) {
+            $s === 'WEB' => 'Web',
+            str_contains($s, 'REDBUS') => 'RedBus',
+            str_contains($s, 'PERUBUS') => 'PeruBus',
+            str_contains($s, 'KUPOS') => 'Kupos',
+            str_contains($s, 'KIOSCO') => 'Kiosco',
+            str_contains($s, 'CARRITO') => 'Carritoc',
+            default => 'Agencia',
         };
     }
 
@@ -298,6 +333,7 @@ class TransportProgramming
                     'vehicle_id' => $vid, 'bus_from' => $busFrom, 'bus' => $v['name'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'plate' => $v['plate'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'seats' => $seats,
                     'sold' => $sold, 'boarded' => $j['boarded'] ?? 0, 'amount' => $j['amount'] ?? 0, 'forecast' => $forecast, 'pct' => $pct !== null ? round($pct, 3) : null,
                     'suggest' => $suggest, 'source' => $p && $j ? 'both' : ($p ? 'plan' : 'jelaf'), 'programacion' => $j['programacion'] ?? null,
+                    'channels' => $j['channels'] ?? [], 'sellers' => $j['sellers'] ?? [], 'by_point' => $j['by_point'] ?? [],
                     'route' => $j ? trim(($j['origin'] ?? '').' → '.($j['destination'] ?? '')) : null, 'points' => $j['points'] ?? null,
                     'plan_bus' => $p && $p['vehicle_id'] ? ($vehicles[$p['vehicle_id']]['name'] ?? null) : null,
                     'slot_id' => $p['slot_id'] ?? null, 'change_id' => $p['change_id'] ?? null, 'added' => (bool) ($p['added'] ?? false),
@@ -351,6 +387,8 @@ class TransportProgramming
             $d['seats'] = $deps->sum('seats');
             $sum['reinforce'] += $deps->where('suggest', 'reinforce')->count();
             $sum['low'] += $deps->where('suggest', 'low')->count();
+            // Under 80 % of the seats (the user's line, 2026-11-26): sold for a past day, the forecast for one to come.
+            $sum['under'] = ($sum['under'] ?? 0) + $deps->filter(fn ($x) => $x['seats'] && ($d['past'] ? $x['sold'] : $x['forecast']) / $x['seats'] < self::RED)->count();
             $sum['conflicts'] += $deps->filter(fn ($x) => $x['alerts'])->count();
             if (! $d['past']) {
                 $sum['plan_only'] += $deps->where('source', 'plan')->count();
@@ -362,7 +400,7 @@ class TransportProgramming
 
         return ['buses' => self::buses($cid, $vehicles, $days, $today), 'terminal_cols' => self::TERMINAL_COLS,
             'from' => $from, 'to' => $to, 'today' => $today, 'days' => array_values($days), 'summary' => $sum,
-            'thresholds' => ['high' => self::HIGH, 'low' => self::LOW], 'ahead_at' => $last,
+            'thresholds' => ['high' => self::HIGH, 'low' => self::LOW, 'red' => self::RED], 'ahead_at' => $last,
             'vehicles' => array_values($vehicles), 'tags' => ['EJEC', 'EJEC VIP', 'PREM', 'MASTER', 'TRUX', 'R', 'OPC'],
             'terminals' => ['lima' => TransportSchedule::TERMINALS_LIMA, 'chiclayo' => TransportSchedule::TERMINALS_CIX]];
     }
