@@ -84,6 +84,26 @@ class TransportProduction
                 'income' => $income, 'fuel' => $fuel, 'toll' => $toll, 'net' => round($income - $fuel - $toll, 2),
                 'missing_fuel' => $g->whereNull('fuel')->count()];
         })->sortBy(fn ($b) => (int) preg_replace('/\D/', '', $b['bus']))->values();
+        // Plates of AuraSoft / Jelaf that are not a bus of Murano (2026-11-26: C7P959 with 90 departures in 2026, AMP868): their
+        // departures are not Murano departures (a departure needs its bus), so they come straight from the imported rows, in red
+        // on the board ("bus no registrado") until Operaciones says which bus it is (project questions bus_c7p959_*).
+        $unreg = DB::table('transport_aurasoft_rows')->where('company_id', $cid)->where('is_current', 1)->whereNull('trip_id')->whereNull('vehicle_id')
+            ->whereBetween('trip_date', [$from, $to])->get(['plate', 'origin', 'seats', 'ticket_income', 'parcel_income', 'excess_income']);
+        foreach ($unreg->groupBy('plate') as $plate => $g) {
+            $part = function ($rows) {
+                $t = round($rows->sum('ticket_income'), 2);
+                $p = round($rows->sum('parcel_income'), 2);
+                $e = round($rows->sum('excess_income'), 2);
+
+                return ['trips' => $rows->count(), 'pax' => (int) $rows->sum('seats'), 'seats' => 0, 'tickets' => $t, 'parcels' => $p, 'excess' => $e, 'total' => round($t + $p + $e, 2)];
+            };
+            $lima = $part($g->filter(fn ($r) => stripos((string) $r->origin, 'LIMA') !== false));
+            $cix = $part($g->reject(fn ($r) => stripos((string) $r->origin, 'LIMA') !== false));
+            $income = round($lima['total'] + $cix['total'], 2);
+            $buses->push(['vehicle_id' => 'x-'.$plate, 'bus' => $plate, 'category' => __('Bus not registered'), 'plate' => $plate, 'seats' => null,
+                'lima' => $lima, 'chiclayo' => $cix, 'trips' => $g->count(), 'pax' => (int) $g->sum('seats'), 'occupancy' => null,
+                'income' => $income, 'fuel' => 0, 'toll' => 0, 'net' => $income, 'missing_fuel' => 0, 'unregistered' => true]);
+        }
         $sum = fn ($k) => round($buses->sum($k), 2);
         $seats = $trips->sum('seats');
 

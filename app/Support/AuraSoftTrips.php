@@ -76,6 +76,10 @@ class AuraSoftTrips
             if ($tripId) {
                 DB::table('transport_trips')->where('id', $tripId)->update($set);
                 $out['updated']++;
+            } elseif (! $r->vehicle_id) {
+                // A plate that is not a bus of Murano (2026-11-26: C7P959, AMP868 in Jan-Aug): a departure needs its bus, so the
+                // row stays imported (reported in no_bus) without a departure until the bus is added and the file re-imported.
+                continue;
             } else {
                 $tripId = DB::table('transport_trips')->insertGetId($set + [
                     'company_id' => $companyId, 'route_id' => $route->id, 'vehicle_id' => $r->vehicle_id, 'departure_at' => $dep,

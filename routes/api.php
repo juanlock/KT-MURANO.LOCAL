@@ -857,6 +857,20 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/history', 'history');
         Route::get('/pdf/{id}', 'pdf')->whereNumber('id');
     });
+    // Programación de buses (2026-11-25): the base timetable and the season plans Operaciones made in Excel.
+    Route::prefix('transport/schedule')->controller(\App\Http\Controllers\TransportScheduleController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::post('/import', 'import');
+        Route::get('/{id}', 'show')->whereNumber('id');
+        Route::put('/{id}', 'update')->whereNumber('id');
+        Route::delete('/{id}', 'destroy')->whereNumber('id');
+        Route::get('/{id}/export', 'export')->whereNumber('id');
+        Route::post('/{id}/slots', 'saveSlot')->whereNumber('id');
+        Route::put('/{id}/slots/{slot}', 'saveSlot')->whereNumber(['id', 'slot']);
+        Route::delete('/{id}/slots/{slot}', 'deleteSlot')->whereNumber(['id', 'slot']);
+        Route::put('/{id}/day/{day}', 'saveDay')->whereNumber('id')->where('day', 'weekday|sunday|\d{4}-\d{2}-\d{2}');
+    });
     // Integración -> Producción AuraSoft (2026-11-23): the AuraSoft (ex Jelaf) "Reporte producción por bus" files and their rows.
     Route::prefix('transport/aurasoft')->controller(\App\Http\Controllers\TransportAuraSoftController::class)->group(function () {
         Route::get('/', 'index');

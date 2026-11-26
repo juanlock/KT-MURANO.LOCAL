@@ -149,7 +149,13 @@ if ($mode === 'push') {
                 $copy($abs($local, $rel), $abs($cloud, $rel)) ? $up++ : $failed++;
             }
         }
+        // Windows / Drive / OneDrive paths ignore case: "flyer/x" in the cloud IS "Flyer/x" here (a renamed folder).
+        // Deleting it would delete the file just copied (2026-11-25: 121 turismo files lost from both clouds).
+        $lfCi = array_flip(array_map('mb_strtolower', array_keys($lf)));
         foreach (array_diff_key($cf, $lf) as $rel => $v) {
+            if (isset($lfCi[mb_strtolower($rel)])) {
+                continue;
+            }
             @unlink($abs($cloud, $rel)) && $del++;
         }
         foreach ($ld as $d) {
@@ -194,8 +200,25 @@ if (($state['at'] ?? null) === $top['r']['at'] && ($state['pc'] ?? null) === $to
     return;
 }
 $src = null;
+$partial = [];
+// $toolsAcceptMissing = true (asked by the user only, e.g. the pushing PC is off): take the newest push even when some of
+// its files are missing in the cloud -- what the cloud holds is pulled, NOTHING is deleted on this PC (its old copies stay),
+// and the sync record is NOT moved, so the next normal pull finishes the job once the pushing PC uploads again.
+$acceptMissing = ! empty($toolsAcceptMissing);
 foreach ($candidates as $c) {
     $missing = [];
+    if ($acceptMissing) {
+        if ($c['r']['at'] !== $top['r']['at']) {
+            continue; // only the newest push; the cloud that misses fewest of its files wins
+        }
+        [$cf] = $scan($c['dir']);
+        $gone = array_keys(array_filter($c['r']['files'], fn ($v, $rel) => ! $same($cf[$rel] ?? null, $v), ARRAY_FILTER_USE_BOTH));
+        echo "  {$c['name']}: ".count($gone)." file(s) of the push missing there (e.g. ".($gone[0] ?? '-').")\n";
+        if (! $src || count($gone) < count($partial)) {
+            [$src, $partial] = [$c, $gone];
+        }
+        continue;
+    }
     for ($try = 0; $try < ($c === $top ? 20 : 2); $try++) {
         [$cf] = $scan($c['dir']);
         $missing = array_keys(array_filter($c['r']['files'], fn ($v, $rel) => ! $same($cf[$rel] ?? null, $v), ARRAY_FILTER_USE_BOTH));
@@ -220,7 +243,11 @@ if (! $src) {
 $since = (int) ($state['synced_at'] ?? 0);
 $down = $deleted = 0;
 $kept = [];
+$partialSet = array_flip($partial);
 foreach ($src['r']['files'] as $rel => $v) {
+    if (isset($partialSet[$rel])) {
+        continue; // missing in the cloud: this PC's copy stays
+    }
     $mine = $lf[$rel] ?? null;
     if ($same($mine, $v)) {
         continue;
@@ -231,7 +258,11 @@ foreach ($src['r']['files'] as $rel => $v) {
     }
     $copy($abs($src['dir'], $rel), $abs($local, $rel)) && $down++;
 }
-foreach (array_diff_key($lf, $src['r']['files']) as $rel => $v) {
+$srcCi = array_flip(array_map('mb_strtolower', array_keys($src['r']['files'])));
+foreach ($partial ? [] : array_diff_key($lf, $src['r']['files']) as $rel => $v) {
+    if (isset($srcCi[mb_strtolower($rel)])) {
+        continue; // same file, only the case of a folder changed (Windows ignores it): never delete what was just copied
+    }
     if (! $since || $v[1] > $since) {
         $kept[] = $rel; // created here after the last sync (or this PC's first pull): never lost
         continue;
@@ -246,7 +277,9 @@ foreach ($dirs as $d) {
     }
 }
 $pruned = $prune($local, array_keys($keepDirs));
-@mkdir(dirname($stateFile), 0775, true);
-file_put_contents($stateFile, json_encode(['pc' => $src['r']['pc'], 'at' => $src['r']['at'], 'synced_at' => time()]));
-echo "KT-TOOLS pull <- {$src['name']} ({$src['r']['pc']}'s push of ".date('Y-m-d H:i', $src['r']['at'])."): down $down; deleted here $deleted file(s), $pruned empty folder(s)".
+if (! $partial) {
+    @mkdir(dirname($stateFile), 0775, true);
+    file_put_contents($stateFile, json_encode(['pc' => $src['r']['pc'], 'at' => $src['r']['at'], 'synced_at' => time()]));
+}
+echo ($partial ? '[PARTIAL: '.count($partial).' file(s) still to come] ' : '')."KT-TOOLS pull <- {$src['name']} ({$src['r']['pc']}'s push of ".date('Y-m-d H:i', $src['r']['at'])."): down $down; deleted here $deleted file(s), $pruned empty folder(s)".
     ($kept ? '; kept '.count($kept).' local change(s) not in that push (they go up with the next push), e.g. '.$kept[0] : '')."\n";

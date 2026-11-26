@@ -88,6 +88,10 @@ class Kernel extends ConsoleKernel
         $cmd('transport:assign-parcels')->everyTenMinutes()->withoutOverlapping()->when($uses('transport'));
         // Passenger base (2026-11-24): companies' official names from SUNAT by RUC, a few at a time (the free service limits it).
         $cmd('transport:passengers-sunat')->everyTenMinutes()->withoutOverlapping()->when($uses('transport'));
+        // Turismo Cautivo's Jelaf / AuraSoft production report of the last 3 days, downloaded and imported every night
+        // (2026-11-26; Julio's data, his yes) -- only where the Jelaf login file is (the server's ~/murano_deploy/.env.jelaf).
+        $cmd('transport:jelaf-sync --days=3')->dailyAt('22:00')->withoutOverlapping(60)
+            ->when(fn () => \App\Support\JelafClient::envFile() !== null);
         // A bus's GPS trail is kept 30 days (2026-11-06).
         $cmd('transport:prune-positions')->dailyAt('03:40')->withoutOverlapping()->when($uses('transport'));
         // The change history keeps 6 months; older rows move to audit_logs_archive, never deleted (2026-11-12).

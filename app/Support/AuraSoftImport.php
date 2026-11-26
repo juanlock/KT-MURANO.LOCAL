@@ -82,7 +82,9 @@ class AuraSoftImport
                     continue;
                 }
                 $seen[$r['departure_key']] = true;
-                $current = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $r['departure_key'])->where('is_current', 1)->first();
+                // The latest current row (2026-11-26: a dev copy merged from two PCs had 350 departures with two current rows;
+                // comparing with an older one reported "changed" on every identical re-import).
+                $current = DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $r['departure_key'])->where('is_current', 1)->orderByDesc('id')->first();
                 $action = 'new';
                 if ($current) {
                     $same = true;
@@ -94,7 +96,9 @@ class AuraSoftImport
                     }
                     $action = $same ? 'same' : 'updated';
                     if (! $same) {
-                        DB::table('transport_aurasoft_rows')->where('id', $current->id)->update(['is_current' => 0, 'updated_at' => $now]);
+                        // Every current row of the departure stops being current: only the new one is.
+                        DB::table('transport_aurasoft_rows')->where('company_id', $companyId)->where('departure_key', $r['departure_key'])->where('is_current', 1)
+                            ->update(['is_current' => 0, 'updated_at' => $now]);
                     }
                 }
                 $count[$action]++;

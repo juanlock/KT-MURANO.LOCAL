@@ -323,6 +323,7 @@ export const MIGRATED_ROUTES = {
     '/app/transport/staff': '/transport/staff',
     '/app/transport/today': '/transport/today',
     '/app/transport/daily': '/transport/daily',
+    '/app/transport/schedule': '/transport/schedule',
     '/app/transport/aurasoft': '/transport/aurasoft',
     '/app/transport/passengers': '/transport/passengers',
     '/app/b2b/dashboard': '/b2b/dashboard',
@@ -1037,10 +1038,12 @@ export const MENU = [
         key: 'transport',
         icon: 'bus',
         label: 'Transport',
-        permissions: ['transport_view', 'transport_manage', 'transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_boarding', 'transport_monitor', 'transport_report', 'transport_departures_view', 'transport_agency_view', 'transport_fleet_board', 'transport_stop'],
+        permissions: ['transport_view', 'transport_manage', 'transport_supervise', 'transport_parcels', 'transport_tolls', 'transport_boarding', 'transport_monitor', 'transport_report', 'transport_departures_view', 'transport_agency_view', 'transport_fleet_board', 'transport_stop', 'transport_schedule'],
         children: [
             { label: 'Transport_Today', to: '/app/transport/today', permissions: ['transport_supervise'] },
             { label: 'Transport_Daily', to: '/app/transport/daily', permissions: ['transport_departures_view', 'transport_departures_manage'] },
+            // Programación de buses (2026-11-25): base timetable + season plans (July, December) in place of Operaciones' Excel.
+            { label: 'Transport_Schedule', to: '/app/transport/schedule', permissions: ['transport_schedule'] },
             { label: 'Transport_MyAgency', to: '/app/transport/agency', permissions: ['transport_agency_view'] },
             { label: 'Transport_Outlook', to: '/app/transport/outlook', permissions: ['transport_outlook'] },
             { label: 'Transport_FleetBoard', to: '/app/transport/fleet-board', permissions: ['transport_fleet_board'] },

@@ -26,9 +26,15 @@
         <a-empty v-if="!buses.length" :description="tr('No departures in this period.', 'Sin salidas en este período.')" />
         <div v-else class="pb-box">
           <a-table class="pb-table" :columns="columns" :data-source="buses" row-key="vehicle_id" size="small" :pagination="false" bordered
-            :scroll="{ x: 'max-content' }" :custom-row="r => ({ onClick: () => openBus(r), style: 'cursor: pointer' })" :row-class-name="(_, i) => (i % 2 ? '' : 'pb-tint')">
+            :scroll="{ x: 'max-content' }" :custom-row="r => (r.unregistered ? {} : { onClick: () => openBus(r), style: 'cursor: pointer' })"
+            :row-class-name="(r, i) => (r.unregistered ? 'pb-unreg' : (i % 2 ? '' : 'pb-tint'))">
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'bus'"><b>{{ busName(record.bus) }}</b> <span class="pb-cat">{{ record.category }}</span></template>
+              <template v-if="column.key === 'bus' && record.unregistered">
+                <a-tooltip :title="tr('This plate sells in Jelaf but is not a bus of Murano: asked to Operaciones. Its departures are not in the other boards yet.', 'Esta placa vende en Jelaf pero no es un bus de Murano: consultado a Operaciones. Sus salidas aún no están en los otros tableros.')">
+                  <b>{{ record.plate }}</b> <span class="pb-cat">{{ tr('Bus not registered', 'Bus no registrado') }}</span>
+                </a-tooltip>
+              </template>
+              <template v-else-if="column.key === 'bus'"><b>{{ busName(record.bus) }}</b> <span class="pb-cat">{{ record.category }}</span></template>
               <template v-else-if="column.key === 'occupancy'">{{ record.occupancy != null ? record.occupancy + ' %' : '—' }}</template>
               <template v-else-if="column.key === 'net'"><b :class="record.net < 0 ? 'pb-neg' : 'pb-pos'">{{ plain(record.net) }}</b></template>
               <template v-else-if="column.key === 'fuel'">
@@ -251,6 +257,9 @@ function tripTotal(c) {
 .pb-table :deep(.ant-table-thead > tr > th) { padding: 3px 5px !important; font-size: 11.5px; line-height: 1.25; text-align: center; }
 .pb-table :deep(.ant-table-tbody > tr > td), .pb-table :deep(.ant-table-summary td) { padding: 2px 5px !important; font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pb-table :deep(tr.pb-tint > td) { background: rgba(42, 120, 214, 0.07); }
+/* A plate of Jelaf that is not a bus of Murano (2026-11-26): in red until Operaciones confirms it. */
+.pb-table :deep(tr.pb-unreg > td) { background: rgba(207, 19, 34, 0.10) !important; color: #cf1322; }
+.pb-table :deep(tr.pb-unreg > td b) { color: #cf1322; }
 .pb-table :deep(.pb-total td) { background: rgba(42, 120, 214, 0.14) !important; }
 .pb-pos { color: #15803d; }
 .pb-cat { font-size: 10.5px; opacity: 0.6; margin-left: 4px; }
