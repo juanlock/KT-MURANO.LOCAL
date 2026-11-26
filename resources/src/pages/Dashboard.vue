@@ -1070,7 +1070,11 @@ onMounted(load);
   box-shadow: 0 4px 14px rgba(21, 45, 74, 0.22);
 }
 .bt-style-d .bt-group + .bt-group { border-left: 1px solid rgba(255, 255, 255, 0.22); }
-.bt-style-d .bt-group-label { color: #f7a531; font-size: 10px; padding-bottom: 2px; }
+/* The three group names stand out (2026-11-26): bigger, heavier, a condensed display face. */
+.bt-style-d .bt-group-label {
+  color: #f7a531; font-size: 13px; font-weight: 800; letter-spacing: .14em; line-height: 18px; padding: 1px 4px 3px;
+  font-family: 'Segoe UI Black', 'Segoe UI', 'Arial Black', system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
 .bt-style-d .bt-group-label::before, .bt-style-d .bt-group-label::after { background: rgba(247, 165, 49, 0.35); }
 .bt-style-d .bt-group-tabs { gap: 2px; }
 .bt-style-d .bt-tab { color: rgba(255, 255, 255, 0.88); border: none; border-radius: 7px; margin: 0; padding: 5px 7px; transition: background-color .2s, color .2s; }
