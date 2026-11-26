@@ -455,7 +455,17 @@ class FormsController extends Controller
         $fq = DB::table('forms')->whereNull('deleted_at');
         $this->scopeListToCompany($fq, $request);
         $forms = $fq->get(['id', 'company_id', 'name', 'fields', 'settings'])->keyBy('id');
+        // Últimos mensajes (2026-11-26): split into Reclamos (forms of kind complaints) and Contáctenos (web) -- every other kind.
+        $groupOf = fn ($f) => (FormSchema::settings(json_decode((string) $f->settings, true))['kind'] ?? 'other') === 'complaints' ? 'complaints' : 'contact';
+        $groupIds = ['complaints' => [], 'contact' => []];
+        foreach ($forms as $f) {
+            $groupIds[$groupOf($f)][] = $f->id;
+        }
         $q = DB::table('form_submissions')->whereIn('form_id', $forms->keys())->whereNull('deleted_at');
+        $group = in_array($request->input('group'), ['complaints', 'contact'], true) ? $request->input('group') : null;
+        if ($group) {
+            $q->whereIn('form_id', $groupIds[$group] ?: [0]);
+        }
         if ($fid = (int) $request->input('form_id')) {
             $q->where('form_id', $fid);
         }
@@ -499,9 +509,29 @@ class FormsController extends Controller
                 'page_url' => $s->page_url, 'ip' => $s->ip];
         })->all();
 
+        // How many messages each group has with the same dates / search / read filters (the counts on the selector).
+        $counts = [];
+        foreach ($groupIds as $g => $ids) {
+            $c = DB::table('form_submissions')->whereIn('form_id', $ids ?: [0])->whereNull('deleted_at');
+            if ($from = $request->input('from')) {
+                $c->whereDate('created_at', '>=', $from);
+            }
+            if ($to = $request->input('to')) {
+                $c->whereDate('created_at', '<=', $to);
+            }
+            if ($s = trim((string) $request->input('search'))) {
+                $c->where('data', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], $s).'%');
+            }
+            if (in_array((string) $request->input('read'), ['0', '1'], true)) {
+                $c->where('is_read', (bool) $request->input('read'));
+            }
+            $counts[$g] = $c->count();
+        }
+
         return response()->json([
-            'submissions' => CompanyNames::attach($rows), 'total' => $total,
-            'forms' => CompanyNames::attach($forms->map(fn ($f) => ['id' => $f->id, 'name' => $f->name, 'company_id' => $f->company_id])->values()->all()),
+            'submissions' => CompanyNames::attach($rows), 'total' => $total, 'groups' => $counts,
+            'forms' => CompanyNames::attach($forms->map(fn ($f) => ['id' => $f->id, 'name' => $f->name, 'company_id' => $f->company_id,
+                'group' => $groupOf($f)])->values()->all()),
         ]);
     }
 

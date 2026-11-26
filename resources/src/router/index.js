@@ -666,7 +666,7 @@ const routes = [
             { path: 'store/gallery', redirect: '/gallery' },
             // Forms module (2026-10-24).
             { path: 'forms', name: 'forms', component: FormsList, meta: { title: 'Forms', permission: ['forms_view', 'forms_manage'] } },
-            { path: 'forms/report', name: 'forms-report', component: FormsReport, meta: { title: 'Submissions report', permission: ['forms_view', 'forms_manage'] } },
+            { path: 'forms/report', name: 'forms-report', component: FormsReport, meta: { title: 'Forms_Report', permission: ['forms_view', 'forms_manage'] } },
             { path: 'forms/dashboard', name: 'forms-dashboard', component: FormsDashboard, meta: { title: 'Forms dashboard', permission: ['forms_view', 'forms_manage'] } },
             { path: 'forms/:id/edit', name: 'form-edit', component: FormBuilder, meta: { title: 'Form', permission: 'forms_manage' } },
             { path: 'forms/:id/submissions', name: 'form-submissions', component: FormSubmissions, meta: { title: 'Form submissions', permission: ['forms_view', 'forms_manage'] } },
