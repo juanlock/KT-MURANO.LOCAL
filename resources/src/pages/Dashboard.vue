@@ -96,7 +96,7 @@
            A tab loads its panel the first time it opens. No bar with only one panel. ========= -->
       <!-- Boards grouped by what they are about, as folder tabs on a strip, the open board on white inside a bordered card, no
            icons, every tab in sight (user's rules, 2026-11-26). The source line goes UNDER each board. -->
-      <div v-if="transportTabs.length" class="board-tabs" :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }">
+      <div v-if="transportTabs.length" class="board-tabs" :class="tabStyle" :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }">
         <div v-if="transportTabs.length > 1" class="bt-bar" role="tablist">
           <div v-for="g in tabGroups" :key="g.key" class="bt-group">
             <div class="bt-group-label">{{ g.label }}</div>
@@ -533,6 +533,8 @@ const TAB_TITLES = {
   transport_production: 'Producción por bus', transport_departures: 'Reporte de salidas', transport_monitor: 'Tablero de control',
   transport: 'Tablero de transporte', transport_aura_parcels: 'Encomiendas AuraSoft',
 };
+// The board tabs' look: navy bar, orange open tab (the user's pick, 2026-11-26).
+const tabStyle = 'bt-style-d';
 const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
@@ -1058,6 +1060,24 @@ onMounted(load);
 .bt-body.alone { border-radius: 12px; }
 .bt-body :deep(.ant-tabs-content-holder) { padding: 0; }
 .bt-source { margin-top: 10px; }
+
+/* ---- Style D (user's reference, a Power BI board, 2026-11-26): a bar in the company's colour with a gradient, white text, the
+   open board a translucent block in bold; the board below as a separate white card on the light page. ---- */
+.bt-style-d .bt-bar {
+  border: none; border-radius: 12px; padding: 5px 8px; margin-bottom: 10px; align-items: stretch;
+  /* Navy and orange (the palette the user picked, 2026-11-26). */
+  background: linear-gradient(100deg, #152d4a 0%, #1f3d63 60%, #27507d 100%);
+  box-shadow: 0 4px 14px rgba(21, 45, 74, 0.22);
+}
+.bt-style-d .bt-group + .bt-group { border-left: 1px solid rgba(255, 255, 255, 0.22); }
+.bt-style-d .bt-group-label { color: #f7a531; font-size: 10px; padding-bottom: 2px; }
+.bt-style-d .bt-group-label::before, .bt-style-d .bt-group-label::after { background: rgba(247, 165, 49, 0.35); }
+.bt-style-d .bt-group-tabs { gap: 2px; }
+.bt-style-d .bt-tab { color: rgba(255, 255, 255, 0.88); border: none; border-radius: 7px; margin: 0; padding: 5px 7px; transition: background-color .2s, color .2s; }
+.bt-style-d .bt-tab:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.bt-style-d .bt-tab.active { background: linear-gradient(180deg, #f9a83a, #f28c13); color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(242, 140, 19, 0.45); }
+.bt-style-d .bt-body { border-radius: 12px; border-color: #e3e8ef; box-shadow: 0 6px 20px rgba(21, 45, 74, 0.08); }
+@media (max-width: 1420px) { .bt-style-d .bt-tab { padding: 5px 6px; } }
 .board-mode .transport-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 10px; padding: 4px; border-radius: 10px; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.07);
 }
