@@ -28,8 +28,21 @@ class TransportProgramming
 
     public const LOW = 0.3;
 
-    /** Under this share of the seats a departure shows red (the user, 2026-11-26). */
-    public const RED = 0.8;
+    /**
+     * The occupancy that pays a departure's costs (the user, 2026-11-26: a departure that already left is red under it, blue
+     * from it to a full bus, green when full): costs / ticket income x occupancy of the last 30 days (TransportProfit), cached.
+     */
+    public static function breakEven(int $cid): array
+    {
+        return Cache::remember("transport_programming_be_$cid", 12 * 3600, function () use ($cid) {
+            $t = TransportProfit::compute($cid, now()->subDays(30)->toDateString(), now()->subDay()->toDateString(), null)['totals'] ?? [];
+            $inc = (float) ($t['tickets_income'] ?? 0);
+            $occ = (float) ($t['occupancy'] ?? 0) / 100;
+            $be = $inc > 0 && $occ > 0 ? round($occ * (float) $t['costs'] / $inc, 3) : 0.6;
+
+            return ['rate' => max(0.3, min(0.95, $be)), 'costs' => round((float) ($t['costs'] ?? 0)), 'tickets_income' => round($inc), 'occupancy' => $occ];
+        });
+    }
 
     private const DAY_NAMES = [1 => 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -139,7 +152,7 @@ class TransportProgramming
         $rows = DB::table('transport_boardings')->where('company_id', $cid)->whereBetween('travel_date', [$from, $to])
             ->groupBy('travel_date', 'programacion')
             ->selectRaw('travel_date, programacion, MIN(departure_time) t, MAX(origin) origin, MAX(destination) destination, MAX(plate) plate, MAX(vehicle_id) vehicle_id,
-                COUNT(*) sold, SUM(boarded = 1) boarded, SUM(amount) amount, GROUP_CONCAT(DISTINCT boarding_point ORDER BY boarding_point SEPARATOR ", ") points')
+                COUNT(*) sold, SUM(boarded = 1) boarded, SUM(amount) amount, MAX(trip_id) trip_id, GROUP_CONCAT(DISTINCT boarding_point ORDER BY boarding_point SEPARATOR ", ") points')
             ->get();
         // Passengers per boarding terminal of each departure (Jelaf's EMBARQUE), on the plan's terminal names.
         $byPoint = [];
@@ -168,7 +181,7 @@ class TransportProgramming
             $sl = $sellers[$r->travel_date][$r->programacion] ?? [];
             arsort($sl);
             $out[$r->travel_date][] = ['channels' => $channels[$r->travel_date][$r->programacion] ?? [], 'sellers' => array_slice($sl, 0, 8, true),
-                'by_point' => $byPoint[$r->travel_date][$r->programacion] ?? [], 'programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
+                'trip_id' => $r->trip_id ? (int) $r->trip_id : null, 'by_point' => $byPoint[$r->travel_date][$r->programacion] ?? [], 'programacion' => $r->programacion, 'time' => substr((string) $r->t, 0, 5), 'side' => self::side($r->origin),
                 'origin' => $r->origin, 'destination' => $r->destination, 'plate' => $r->plate, 'vehicle_id' => $r->vehicle_id ? (int) $r->vehicle_id : null,
                 'sold' => (int) $r->sold, 'boarded' => (int) $r->boarded, 'amount' => round((float) $r->amount, 2), 'points' => $r->points];
         }
@@ -242,6 +255,16 @@ class TransportProgramming
         $today = now()->toDateString();
         $vehicles = TransportSchedule::vehicles($cid);
         $jelaf = self::jelaf($cid, $from, $to);
+        // Income and costs of the departures already run (TransportProfit, per Murano trip): gained or lost money.
+        $money = [];
+        if ($from <= $today) {
+            foreach (TransportProfit::compute($cid, $from, min($to, $today), null)['routes'] ?? [] as $rt) {
+                foreach ($rt['trips'] as $tr) {
+                    $money[$tr['id']] = ['income' => $tr['income'], 'costs' => $tr['costs'], 'profit' => $tr['profit'], 'result' => $tr['result'],
+                        'break_even_seats' => $tr['break_even_seats'], 'estimated' => $tr['estimated'], 'km' => $tr['km']];
+                }
+            }
+        }
         $curve = self::curve($cid);
         $usual = self::usual($cid);
         $days = [];
@@ -330,6 +353,9 @@ class TransportProgramming
                 }
                 $deps[] = [
                     'stops' => $stops, 'fc_r' => $fcR, 'fc_usual' => $fcUsual,
+                    'money' => ($j['trip_id'] ?? null) ? ($money[$j['trip_id']] ?? null) : null,
+                    // Already left: a day before today, or today with its time over an hour ago.
+                    'gone' => $day < $today || ($day === $today && strtotime("$day $time") <= time() - 3600),
                     'key' => $day.'|'.($p['slot_id'] ?? '').'|'.($p['change_id'] ?? '').'|'.($j['programacion'] ?? ''),
                     'side' => $side, 'time' => $time, 'terminal' => $p['terminal'] ?? null, 'tag' => $p['tag'] ?? null,
                     'vehicle_id' => $vid, 'bus_from' => $busFrom, 'bus' => $v['name'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'plate' => $v['plate'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'seats' => $seats,
@@ -376,7 +402,8 @@ class TransportProgramming
                 }
             }
         }
-        $sum = ['reinforce' => 0, 'low' => 0, 'conflicts' => 0, 'plan_only' => 0, 'jelaf_only' => 0];
+        $be = self::breakEven($cid);
+        $sum = ['reinforce' => 0, 'low' => 0, 'conflicts' => 0, 'plan_only' => 0, 'jelaf_only' => 0, 'loss' => 0];
         foreach ($days as &$d) {
             $deps = collect($d['departures'])->where('removed', false);
             foreach (['lima', 'chiclayo'] as $side) {
@@ -390,7 +417,8 @@ class TransportProgramming
             $sum['reinforce'] += $deps->where('suggest', 'reinforce')->count();
             $sum['low'] += $deps->where('suggest', 'low')->count();
             // Under 80 % of the seats (the user's line, 2026-11-26): sold for a past day, the forecast for one to come.
-            $sum['under'] = ($sum['under'] ?? 0) + $deps->filter(fn ($x) => $x['seats'] && ($d['past'] || $d['days_left'] <= 1 ? $x['sold'] : $x['forecast']) / $x['seats'] < self::RED)->count();
+            // Departures that already left (the day before, or today over an hour ago) under the break-even = a loss.
+            $sum['loss'] = ($sum['loss'] ?? 0) + $deps->filter(fn ($x) => $x['gone'] && $x['source'] !== 'plan' && ($x['money'] ? $x['money']['profit'] < 0 : ($x['seats'] && $x['sold'] / $x['seats'] < $be['rate'])))->count();
             $sum['conflicts'] += $deps->filter(fn ($x) => $x['alerts'])->count();
             if (! $d['past']) {
                 $sum['plan_only'] += $deps->where('source', 'plan')->count();
@@ -402,7 +430,7 @@ class TransportProgramming
 
         return ['buses' => self::buses($cid, $vehicles, $days, $today), 'terminal_cols' => self::TERMINAL_COLS,
             'from' => $from, 'to' => $to, 'today' => $today, 'days' => array_values($days), 'summary' => $sum,
-            'thresholds' => ['high' => self::HIGH, 'low' => self::LOW, 'red' => self::RED], 'ahead_at' => $last,
+            'thresholds' => ['high' => self::HIGH, 'low' => self::LOW], 'break_even' => $be, 'ahead_at' => $last,
             'vehicles' => array_values($vehicles), 'tags' => ['EJEC', 'EJEC VIP', 'PREM', 'MASTER', 'TRUX', 'R', 'OPC'],
             'terminals' => ['lima' => TransportSchedule::TERMINALS_LIMA, 'chiclayo' => TransportSchedule::TERMINALS_CIX]];
     }

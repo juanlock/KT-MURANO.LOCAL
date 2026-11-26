@@ -17,16 +17,21 @@
               <div><i style="background: #27507d" /> {{ L('Dark part of the bar: sold', 'Parte oscura de la barra: vendido') }}</div>
               <div><i style="background: #c9d5e4" /> {{ L('Light part: still expected (forecast)', 'Parte clara: lo que aún se espera (pronóstico)') }}</div>
               <h4>{{ L('Colours', 'Colores') }}</h4>
-              <p>{{ L('Past days, today and tomorrow: sold ÷ seats. From the day after tomorrow: expected ÷ seats.', 'Días pasados, hoy y mañana: vendidos ÷ asientos. Desde pasado mañana: esperados ÷ asientos.') }}</p>
-              <div><i style="background: #d92d20" /> {{ L('Red: under 80 %', 'Rojo: menos del 80 %') }}</div>
-              <div><i style="background: #2e9e5b" /> {{ L('Green: 80 to 89 %', 'Verde: 80 a 89 %') }}</div>
-              <div><i style="background: #f28c13" /> {{ L('Orange: 90 % or more, reinforce', 'Naranja: 90 % o más, reforzar') }}</div>
+              <p>{{ L('Departures that already left (a past day, or today over an hour ago) — by what they carried:', 'Salidas que ya partieron (día pasado, u hoy hace más de una hora) — por lo que llevaron:') }}</p>
+              <div><i style="background: #d92d20" /> {{ L(`Red: it lost money (its income did not cover its costs; without its costs in Murano: under ${Math.round(be * 100)} % occupancy)`, `Rojo: perdió dinero (sus ingresos no cubrieron sus gastos; si Murano no tiene sus gastos: menos del ${Math.round(be * 100)} % de ocupación)`) }}</div>
+              <div><i style="background: #2f6fd6" /> {{ L('Blue: it made money, bus not full', 'Azul: ganó dinero, bus no lleno') }}</div>
+              <div><i style="background: #2e9e5b" /> {{ L('Green: full bus (100 %)', 'Verde: bus lleno (100 %)') }}</div>
+              <div><i style="background: transparent" /> {{ L('Click a departure: income vs costs, sales by channel.', 'Clic en una salida: ingresos vs gastos, ventas por canal.') }}</div>
+              <p style="margin-top: 6px">{{ L('Departures still to come:', 'Salidas que aún no parten:') }}</p>
+              <div><i style="background: #f28c13" /> {{ L('Orange: dark = sold so far, light = forecast', 'Naranja: oscuro = vendido hasta ahora, claro = pronóstico') }}</div>
               <div><i style="background: transparent; border: 1px solid #d92d20" /> {{ L('Time in red: the bus is in two places', 'Hora en rojo: el bus está en dos lugares') }}</div>
+              <p v-if="data.break_even?.costs" class="pg-be">{{ L(`${Math.round(be * 100)} % covers the costs: last 30 days, costs S/ ${money0(data.break_even.costs)} against S/ ${money0(data.break_even.tickets_income)} of tickets at ${Math.round(data.break_even.occupancy * 100)} % occupancy (fuel partly estimated, maintenance not loaded yet).`,
+                `${Math.round(be * 100)} % cubre los gastos: últimos 30 días, costos S/ ${money0(data.break_even.costs)} frente a S/ ${money0(data.break_even.tickets_income)} de pasajes con ${Math.round(data.break_even.occupancy * 100)} % de ocupación (combustible en parte estimado, mantenimiento aún sin cargar).`) }}</p>
               <h4>{{ L('How the forecast is made', 'Cómo se calcula el pronóstico') }}</h4>
               <p>{{ L('Expected = sold + what usually still comes.', 'Esperados = vendidos + lo que todavía suele venderse.') }}</p>
               <p>{{ L('1) Usual passengers: the average this departure carried (same direction, weekday and hour) over the last 8 weeks.', '1) Pasajeros habituales: el promedio que llevó esta salida (mismo sentido, día de la semana y hora) en las últimas 8 semanas.') }}</p>
               <p>{{ L('2) How much is usually sold already: in 2026, the day before a departure about 40 % of its tickets were sold; 4 days before, 17 %.', '2) Cuánto suele estar vendido ya: en 2026, un día antes de la salida estaba vendido cerca del 40 % de sus pasajes; 4 días antes, el 17 %.') }}</p>
-              <p>{{ L('Example: Friday, 1 day before: 11 sold + 46 usual × 60 % still to come ≈ 39 expected of 46 seats. Its colour goes by the 11 sold (24 %) → red.', 'Ejemplo: viernes, a 1 día: 11 vendidos + 46 habituales × 60 % que aún falta ≈ 39 esperados de 46 asientos. Su color va por los 11 vendidos (24 %) → rojo.') }}</p>
+              <p>{{ L('Example: Friday, 1 day before: 11 sold + 46 usual × 60 % still to come ≈ 39 expected of 46 seats.', 'Ejemplo: viernes, a 1 día: 11 vendidos + 46 habituales × 60 % que aún falta ≈ 39 esperados de 46 asientos.') }}</p>
               <p>{{ L('Rest the mouse on a bar to see its own numbers.', 'Pase el mouse sobre una barra para ver sus propios números.') }}</p>
             </div>
           </template>
@@ -35,7 +40,7 @@
       </div>
       <div class="pg-chips">
         <span class="pg-chip c-hi" :title="L('Forecast at 90 % of the seats or more', 'Pronóstico de 90 % de los asientos o más')"><b>{{ s.reinforce }}</b> {{ L('reinforce', 'reforzar') }}</span>
-        <span class="pg-chip c-bad" :title="L('Under 80 % of the seats (sold for past days, forecast for the next ones)', 'Bajo 80 % de los asientos (vendido en días pasados, pronóstico en los próximos)')"><b>{{ s.under || 0 }}</b> {{ L('under 80 %', 'bajo 80 %') }}</span>
+        <span class="pg-chip c-bad" :title="L('Departures that already left under the break-even occupancy', 'Salidas que ya partieron por debajo de la ocupación que cubre los gastos')"><b>{{ s.loss || 0 }}</b> {{ L('at a loss', 'en pérdida') }}</span>
         <span class="pg-chip" :class="s.conflicts ? 'c-bad' : 'c-ok'"><b>{{ s.conflicts }}</b> {{ L('bus clashes', 'choques') }}</span>
         <span class="pg-chip c-plain" :title="L('In the plan, nothing sold / not open in Jelaf yet', 'En el plan, sin ventas / aún no abierta en Jelaf')"><b>{{ s.plan_only }}</b> {{ L('plan only', 'solo plan') }}</span>
         <span class="pg-chip c-plain" :title="L('Open in Jelaf, not in the plan', 'Abierta en Jelaf, no está en el plan')"><b>{{ s.jelaf_only }}</b> {{ L('Jelaf only', 'fuera de plan') }}</span>
@@ -69,30 +74,21 @@
               <div class="pg-tr pg-th" :style="cols(side.key)">
                 <span />
                 <span v-for="t in tcols(side.key)" :key="t" :title="t">{{ short(t) }}</span>
+                <span class="r">{{ L('sold', 'vend.') }}</span>
               </div>
-              <div
-                v-for="x in d.departures.filter(x => x.side === side.key)" :key="x.key" class="pg-row-d"
-                :class="[cls(x, d), { removed: x.removed, planonly: x.source === 'plan' }]" @click="open(x, d)"
+              <!-- One line per departure (the user, 2026-11-26: both bands on one screen): bus and service, the time under its
+                   terminal, sold → expected / seats, and a thin bar along the bottom; hovering shows the numbers, a click the panel. -->
+              <a-popover
+                v-for="x in d.departures.filter(x => x.side === side.key)" :key="x.key" placement="right" :mouse-enter-delay="0.3"
+                :overlay-style="{ maxWidth: '340px' }" :title="`${ampm(x.time)} · ${x.bus || ''} ${x.tag || ''}`"
               >
-                <div class="pg-tr" :style="cols(side.key)">
-                  <span class="pg-who" :title="(x.bus || '') + (x.tag ? ' · ' + x.tag : '')">
-                    <b :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : '—' }}</b>
-                    <small v-if="x.tag">{{ x.tag }}</small>
-                  </span>
-                  <span v-for="t in tcols(side.key)" :key="t" class="pg-t" :class="{ on: stopTime(x, t, side.key) }">
-                    {{ stopTime(x, t, side.key) ? hm12(stopTime(x, t, side.key)) : '' }}
-                  </span>
-                </div>
-                <div class="pg-l2">
-                  <!-- Hovering the bar: sold (by channel), the forecast and how it is made -- apart from the click panel. -->
-                  <a-popover placement="right" :mouse-enter-delay="0.25" :overlay-style="{ maxWidth: '340px' }" :title="`${ampm(x.time)} · ${x.bus || ''} ${x.tag || ''}`">
                     <template #content>
                       <div class="pg-hov">
                         <div class="pg-hov-r"><span>{{ L('Sold', 'Vendidos') }}</span><b>{{ x.sold }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.sold, x.seats) }})</template></b></div>
                         <div v-if="Object.keys(x.channels || {}).length" class="pg-hov-ch">
                           {{ Object.entries(x.channels).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${chName(k)} ${v.n}`).join(' · ') }}
                         </div>
-                        <template v-if="!d.past">
+                        <template v-if="!x.gone">
                           <div class="pg-hov-r"><span>{{ L('Forecast', 'Pronóstico') }}</span><b>{{ x.forecast }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.forecast, x.seats) }})</template></b></div>
                           <div v-if="x.fc_usual !== null" class="pg-hov-ex">
                             {{ L(`${x.sold} sold + ${Math.round(x.fc_usual)} usual × ${Math.round((1 - x.fc_r) * 100)} % still to come ≈ ${x.forecast}.`,
@@ -101,17 +97,21 @@
                               `A ${d.days_left} día(s); a esta altura suele estar vendido el ${Math.round(x.fc_r * 100)} %; llevó ${Math.round(x.fc_usual)} en promedio (mismo sentido, día y hora, últimas 8 semanas).`) }}</small>
                           </div>
                         </template>
-                        <div class="pg-hov-c">{{ bySold(d) ? L('Colour by sold', 'Color por lo vendido') : L('Colour by forecast', 'Color por el pronóstico') }} · {{ L('source: Jelaf', 'fuente: Jelaf') }}</div>
+                        <div v-if="x.gone && x.money" class="pg-hov-r" style="margin-top: 4px"><span>{{ L('Result', 'Resultado') }}</span><b :style="{ color: x.money.profit < 0 ? '#b42318' : '#1f7a45' }">S/ {{ money0(x.money.income.total) }} − S/ {{ money0(x.money.costs.total) }} = {{ x.money.profit < 0 ? '−' : '+' }}S/ {{ money0(Math.abs(x.money.profit)) }}</b></div>
+                        <div class="pg-hov-c">{{ { 'st-red': L('Lost money', 'Perdió dinero'), 'st-blue': L('Made money', 'Ganó dinero'), 'st-full': L('Full bus', 'Bus lleno'), 'st-na': L('Did not run', 'No salió'), 'st-fut': L('Still to come', 'Aún no parte') }[cls(x).split(' ')[0]] }} · {{ L('click: income vs costs, channels', 'clic: ingresos vs gastos, canales') }}</div>
                       </div>
                     </template>
-                    <div class="pg-bar"><i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" /></div>
-                  </a-popover>
-                  <span class="pg-num">{{ x.sold }}<template v-if="!d.past && x.forecast !== x.sold">→<b>{{ x.forecast }}</b></template><small v-if="x.seats">/{{ x.seats }}</small></span>
-                  <WarningFilled v-if="x.alerts.length" class="pg-warn" />
-                  <span v-if="x.added" class="pg-flag">{{ L('Reinf.', 'Ref.') }}</span>
-                  <span v-else-if="x.changed" class="pg-flag">{{ L('Chg.', 'Cambio') }}</span>
+                <div class="pg-row-d" :class="[cls(x), { removed: x.removed, planonly: x.source === 'plan' }]" @click="open(x, d)">
+                  <div class="pg-tr" :style="cols(side.key)">
+                    <span class="pg-who" :title="(x.bus || '') + (x.tag ? ' · ' + x.tag : '')">
+                      <b :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : '—' }}</b>
+                    </span>
+                    <span v-for="t in tcols(side.key)" :key="t" class="pg-t" :class="{ on: stopTime(x, t, side.key) }">{{ stopTime(x, t, side.key) ? hm12(stopTime(x, t, side.key)) : '' }}</span>
+                    <span class="pg-num">{{ x.sold }}<template v-if="!x.gone && x.forecast !== x.sold">→<b>{{ x.forecast }}</b></template><small v-if="x.seats">/{{ x.seats }}</small><WarningFilled v-if="x.alerts.length" class="pg-warn" /><span v-if="x.added" class="pg-flag">R</span><span v-else-if="x.changed" class="pg-flag">C</span></span>
+                  </div>
+                  <div class="pg-line"><i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" /></div>
                 </div>
-              </div>
+              </a-popover>
               <a v-if="canAdd(d)" class="pg-add" @click="openAdd(d, side.key)"><PlusOutlined /> {{ L('departure', 'salida') }}</a>
             </div>
           </div>
@@ -218,6 +218,27 @@
           </a-form>
         </div>
 
+        <!-- A departure that already ran: income vs costs (TransportProfit), why it gained or lost money. -->
+        <template v-if="sel.gone && sel.money">
+          <div class="pg-h">{{ L('Income vs costs', 'Ingresos vs gastos') }}</div>
+          <table class="pg-stable">
+            <tbody>
+              <tr><td>{{ L('Tickets', 'Pasajes') }}</td><td class="r">S/ {{ money(sel.money.income.tickets) }}</td></tr>
+              <tr v-if="sel.money.income.parcels"><td>{{ L('Parcels and excess', 'Encomiendas y exceso') }}</td><td class="r">S/ {{ money(sel.money.income.parcels) }}</td></tr>
+              <tr class="pg-sub"><td><b>{{ L('Income', 'Ingresos') }}</b></td><td class="r"><b>S/ {{ money(sel.money.income.total) }}</b></td></tr>
+              <tr v-for="k in costKeys.filter(k => sel.money.costs[k])" :key="k">
+                <td>{{ costName(k) }}<small v-if="sel.money.estimated?.includes(k)" class="pg-est"> {{ L('estimated', 'estimado') }}</small></td>
+                <td class="r">− S/ {{ money(sel.money.costs[k]) }}</td>
+              </tr>
+              <tr class="pg-sub"><td><b>{{ L('Costs', 'Gastos') }}</b></td><td class="r"><b>− S/ {{ money(sel.money.costs.total) }}</b></td></tr>
+            </tbody>
+            <tfoot><tr :class="sel.money.profit < 0 ? 'neg' : 'pos'"><td>{{ sel.money.profit < 0 ? L('Loss', 'Pérdida') : L('Profit', 'Ganancia') }}</td><td class="r">S/ {{ money(sel.money.profit) }}</td></tr></tfoot>
+          </table>
+          <div v-if="sel.money.break_even_seats" class="pg-muted">
+            {{ L(`It needed ${sel.money.break_even_seats} passengers to cover its costs; it carried ${sel.sold}.`, `Necesitaba ${sel.money.break_even_seats} pasajeros para cubrir sus gastos; llevó ${sel.sold}.`) }}
+            <template v-if="sel.money.km"> · {{ sel.money.km }} km</template>
+          </div>
+        </template>
         <!-- The bar explained: the tickets sold by channel, as a table. -->
         <div class="pg-h">{{ L('Tickets sold by channel', 'Pasajes vendidos por canal') }}</div>
         <table v-if="channelRows.length" class="pg-stable">
@@ -309,17 +330,29 @@ const ampm = t => (t ? dayjs(`2000-01-01 ${t}`).format('h:mm A') : '');
 const busNo = b => String(b).replace(/^Bus\s+/i, '');
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '—');
 const w = (a, b) => (b ? `${Math.min(100, Math.round((a / b) * 100))}%` : '0%');
+const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
 const money = v => Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // Colour = the share of the seats: sold for a past day / today, the forecast for one to come (the user, 2026-11-26):
 // under 80 % red, 80-89 % green, 90 % or more orange (reinforce); a bus clash marks the time red.
-// Today and tomorrow by what is sold; from the day after tomorrow by the forecast (the user's choice, 2026-11-26).
-const bySold = d => d.past || (d.days_left ?? 0) <= 1;
-const occ = (x, d) => (x.seats ? (bySold(d) ? x.sold : x.forecast) / x.seats : null);
-function cls(x, d) {
-  const o = occ(x, d);
-  const lvl = o === null ? 'st-na' : o >= (data.value.thresholds?.high ?? 0.9) ? 'st-hi' : o >= (data.value.thresholds?.red ?? 0.8) ? 'st-ok' : 'st-red';
+// Colours (the user, 2026-11-26): a departure that already left (a past day, or today over an hour ago) by what it carried --
+// red under the break-even (it lost money), blue from it to a full bus, green full; one still to come in orange (sold dark,
+// forecast light). A bus clash marks the time red.
+const be = computed(() => data.value.break_even?.rate ?? 0.6);
+const occ = x => (x.seats ? x.sold / x.seats : null);
+function cls(x) {
+  let lvl = 'st-fut';
+  if (x.gone && x.source === 'plan') {
+    lvl = 'st-na';   // in the plan but it did not run (nothing in Jelaf)
+  } else if (x.gone) {
+    const o = occ(x);
+    // Its own income vs costs when Murano has the trip (TransportProfit), else the break-even occupancy.
+    const lost = x.money ? x.money.profit < 0 : (o !== null && o < be.value);
+    lvl = lost ? 'st-red' : o === null ? 'st-blue' : o >= 1 ? 'st-full' : 'st-blue';
+  }
   return x.alerts.length ? `${lvl} st-bad` : lvl;
-}const canAdd = d => data.value.can_edit && !d.past;
+}
+const bySold = d => d.past;
+const canAdd = d => data.value.can_edit && !d.past;
 
 const busOptions = computed(() => sortByLabel((data.value.vehicles || []).map(v => ({ value: v.id, label: `${v.name}${v.seats ? ` · ${v.seats} as.` : ''}${v.plate ? ` · ${v.plate}` : ''}` }))));
 const tagOptions = computed(() => (data.value.tags || []).map(t => ({ value: t, label: t })));
@@ -329,7 +362,8 @@ const terminalOptions = side => (data.value.terminals?.[side] || []).map(t => ({
 const tcols = side => data.value.terminal_cols?.[side] || [];
 // A departure's time per column; one leaving from a terminal without a column shows its time in the first one.
 const stopTime = (x, t, side) => x.stops?.[t]?.time || (t === tcols(side)[0] && !tcols(side).some(c => x.stops?.[c]?.time) ? x.time : null);
-const cols = side => ({ gridTemplateColumns: `minmax(0, 1.25fr) repeat(${tcols(side).length}, minmax(0, 1fr))` });
+const cols = side => ({ gridTemplateColumns: `30px repeat(${tcols(side).length}, minmax(0, 1fr)) minmax(46px, 1.35fr)` });
+const tagShort = t => ({ MASTER: 'MAS', 'EJEC VIP': 'VIP', EJEC: 'EJE', PREM: 'PRE', TRUX: 'TRX' }[t] || String(t).slice(0, 4));
 const SHORT = { CAVASSA: 'CAV', 'PZ NORTE': 'PZN', OLIVOS: 'OLI', CIX: 'CIX', LAMBAYEQUE: 'LAMB' };
 const short = t => SHORT[t] || t.charAt(0) + t.slice(1, 6).toLowerCase();
 // "18:30" -> "6:30" (evening departures; a morning one keeps its "a").
@@ -355,6 +389,10 @@ const channelRows = computed(() => Object.entries(sel.value?.channels || {})
 // The bus shown in the panel: the one being picked, else the departure's.
 const photoBus = computed(() => (data.value.vehicles || []).find(v => v.id === (edit.vehicle_id || sel.value?.vehicle_id)) || null);
 
+const costKeys = ['fuel', 'tolls', 'payroll', 'staff', 'depreciation', 'maintenance', 'agency', 'meals'];
+const COSTS = { fuel: ['Fuel', 'Combustible'], tolls: ['Tolls', 'Peajes'], payroll: ['Payroll (share of the day)', 'Planilla (parte del día)'], staff: ['Crew pay', 'Pago a tripulación'],
+  depreciation: ['Bus depreciation', 'Depreciación del bus'], maintenance: ['Maintenance', 'Mantenimiento'], agency: ['Agency (share of the day)', 'Agencia (parte del día)'], meals: ['Meals', 'Alimentación'] };
+const costName = k => L(...(COSTS[k] || [k, k]));
 const chName = k => L((CHANNELS[k] || [k, k])[0], (CHANNELS[k] || [k, k])[1]);
 
 // ---- one departure
@@ -559,6 +597,47 @@ async function exportWeek() {
 .pg-hov-ex { margin: 4px 0; padding: 6px 8px; background: #f6f8fb; border-radius: 6px; }
 .pg-hov-ex small { display: block; color: #667085; margin-top: 2px; }
 .pg-hov-c { font-size: 11px; color: #98a2b3; margin-top: 4px; }
+/* Colours (2026-11-26): left = red / blue / green by what it carried; to come = orange. */
+.pg-row-d .pg-bar .sd { background: #98a2b3; }
+.st-red .pg-bar .sd { background: #d92d20 !important; }
+.st-red .pg-num { color: #b42318; }
+.st-blue .pg-bar .sd { background: #2f6fd6 !important; }
+.st-blue .pg-num { color: #1d4ea8; }
+.st-full .pg-bar .sd { background: #2e9e5b !important; }
+.st-full .pg-num { color: #1f7a45; }
+.st-fut .pg-bar .sd { background: #f28c13 !important; }
+.st-fut .pg-bar .fc { background: rgba(242, 140, 19, .28) !important; }
+.st-fut .pg-num b { color: #c46a06; }
+.st-red .pg-bar .fc, .st-blue .pg-bar .fc, .st-full .pg-bar .fc { display: none; }
+.pg-th span { color: #101828 !important; font-weight: 800 !important; font-size: 9.5px; letter-spacing: 0 !important; }
+.pg-be { font-size: 11.5px !important; color: #667085 !important; margin-top: 6px !important; }
+.pg-stable tr.pg-sub td { background: #f6f8fb; }
+.pg-stable tfoot tr.neg td { color: #b42318; }
+.pg-stable tfoot tr.pos td { color: #1f7a45; }
+.pg-est { color: #c46a06; font-size: 10.5px; }
+/* One line per departure (2026-11-26). */
+.pg-row-d { padding: 3px 6px 0 !important; }
+.pg-th { padding: 3px 6px 2px !important; }
+.pg-row-d .pg-tr { min-height: 18px; }
+.pg-who { flex-direction: row !important; align-items: baseline; gap: 3px; line-height: 1.2 !important; }
+.pg-who small { font-size: 8.5px !important; letter-spacing: .02em; }
+.pg-row-d .pg-num { text-align: right; font-size: 10.5px; white-space: nowrap; overflow: hidden; }
+.pg-row-d .pg-flag { margin-left: 2px; padding: 0 2px; }
+.pg-row-d .pg-warn { margin-left: 2px; }
+.pg-th .r { text-align: right; }
+@media (max-width: 1400px) { .pg-th span { font-size: 8.5px !important; } .pg-row-d .pg-t, .pg-who b { font-size: 11px; } .pg-row-d .pg-num { font-size: 10px; } }
+.pg-line { position: relative; height: 3px; margin: 2px -6px 0; background: #f0f3f7; }
+.pg-line i { position: absolute; left: 0; top: 0; bottom: 0; }
+.pg-line .fc { background: #c9d5e4; }
+.pg-line .sd { background: #98a2b3; }
+.st-red .pg-line .sd { background: #d92d20; }
+.st-blue .pg-line .sd { background: #2f6fd6; }
+.st-full .pg-line .sd { background: #2e9e5b; }
+.st-fut .pg-line .sd { background: #f28c13; }
+.st-fut .pg-line .fc { background: rgba(242, 140, 19, .28); }
+.st-red .pg-line .fc, .st-blue .pg-line .fc, .st-full .pg-line .fc, .st-na .pg-line .fc { display: none; }
+.st-na .pg-num, .st-na .pg-t.on { color: #b0b8c4 !important; }
+.pg-lists { max-height: calc(50vh - 105px) !important; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
