@@ -103,7 +103,7 @@
             <div class="bt-group-tabs">
               <button
                 v-for="k in g.tabs" :key="k" type="button" role="tab" class="bt-tab" :class="{ active: transportTab === k }"
-                :aria-selected="transportTab === k" @click="transportTab = k"
+                :aria-selected="transportTab === k" :title="tabTitle(k)" @click="transportTab = k"
               >{{ tabLabel(k) }}</button>
             </div>
           </div>
@@ -511,24 +511,29 @@ const outlookPanel = computed(() => show('transport_outlook') && auth.moduleEnab
 const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && auth.user.dashboard_tabs.length ? auth.user.dashboard_tabs : null));
 // The boards grouped by what they are about (user's request, 2026-11-26: "ordenamos los tabs por grupo o entidad"), in this
 // order; the first board the user has opens by default.
+// Three groups, by who reads them (user, 2026-11-26): Gerencia, Administración, Operaciones; short names so they fit one row.
 const TAB_GROUPS = [
-  { key: 'sales', en: 'Sales', es: 'Ventas', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers'] },
-  { key: 'money', en: 'Finance', es: 'Finanzas', tabs: ['transport_owner', 'transport_profit', 'transport_expenses', 'transport_indicators', 'transport_risks'] },
-  { key: 'ops', en: 'Operations', es: 'Operación', tabs: ['transport_production', 'transport_departures', 'transport_outlook', 'transport_monitor', 'transport'] },
-  { key: 'parcels', en: 'Parcels', es: 'Encomiendas', tabs: ['transport_aura_parcels', 'transport_parcels'] },
-  { key: 'quality', en: 'Quality', es: 'Calidad', tabs: ['transport_claims'] },
+  { key: 'mgmt', en: 'Management', es: 'Gerencia', tabs: ['transport_owner', 'transport_profit', 'transport_indicators', 'transport_risks', 'transport_outlook'] },
+  { key: 'admin', en: 'Administration', es: 'Administración', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers', 'transport_expenses'] },
+  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_departures', 'transport_monitor', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims'] },
 ];
 const TAB_LABELS = {
-  transport_daysales: ["Day's sales", 'Ventas del día'], transport_pointsales: ['By point of sale', 'Por punto de venta'],
-  transport_cashbook: ['Cash and customers', 'Caja y clientes'], transport_customers: ['Customers', 'Clientes'],
-  transport_production: ['Production per bus', 'Producción por bus'], transport_departures: ['Departures report', 'Reporte de salidas'],
-  transport_outlook: ['Operations outlook', 'Mando operativo'], transport_monitor: ['Control board', 'Tablero de control'],
-  transport: ['Transport board', 'Tablero de transporte'], transport_owner: ['Business summary', 'Resumen del negocio'],
-  transport_profit: ['Profit by route', 'Rentabilidad por ruta'], transport_expenses: ['Expenses', 'Gastos'],
-  transport_indicators: ['Indicators', 'Indicadores'], transport_risks: ['Risks', 'Riesgos'],
-  transport_aura_parcels: ['AuraSoft parcels', 'Encomiendas AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
+  transport_owner: ['Summary', 'Resumen'], transport_profit: ['Profit', 'Rentabilidad'], transport_indicators: ['Indicators', 'Indicadores'],
+  transport_risks: ['Risks', 'Riesgos'], transport_outlook: ['Outlook', 'Mando'],
+  transport_daysales: ['Sales', 'Ventas'], transport_pointsales: ['Points of sale', 'Pto. venta'], transport_cashbook: ['Cash', 'Caja'],
+  transport_customers: ['Customers', 'Clientes'], transport_expenses: ['Expenses', 'Gastos'],
+  transport_production: ['Production', 'Producción'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['Control', 'Control'],
+  transport: ['Transport', 'Transporte'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
   transport_claims: ['Complaints', 'Reclamos'],
 };
+// The full name, shown when the mouse rests on a tab.
+const TAB_TITLES = {
+  transport_owner: 'Resumen del negocio', transport_profit: 'Rentabilidad por ruta', transport_outlook: 'Mando operativo',
+  transport_daysales: 'Ventas del día', transport_pointsales: 'Ventas por punto de venta', transport_cashbook: 'Caja y clientes',
+  transport_production: 'Producción por bus', transport_departures: 'Reporte de salidas', transport_monitor: 'Tablero de control',
+  transport: 'Tablero de transporte', transport_aura_parcels: 'Encomiendas AuraSoft',
+};
+const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
@@ -547,7 +552,9 @@ const transportTabs = computed(() => (boardMode.value ? [...transportPanels.valu
 // ?tab=transport_outlook (a role's home page or a link) opens that tab.
 const transportPick = ref(typeof useRoute().query.tab === 'string' ? useRoute().query.tab : null);
 const transportTab = computed({
-  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value : transportTabs.value[0]),
+  // Opens on the day's sales when the user has it (Mayte's first board, 2026-11-23), else the first board.
+  get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
+    : (transportTabs.value.includes('transport_daysales') ? 'transport_daysales' : transportTabs.value[0])),
   set: v => { transportPick.value = v; },
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.
@@ -1015,21 +1022,29 @@ onMounted(load);
 /* Boards as folder tabs (2026-11-26): groups on a tinted strip, the open tab white and joined to the white, bordered board. */
 .board-tabs { --bt-line: #dfe5ee; --bt-pri: rgb(var(--app-primary-rgb, 22, 119, 255)); }
 .bt-bar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 0; padding: 6px 10px 0; border: 1px solid var(--bt-line);
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 0; padding: 6px 6px 0; border: 1px solid var(--bt-line);
   border-bottom: none; border-radius: 12px 12px 0 0; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.06);
 }
-.bt-group { display: flex; flex-direction: column; padding: 0 8px; }
+.bt-bar { justify-content: center; }
+.bt-group { display: flex; flex-direction: column; padding: 0 5px; }
 .bt-group + .bt-group { border-left: 1px solid rgba(0, 0, 0, 0.08); }
-.bt-group:first-child { padding-left: 0; }
+/* The group's title centred over its tabs, in the company's colour between two thin lines. */
 .bt-group-label {
-  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(0, 0, 0, 0.4);
-  line-height: 14px; padding: 0 8px 2px;
+  display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--bt-pri); line-height: 14px; padding: 0 4px 3px;
 }
-.bt-group-tabs { display: flex; flex-wrap: wrap; gap: 1px; }
+.bt-group-label::before,
+.bt-group-label::after { content: ''; flex: 1; height: 1px; background: rgba(var(--app-primary-rgb, 22, 119, 255), 0.3); }
+.bt-group-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; }
 .bt-tab {
   position: relative; border: 1px solid transparent; border-bottom: none; background: transparent; cursor: pointer;
-  padding: 6px 8px 7px; font-size: 13px; line-height: 18px; color: rgba(0, 0, 0, 0.68); border-radius: 8px 8px 0 0;
+  padding: 6px 6px 7px; font-size: 12.5px; white-space: nowrap; line-height: 18px; color: rgba(0, 0, 0, 0.68); border-radius: 8px 8px 0 0;
   transition: background-color .15s, color .15s; margin-bottom: -1px;
+}
+/* Laptops (1366): still one row. */
+@media (max-width: 1420px) {
+  .bt-tab { padding: 6px 5px 7px; font-size: 12px; }
+  .bt-group { padding: 0 4px; }
 }
 .bt-tab:hover { background: rgba(255, 255, 255, 0.7); color: var(--bt-pri); }
 .bt-tab.active {
