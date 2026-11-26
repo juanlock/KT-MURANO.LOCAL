@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\AuraSoftImport;
+use App\Support\AuraSoftPassengers;
 use App\Support\JelafClient;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -10,9 +11,9 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use Throwable;
 
 /**
- * Jelaf automático (2026-11-26, Turismo Cautivo; Julio's data): the reports Murano imports from Jelaf / AuraSoft, run by the
- * 22:00 scheduler and from Integración -> Jelaf automático at any moment. Every run is a transport_jelaf_runs row.
- *  - production: "Reporte producción por bus" (resumido F1, every company) of the range, imported with AuraSoftImport;
+ * Jelaf automÃ¡tico (2026-11-26, Turismo Cautivo; Julio's data): the reports Murano imports from Jelaf / AuraSoft, run by the
+ * 22:00 scheduler and from IntegraciÃ³n -> Jelaf automÃ¡tico at any moment. Every run is a transport_jelaf_runs row.
+ *  - production: "Reporte producciÃ³n por bus" (resumido F1, every company) of the range, imported with AuraSoftImport;
  *  - boarding:   "Control de Embarque" Resumen + Detalle of each travel day (one file per day and report), the Detalle
  *                imported into transport_boardings (a day's import replaces that day).
  * Each downloaded file is kept: KT-TOOLS/files/turismo/JELAF_INTEGRACION on a PC, storage/app/jelaf/archive on the server.
@@ -20,8 +21,8 @@ use Throwable;
 class JelafSync
 {
     public const REPORTS = [
-        'production' => ['Producción por bus', 'Una fila por salida: bus, ruta, hora, pasajes por canal, encomiendas y exceso. Llena Producción por bus, Ventas del día, Reporte de salidas y Resumen del negocio.'],
-        'boarding' => ['Control de Embarque', 'Un pasajero por fila: bus y salida, asiento, vendedor, fecha y hora de venta, boleto, monto, si embarcó y dónde. Para no embarcados, ocupación real y puntos de embarque.'],
+        'production' => ['ProducciÃ³n por bus', 'Una fila por salida: bus, ruta, hora, pasajes por canal, encomiendas y exceso. Llena ProducciÃ³n por bus, Ventas del dÃ­a, Reporte de salidas y Resumen del negocio.'],
+        'boarding' => ['Control de Embarque', 'Un pasajero por fila: bus y salida, asiento, vendedor, fecha y hora de venta, boleto, monto, si embarcÃ³ y dÃ³nde. Para no embarcados, ocupaciÃ³n real y puntos de embarque.'],
     ];
 
     public static function companyId(): int
@@ -55,7 +56,7 @@ class JelafSync
                 $dir = self::archiveDir('01 Produccion por Bus/Nocturno');
                 $file = $dir.'/ProduccionParaBus '.$from.'_'.$to.' resumido F1 (bajado '.now()->format('Y-m-d H-i').').xlsx';
                 if (! $client->productionPerBus($from, $to, $file)) {
-                    return $done('nodata', 0, 0, [], 'Jelaf: no hay datos en el período.');
+                    return $done('nodata', 0, 0, [], 'Jelaf: no hay datos en el perÃ­odo.');
                 }
                 $copy = storage_path('app/jelaf/'.basename($file));
                 @mkdir(dirname($copy), 0775, true);
@@ -85,6 +86,10 @@ class JelafSync
                     }
                 }
                 $sum['amount'] = round($sum['amount'], 2);
+                // The passengers follow the re-imported days (their tickets came back without the link).
+                $p = TransportPassengers::rebuild($cid);
+                $sum['tickets_linked'] = $p['tickets_linked'];
+                $say("passengers: {$p['tickets_linked']} of {$p['tickets']} tickets linked, online sales {$p['online_linked']} of {$p['online']}");
 
                 return $done($rows ? 'ok' : 'nodata', $files, $rows, $sum);
             }
@@ -174,7 +179,8 @@ class JelafSync
                 'company_id' => $cid, 'travel_date' => self::dmy($g('FECHA')) ?: $day, 'programacion' => (int) $g('PROGRAMACION') ?: null,
                 'departure_time' => self::hm($g('HORA')), 'origin' => mb_substr($g('ORIGEN'), 0, 40), 'destination' => mb_substr($g('DESTINO'), 0, 40),
                 'plate' => mb_substr($g('PLACA'), 0, 20), 'vehicle_id' => $plates[self::plateKey($g('PLACA'))] ?? null, 'trip_id' => null,
-                'seat' => mb_substr($g('ASIENTO'), 0, 10), 'passenger' => mb_substr($g('PASAJERO'), 0, 150), 'seller' => mb_substr($g('USUARIO'), 0, 80),
+                'seat' => mb_substr($g('ASIENTO'), 0, 10), 'passenger' => mb_substr($g('PASAJERO'), 0, 150),
+                'name_key' => AuraSoftPassengers::nameKey($g('PASAJERO')), 'seller' => mb_substr($g('USUARIO'), 0, 80),
                 'pax_origin' => mb_substr($g('ORIG.PASAJ'), 0, 40), 'pax_destination' => mb_substr($g('DEST.PASAJ'), 0, 40),
                 'sold_at' => $sold ? $sold.' '.($soldT ?: '00:00:00') : null, 'ticket' => mb_substr($g('BOLETO'), 0, 30),
                 'amount' => (float) str_replace(',', '', $g('MONTO')), 'boarded' => strtoupper($g('EMBARCO')) !== 'NO',
