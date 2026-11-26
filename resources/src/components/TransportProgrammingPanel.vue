@@ -8,6 +8,20 @@
         <b class="pg-week">{{ weekLabel }}</b>
         <a-button size="small" @click="move(7)"><RightOutlined /></a-button>
         <a-button size="small" @click="go(today)">{{ L('This week', 'Esta semana') }}</a-button>
+        <!-- What the colours mean (the user, 2026-11-26: as a helper, not on the board). -->
+        <a-tooltip placement="bottomLeft" :overlay-style="{ maxWidth: '380px' }">
+          <template #title>
+            <div class="pg-legend">
+              <p>{{ L('The bar compares the seats with what is sold (past days and today) or with the forecast (days to come: a few days before a departure only a small part is sold yet, about 17 % four days before).', 'La barra compara los asientos con lo vendido (días pasados y hoy) o con el pronóstico (días que vienen: pocos días antes solo se ha vendido una parte, unos 17 % a cuatro días de la salida).') }}</p>
+              <div><i style="background: #d92d20" /> {{ L('Red: under 80 %', 'Rojo: menos del 80 %') }}</div>
+              <div><i style="background: #2e9e5b" /> {{ L('Green: 80 to 89 %', 'Verde: 80 a 89 %') }}</div>
+              <div><i style="background: #f28c13" /> {{ L('Orange: 90 % or more (reinforce)', 'Naranja: 90 % o más (reforzar)') }}</div>
+              <div><i style="background: transparent; border: 1px solid #fff" /> {{ L('Time in red: bus clash', 'Hora en rojo: choque de bus') }}</div>
+              <div><i style="background: rgba(255,255,255,.45)" /> {{ L('Light part of the bar: still expected (forecast)', 'Parte clara de la barra: lo que aún se espera (pronóstico)') }}</div>
+            </div>
+          </template>
+          <InfoCircleOutlined class="pg-legend-i" />
+        </a-tooltip>
       </div>
       <div class="pg-chips">
         <span class="pg-chip c-hi" :title="L('Forecast at 90 % of the seats or more', 'Pronóstico de 90 % de los asientos o más')"><b>{{ s.reinforce }}</b> {{ L('reinforce', 'reforzar') }}</span>
@@ -490,6 +504,10 @@ async function exportWeek() {
 .pg-nophoto :deep(.anticon) { font-size: 32px; }
 .pg-photo-cap { padding: 6px 10px; font-size: 12.5px; color: #475467; border-top: 1px solid var(--line); }
 .pg-end { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px !important; }
+.pg-legend-i { color: #98a2b3; font-size: 15px; cursor: help; margin-left: 2px; }
+.pg-legend p { margin: 0 0 6px; font-size: 12px; }
+.pg-legend div { display: flex; align-items: center; gap: 7px; font-size: 12px; line-height: 20px; }
+.pg-legend i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
