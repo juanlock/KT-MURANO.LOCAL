@@ -483,11 +483,15 @@ class FormsController extends Controller
             $q->where('is_read', (bool) $request->input('read'));
         }
         $total = (clone $q)->count();
-        $q->orderByDesc('created_at')->orderByDesc('id');
-        if ($request->boolean('all')) {
+        // Our standard table (DataTable, 2026-11-26): page / limit / SortField / SortType; per_page kept for older callers.
+        $sortDir = strtolower((string) $request->input('SortType')) === 'asc' ? 'asc' : 'desc';
+        $sortCol = $request->input('SortField') === 'ref' ? 'number' : 'created_at';
+        $q->orderBy($sortCol, $sortDir)->orderBy('id', $sortDir);
+        $perPage = (int) $request->input('limit', $request->input('per_page', 20));
+        if ($request->boolean('all') || $perPage >= 100000) {
             $q->limit(20000);
         } else {
-            $q->forPage(max(1, (int) $request->input('page', 1)), max(5, min(200, (int) $request->input('per_page', 20))));
+            $q->forPage(max(1, (int) $request->input('page', 1)), max(5, min(200, $perPage)));
         }
         $meta = [];
         $rows = $q->get()->map(function ($s) use ($forms, &$meta) {
@@ -529,7 +533,7 @@ class FormsController extends Controller
         }
 
         return response()->json([
-            'submissions' => CompanyNames::attach($rows), 'total' => $total, 'groups' => $counts,
+            'submissions' => CompanyNames::attach($rows), 'total' => $total, 'totalRows' => $total, 'groups' => $counts,
             'forms' => CompanyNames::attach($forms->map(fn ($f) => ['id' => $f->id, 'name' => $f->name, 'company_id' => $f->company_id,
                 'group' => $groupOf($f)])->values()->all()),
         ]);
