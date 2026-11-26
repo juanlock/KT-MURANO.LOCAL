@@ -109,23 +109,57 @@ class TransportPassengers
 
         // 2b. Every traveller is a passenger: a name of the tickets not in the base joins it by name (no DNI yet; the
         // Liquidación Detallada gives it its DNI when a document brings the same name -- AuraSoftPassengers::sync).
-        $added = DB::affectingStatement("INSERT INTO transport_passengers (company_id, doc, name, name_key, is_company, first_purchase, last_purchase,
-                purchases, parcels, amount, online_tickets, created_at, updated_at)
-            SELECT b.company_id, NULL, TRIM(REPLACE(REPLACE(MAX(b.passenger), ',', ' '), '  ', ' ')), b.name_key, 0, MIN(DATE(b.sold_at)), MAX(DATE(b.sold_at)),
-                0, 0, 0, 0, NOW(), NOW()
-            FROM transport_boardings b
-            WHERE b.company_id = ? AND b.name_key IS NOT NULL AND b.name_key LIKE '% %'
-              AND NOT EXISTS (SELECT 1 FROM transport_passengers p WHERE p.company_id = b.company_id AND p.name_key = b.name_key COLLATE utf8mb4_unicode_ci)
-            GROUP BY b.company_id, b.name_key", [$cid]);
+        // Done in PHP and small batches: Hostinger stops a statement that runs too long (max_statement_time, 2026-11-26).
+        $pid = [];   // name_key => passenger id (two with one name: the one who bought last)
+        $last = [];
+        foreach (DB::table('transport_passengers')->where('company_id', $cid)->where('name_key', '!=', '')->select(['id', 'name_key', 'last_purchase'])->cursor() as $p) {
+            $lp = (string) $p->last_purchase;
+            if (! isset($pid[$p->name_key]) || $lp > $last[$p->name_key] || ($lp === $last[$p->name_key] && $p->id > $pid[$p->name_key])) {
+                $pid[$p->name_key] = $p->id;
+                $last[$p->name_key] = $lp;
+            }
+        }
+        unset($last);
+        $new = [];
+        foreach (DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->groupBy('name_key')
+            ->selectRaw('name_key, MAX(passenger) passenger, MIN(DATE(sold_at)) d1, MAX(DATE(sold_at)) d2')->cursor() as $b) {
+            if (! isset($pid[$b->name_key]) && str_contains((string) $b->name_key, ' ')) {
+                $new[] = ['company_id' => $cid, 'doc' => null, 'name' => AuraSoftPassengers::name((string) $b->passenger), 'name_key' => $b->name_key,
+                    'is_company' => 0, 'first_purchase' => $b->d1, 'last_purchase' => $b->d2, 'purchases' => 0, 'parcels' => 0, 'amount' => 0,
+                    'online_tickets' => 0, 'created_at' => now(), 'updated_at' => now()];
+            }
+        }
+        foreach (array_chunk($new, 1000) as $chunk) {
+            DB::table('transport_passengers')->insert($chunk);
+        }
+        $added = count($new);
+        unset($new);
         if ($added) {
             AuraSoftPassengers::refreshKind($cid);
+            foreach (DB::table('transport_passengers')->where('company_id', $cid)->whereNull('doc')->where('name_key', '!=', '')->select(['id', 'name_key'])->cursor() as $p) {
+                $pid[$p->name_key] ??= $p->id;
+            }
         }
 
-        // 3. Each ticket to its passenger: same name key; two passengers with one name = the one who bought last.
-        DB::statement("UPDATE transport_boardings b
-            JOIN (SELECT name_key, CAST(SUBSTRING_INDEX(GROUP_CONCAT(id ORDER BY last_purchase DESC, id DESC), ',', 1) AS UNSIGNED) pid
-                  FROM transport_passengers WHERE company_id = ? AND name_key <> '' GROUP BY name_key) p ON p.name_key = b.name_key COLLATE utf8mb4_unicode_ci
-            SET b.passenger_id = p.pid WHERE b.company_id = ? AND (b.passenger_id IS NULL OR b.passenger_id <> p.pid)", [$cid, $cid]);
+        // 3. Each ticket to its passenger.
+        DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->select(['id', 'name_key', 'passenger_id'])
+            ->chunkById(2000, function ($rows) use ($pid) {
+                $case = [];
+                $bind = [];
+                $ids = [];
+                foreach ($rows as $r) {
+                    $p = $pid[$r->name_key] ?? null;
+                    if ($p && $p != $r->passenger_id) {
+                        $case[] = 'WHEN ? THEN ?';
+                        array_push($bind, $r->id, $p);
+                        $ids[] = $r->id;
+                    }
+                }
+                if ($ids) {
+                    DB::update('UPDATE transport_boardings SET passenger_id = CASE id '.implode(' ', $case).' END WHERE id IN ('.implode(',', array_fill(0, count($ids), '?')).')',
+                        array_merge($bind, $ids));
+                }
+            });
 
         // 4. Each online sale to its ticket: same travel day and name key, the ticket of the same channel first.
         $days = DB::table('transport_online_sales')->where('company_id', $cid)->distinct()->orderBy('travel_date')->pluck('travel_date');
