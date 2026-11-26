@@ -1,4 +1,7 @@
 {
+    "The range cannot end in the future.": "El rango no puede terminar en el futuro.",
+    "Up to :n days at a time.": "Hasta :n días por vez.",
+    "The Jelaf login is not set on this server.": "El usuario de Jelaf no está configurado en este servidor.",
     "Bus not registered": "Bus no registrado",
     "You do not have permission to approve automatic replies.": "No tiene permiso para aprobar respuestas automáticas.",
     "This topic has no automatic reply.": "Este motivo no tiene respuesta automática.",

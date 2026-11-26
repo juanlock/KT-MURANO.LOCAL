@@ -797,6 +797,7 @@ const routes = [
             { path: 'transport/today', name: 'transport-today', component: () => import('../pages/transport/TransportToday.vue'), meta: { title: 'Transport_Today', permission: 'transport_supervise' } },
             { path: 'transport/passengers', name: 'transport-passengers', component: () => import('../pages/transport/TransportPassengers.vue'), meta: { title: 'Transport_Passengers', permission: 'transport_profit' } },
             { path: 'transport/aurasoft', name: 'transport-aurasoft', component: () => import('../pages/transport/TransportAuraSoft.vue'), meta: { title: 'Transport_AuraSoft', permission: 'transport_aurasoft_import' } },
+            { path: 'transport/jelaf', name: 'transport-jelaf', component: () => import('../pages/transport/TransportJelaf.vue'), meta: { title: 'Transport_JelafSync', permission: 'transport_aurasoft_import' } },
             { path: 'transport/schedule', name: 'transport-schedule', component: () => import('../pages/transport/TransportSchedule.vue'), meta: { title: 'Transport_Schedule', permission: 'transport_schedule' } },
             { path: 'transport/daily', name: 'transport-daily', component: () => import('../pages/transport/TransportDaily.vue'), meta: { title: 'Transport_Daily', permission: ['transport_departures_view', 'transport_departures_manage'] } },
             { path: 'transport/agency', name: 'transport-agency', component: () => import('../pages/transport/TransportAgency.vue'), meta: { title: 'Transport_MyAgency', permission: 'transport_agency_view' } },

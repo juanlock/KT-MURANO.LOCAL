@@ -871,6 +871,12 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::delete('/{id}/slots/{slot}', 'deleteSlot')->whereNumber(['id', 'slot']);
         Route::put('/{id}/day/{day}', 'saveDay')->whereNumber('id')->where('day', 'weekday|sunday|\d{4}-\d{2}-\d{2}');
     });
+    // Integración -> Jelaf automático (2026-11-26): the nightly Jelaf imports, their history and "Importar ahora".
+    Route::prefix('transport/jelaf')->controller(\App\Http\Controllers\TransportJelafController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/runs', 'runs');
+        Route::post('/run', 'run');
+    });
     // Integración -> Producción AuraSoft (2026-11-23): the AuraSoft (ex Jelaf) "Reporte producción por bus" files and their rows.
     Route::prefix('transport/aurasoft')->controller(\App\Http\Controllers\TransportAuraSoftController::class)->group(function () {
         Route::get('/', 'index');

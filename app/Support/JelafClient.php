@@ -116,6 +116,22 @@ class JelafClient
         return strlen($r->body());
     }
 
+    /**
+     * Control de Embarque of ONE travel day (2026-11-26): Resumen = per departure and boarding point (embarcó, boletos, monto);
+     * Detalle = per passenger (seat, seller, sale date / hour, ticket, amount, embarcó SI / NO, manifest). Empresa GUIAME (1),
+     * as the screen sends it.
+     */
+    public function boarding(string $kind, string $day, string $target): int
+    {
+        $api = $kind === 'detalle' ? 'ControlEmbarque/ControlEmbarqueDetalleExcel' : 'ControlEmbarque/ControlEmbarqueResumenExcelxPuntoEmbarque';
+
+        return $this->export($api, [
+            'CodiEmpresa' => 1, 'DescEmpresa' => 'EMPRESA DE TRANSPORTES Y TURISMO GUIAME SEñOR CAUTIVO S.A.C.', 'OrigenBus' => 0, 'DescOrigenBus' => '',
+            'DestinoBus' => 0, 'DescDestinoBus' => '', 'FechaViaje' => date('d/m/Y', strtotime($day)), 'HoraViaje' => '', 'CodProgramacion' => 0,
+            'idUsuario' => '', 'usuarioLogin' => $this->user, 'RDRPT' => '1',
+        ], $target);
+    }
+
     /** Producción por bus, resumido, Formato 1, every company (TODOS: the web store moved to another entity in Nov 2026). */
     public function productionPerBus(string $from, string $to, string $target): int
     {

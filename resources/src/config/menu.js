@@ -324,6 +324,7 @@ export const MIGRATED_ROUTES = {
     '/app/transport/today': '/transport/today',
     '/app/transport/daily': '/transport/daily',
     '/app/transport/schedule': '/transport/schedule',
+    '/app/transport/jelaf': '/transport/jelaf',
     '/app/transport/aurasoft': '/transport/aurasoft',
     '/app/transport/passengers': '/transport/passengers',
     '/app/b2b/dashboard': '/b2b/dashboard',
@@ -1067,6 +1068,8 @@ export const MENU = [
         permissions: ['transport_aurasoft_import'],
         children: [
             { label: 'Transport_AuraSoft', to: '/app/transport/aurasoft', permissions: ['transport_aurasoft_import'] },
+            // Jelaf automático (2026-11-26): the nightly 22:00 imports, their history and "Importar ahora".
+            { label: 'Transport_JelafSync', to: '/app/transport/jelaf', permissions: ['transport_aurasoft_import'] },
             // Base de pasajeros (2026-11-24): AuraSoft's buyers (DNI / RUC + phone), its own table, never Customers.
             { label: 'Transport_Passengers', to: '/app/transport/passengers', permissions: ['transport_profit'] },
         ],
