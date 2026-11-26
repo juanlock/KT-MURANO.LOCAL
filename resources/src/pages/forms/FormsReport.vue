@@ -8,7 +8,12 @@
 
     <a-card :body-style="{ padding: '12px' }">
       <!-- Reclamos / Contáctenos (web): the complaints-book forms apart from the contact forms (2026-11-26). -->
-      <a-segmented v-model:value="group" :options="groupOptions" class="fr-seg" @change="onGroup" />
+      <div class="fr-seg-row">
+        <a-segmented v-model:value="group" :options="groupOptions" class="fr-seg" @change="onGroup" />
+        <!-- Contáctenos (web): the automatic reply per topic, assigned here and changed or turned off later (2026-11-26). -->
+        <a-button v-if="group === 'contact' && replyForm" @click="repliesOpen = true"><MailOutlined /> {{ es ? 'Respuestas automáticas' : 'Automatic replies' }}</a-button>
+      </div>
+      <FormTopicReplies v-model:open="repliesOpen" :form="replyForm" />
       <div class="fr-filters">
         <PresetRangeFilter v-model:value="range" value-format="YYYY-MM-DD" allow-all compact @change="reload" />
         <a-select v-model:value="formId" :options="formOptions" allow-clear show-search option-filter-prop="label" style="width: 280px" :placeholder="es ? 'Todos los formularios' : 'All forms'" @change="reload" />
@@ -47,7 +52,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
-import { DownloadOutlined } from '@ant-design/icons-vue';
+import { DownloadOutlined, MailOutlined } from '@ant-design/icons-vue';
+import FormTopicReplies from '../../components/FormTopicReplies.vue';
 import dayjs from 'dayjs';
 import PageHeader from '../../components/PageHeader.vue';
 import PresetRangeFilter from '../../components/PresetRangeFilter.vue';
@@ -81,6 +87,13 @@ const groupOptions = computed(() => [
   { value: 'contact', label: `${es.value ? 'Contáctenos (web)' : 'Contact us (web)'} (${groups.value.contact ?? 0})` },
   { value: 'all', label: es.value ? 'Todos' : 'All' },
 ]);
+// The contact form whose automatic replies the button opens: the one picked, else the first contact form.
+const repliesOpen = ref(false);
+const replyForm = computed(() => {
+  const contact = forms.value.filter(f => f.group === 'contact');
+  const f = contact.find(x => x.id === formId.value) || contact[0];
+  return f ? { id: f.id, name: f.name } : null;
+});
 function onGroup() {
   if (formId.value && !forms.value.some(f => f.id === formId.value && (group.value === 'all' || f.group === group.value))) formId.value = undefined;
   reload();
@@ -166,7 +179,7 @@ onMounted(load);
 </script>
 
 <style scoped>
-.fr-seg { margin-bottom: 10px; }
+.fr-seg-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .fr-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
 .fr-muted { opacity: 0.6; }
 .fr-dot { margin-inline-start: 6px; }
