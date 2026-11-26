@@ -146,7 +146,12 @@ class JelafSync
     /** Import one "Control de Embarque - Detallado" file: replaces that travel day. */
     public static function importBoardingFile(int $cid, string $file, string $day): array
     {
-        $rows = IOFactory::load($file)->getActiveSheet()->toArray(null, false, true, false);
+        // Free the workbook at once: a year of files in one run ran out of memory (2026-11-26).
+        $book = IOFactory::createReaderForFile($file)->setReadDataOnly(true)->load($file);
+        $rows = $book->getActiveSheet()->toArray(null, false, true, false);
+        $book->disconnectWorksheets();
+        unset($book);
+        gc_collect_cycles();
         $h = null;
         $out = [];
         $plates = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->get(['id', 'plate_number'])
