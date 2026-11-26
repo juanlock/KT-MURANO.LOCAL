@@ -39,7 +39,7 @@ class TransportJelafSync extends Command
             'production' => [now()->subDays($days - 1)->toDateString(), now()->toDateString()],
             'boarding' => [now()->subDay()->toDateString(), now()->toDateString()],
             // Programación board (2026-11-26): what is sold so far for the next 14 days.
-            'ahead' => [now()->addDay()->toDateString(), now()->addDays(14)->toDateString()],
+            'ahead' => [now()->toDateString(), now()->addDays(14)->toDateString()],
         ];
         $only = $this->option('only');
         $failed = false;
