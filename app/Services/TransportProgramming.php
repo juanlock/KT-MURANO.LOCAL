@@ -305,9 +305,11 @@ class TransportProgramming
                 $sold = $j['sold'] ?? 0;
                 $seats = $v['seats'] ?? (($j['vehicle_id'] ?? null) ? ($vehicles[$j['vehicle_id']]['seats'] ?? null) : null);
                 $forecast = $sold;
+                $fcR = $fcUsual = null;
                 if ($left !== null) {
-                    $r = $curve[$side][min($left, 15)] ?? 0.5;
-                    $forecast = (int) round($sold + (1 - $r) * self::usualFor($usual, $side, $date->isoWeekday(), intdiv((int) self::minutes($time), 60)));
+                    $fcR = $curve[$side][min($left, 15)] ?? 0.5;
+                    $fcUsual = self::usualFor($usual, $side, $date->isoWeekday(), intdiv((int) self::minutes($time), 60));
+                    $forecast = (int) round($sold + (1 - $fcR) * $fcUsual);
                 }
                 $pct = $seats ? $forecast / $seats : null;
                 $suggest = null;
@@ -327,7 +329,7 @@ class TransportProgramming
                     $stops[$t] = ['time' => $stops[$t]['time'] ?? (! $p && ! $stops ? $time : null), 'pax' => $n];
                 }
                 $deps[] = [
-                    'stops' => $stops,
+                    'stops' => $stops, 'fc_r' => $fcR, 'fc_usual' => $fcUsual,
                     'key' => $day.'|'.($p['slot_id'] ?? '').'|'.($p['change_id'] ?? '').'|'.($j['programacion'] ?? ''),
                     'side' => $side, 'time' => $time, 'terminal' => $p['terminal'] ?? null, 'tag' => $p['tag'] ?? null,
                     'vehicle_id' => $vid, 'bus_from' => $busFrom, 'bus' => $v['name'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'plate' => $v['plate'] ?? ($jVid ? ($j['plate'] ?? null) : null), 'seats' => $seats,
@@ -388,7 +390,7 @@ class TransportProgramming
             $sum['reinforce'] += $deps->where('suggest', 'reinforce')->count();
             $sum['low'] += $deps->where('suggest', 'low')->count();
             // Under 80 % of the seats (the user's line, 2026-11-26): sold for a past day, the forecast for one to come.
-            $sum['under'] = ($sum['under'] ?? 0) + $deps->filter(fn ($x) => $x['seats'] && ($d['past'] ? $x['sold'] : $x['forecast']) / $x['seats'] < self::RED)->count();
+            $sum['under'] = ($sum['under'] ?? 0) + $deps->filter(fn ($x) => $x['seats'] && ($d['past'] || $d['days_left'] <= 1 ? $x['sold'] : $x['forecast']) / $x['seats'] < self::RED)->count();
             $sum['conflicts'] += $deps->filter(fn ($x) => $x['alerts'])->count();
             if (! $d['past']) {
                 $sum['plan_only'] += $deps->where('source', 'plan')->count();

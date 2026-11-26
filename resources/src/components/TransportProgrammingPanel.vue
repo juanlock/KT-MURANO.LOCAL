@@ -9,19 +9,29 @@
         <a-button size="small" @click="move(7)"><RightOutlined /></a-button>
         <a-button size="small" @click="go(today)">{{ L('This week', 'Esta semana') }}</a-button>
         <!-- What the colours mean (the user, 2026-11-26: as a helper, not on the board). -->
-        <a-tooltip placement="bottomLeft" :overlay-style="{ maxWidth: '380px' }">
-          <template #title>
+        <a-popover placement="bottomLeft" trigger="hover" :overlay-style="{ maxWidth: '440px' }">
+          <template #content>
             <div class="pg-legend">
-              <p>{{ L('The bar compares the seats with what is sold (past days and today) or with the forecast (days to come: a few days before a departure only a small part is sold yet, about 17 % four days before).', 'La barra compara los asientos con lo vendido (días pasados y hoy) o con el pronóstico (días que vienen: pocos días antes solo se ha vendido una parte, unos 17 % a cuatro días de la salida).') }}</p>
+              <h4>{{ L('How to read a row', 'Cómo leer una fila') }}</h4>
+              <p>{{ L('Example "11→39/46": 11 tickets sold so far, 39 expected when the bus leaves, 46 seats.', 'Ejemplo «11→39/46»: 11 pasajes vendidos hasta ahora, 39 que se esperan cuando salga el bus, 46 asientos.') }}</p>
+              <div><i style="background: #27507d" /> {{ L('Dark part of the bar: sold', 'Parte oscura de la barra: vendido') }}</div>
+              <div><i style="background: #c9d5e4" /> {{ L('Light part: still expected (forecast)', 'Parte clara: lo que aún se espera (pronóstico)') }}</div>
+              <h4>{{ L('Colours', 'Colores') }}</h4>
+              <p>{{ L('Past days, today and tomorrow: sold ÷ seats. From the day after tomorrow: expected ÷ seats.', 'Días pasados, hoy y mañana: vendidos ÷ asientos. Desde pasado mañana: esperados ÷ asientos.') }}</p>
               <div><i style="background: #d92d20" /> {{ L('Red: under 80 %', 'Rojo: menos del 80 %') }}</div>
               <div><i style="background: #2e9e5b" /> {{ L('Green: 80 to 89 %', 'Verde: 80 a 89 %') }}</div>
-              <div><i style="background: #f28c13" /> {{ L('Orange: 90 % or more (reinforce)', 'Naranja: 90 % o más (reforzar)') }}</div>
-              <div><i style="background: transparent; border: 1px solid #fff" /> {{ L('Time in red: bus clash', 'Hora en rojo: choque de bus') }}</div>
-              <div><i style="background: rgba(255,255,255,.45)" /> {{ L('Light part of the bar: still expected (forecast)', 'Parte clara de la barra: lo que aún se espera (pronóstico)') }}</div>
+              <div><i style="background: #f28c13" /> {{ L('Orange: 90 % or more, reinforce', 'Naranja: 90 % o más, reforzar') }}</div>
+              <div><i style="background: transparent; border: 1px solid #d92d20" /> {{ L('Time in red: the bus is in two places', 'Hora en rojo: el bus está en dos lugares') }}</div>
+              <h4>{{ L('How the forecast is made', 'Cómo se calcula el pronóstico') }}</h4>
+              <p>{{ L('Expected = sold + what usually still comes.', 'Esperados = vendidos + lo que todavía suele venderse.') }}</p>
+              <p>{{ L('1) Usual passengers: the average this departure carried (same direction, weekday and hour) over the last 8 weeks.', '1) Pasajeros habituales: el promedio que llevó esta salida (mismo sentido, día de la semana y hora) en las últimas 8 semanas.') }}</p>
+              <p>{{ L('2) How much is usually sold already: in 2026, the day before a departure about 40 % of its tickets were sold; 4 days before, 17 %.', '2) Cuánto suele estar vendido ya: en 2026, un día antes de la salida estaba vendido cerca del 40 % de sus pasajes; 4 días antes, el 17 %.') }}</p>
+              <p>{{ L('Example: Friday, 1 day before: 11 sold + 46 usual × 60 % still to come ≈ 39 expected of 46 seats. Its colour goes by the 11 sold (24 %) → red.', 'Ejemplo: viernes, a 1 día: 11 vendidos + 46 habituales × 60 % que aún falta ≈ 39 esperados de 46 asientos. Su color va por los 11 vendidos (24 %) → rojo.') }}</p>
+              <p>{{ L('Rest the mouse on a bar to see its own numbers.', 'Pase el mouse sobre una barra para ver sus propios números.') }}</p>
             </div>
           </template>
-          <InfoCircleOutlined class="pg-legend-i" />
-        </a-tooltip>
+          <span class="pg-legend-i"><InfoCircleOutlined /> {{ L('How to read it', 'Cómo leerlo') }}</span>
+        </a-popover>
       </div>
       <div class="pg-chips">
         <span class="pg-chip c-hi" :title="L('Forecast at 90 % of the seats or more', 'Pronóstico de 90 % de los asientos o más')"><b>{{ s.reinforce }}</b> {{ L('reinforce', 'reforzar') }}</span>
@@ -74,7 +84,28 @@
                   </span>
                 </div>
                 <div class="pg-l2">
-                  <div class="pg-bar"><i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" /></div>
+                  <!-- Hovering the bar: sold (by channel), the forecast and how it is made -- apart from the click panel. -->
+                  <a-popover placement="right" :mouse-enter-delay="0.25" :overlay-style="{ maxWidth: '340px' }" :title="`${ampm(x.time)} · ${x.bus || ''} ${x.tag || ''}`">
+                    <template #content>
+                      <div class="pg-hov">
+                        <div class="pg-hov-r"><span>{{ L('Sold', 'Vendidos') }}</span><b>{{ x.sold }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.sold, x.seats) }})</template></b></div>
+                        <div v-if="Object.keys(x.channels || {}).length" class="pg-hov-ch">
+                          {{ Object.entries(x.channels).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${chName(k)} ${v.n}`).join(' · ') }}
+                        </div>
+                        <template v-if="!d.past">
+                          <div class="pg-hov-r"><span>{{ L('Forecast', 'Pronóstico') }}</span><b>{{ x.forecast }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.forecast, x.seats) }})</template></b></div>
+                          <div v-if="x.fc_usual !== null" class="pg-hov-ex">
+                            {{ L(`${x.sold} sold + ${Math.round(x.fc_usual)} usual × ${Math.round((1 - x.fc_r) * 100)} % still to come ≈ ${x.forecast}.`,
+                                 `${x.sold} vendidos + ${Math.round(x.fc_usual)} habituales × ${Math.round((1 - x.fc_r) * 100)} % que aún falta ≈ ${x.forecast}.`) }}
+                            <small>{{ L(`${d.days_left} day(s) before; usually ${Math.round(x.fc_r * 100)} % is sold by now; it carried ${Math.round(x.fc_usual)} on average (same direction, weekday and hour, last 8 weeks).`,
+                              `A ${d.days_left} día(s); a esta altura suele estar vendido el ${Math.round(x.fc_r * 100)} %; llevó ${Math.round(x.fc_usual)} en promedio (mismo sentido, día y hora, últimas 8 semanas).`) }}</small>
+                          </div>
+                        </template>
+                        <div class="pg-hov-c">{{ bySold(d) ? L('Colour by sold', 'Color por lo vendido') : L('Colour by forecast', 'Color por el pronóstico') }} · {{ L('source: Jelaf', 'fuente: Jelaf') }}</div>
+                      </div>
+                    </template>
+                    <div class="pg-bar"><i class="fc" :style="{ width: w(x.forecast, x.seats) }" /><i class="sd" :style="{ width: w(x.sold, x.seats) }" /></div>
+                  </a-popover>
                   <span class="pg-num">{{ x.sold }}<template v-if="!d.past && x.forecast !== x.sold">→<b>{{ x.forecast }}</b></template><small v-if="x.seats">/{{ x.seats }}</small></span>
                   <WarningFilled v-if="x.alerts.length" class="pg-warn" />
                   <span v-if="x.added" class="pg-flag">{{ L('Reinf.', 'Ref.') }}</span>
@@ -153,8 +184,13 @@
           <dt>{{ L('Leaves from', 'Sale de') }}</dt><dd>{{ sel.terminal || '—' }}<small v-if="sel.boardings?.length"> · {{ sel.boardings.map(b => `${b.terminal} ${ampm(b.time)}`).join(', ') }}</small></dd>
           <dt>{{ L('Route', 'Ruta') }}</dt><dd>{{ sel.route || '—' }}</dd>
           <dt>{{ L('Sold', 'Vendidos') }}</dt><dd><b>{{ sel.sold }}</b><template v-if="sel.seats"> / {{ sel.seats }} {{ L('seats', 'asientos') }} ({{ pct(sel.sold, sel.seats) }})</template><template v-if="selDay.past"> · {{ sel.boarded }} {{ L('boarded', 'embarcaron') }}</template></dd>
-          <template v-if="!selDay.past"><dt>{{ L('Forecast', 'Pronóstico') }}</dt><dd><b>{{ sel.forecast }}</b> ({{ pct(sel.forecast, sel.seats) }})
-            <a-tooltip :title="L('Sold so far + what usually comes in the days left (the 2026 sales curve, same side, weekday and hour)', 'Lo vendido + lo que suele venderse en los días que faltan (curva de ventas de 2026, mismo lado, día y hora)')"><InfoCircleOutlined /></a-tooltip></dd></template>
+          <template v-if="!selDay.past"><dt>{{ L('Forecast', 'Pronóstico') }}</dt><dd><b>{{ sel.forecast }}</b> {{ L('expected', 'esperados') }}<template v-if="sel.seats"> ({{ pct(sel.forecast, sel.seats) }} {{ L('of the seats', 'de los asientos') }})</template>
+            <div v-if="sel.fc_usual !== null" class="pg-fc">
+              {{ L(`${sel.sold} sold + ${Math.round(sel.fc_usual)} usual × ${Math.round((1 - sel.fc_r) * 100)} % still to come ≈ ${sel.forecast}`,
+                   `${sel.sold} vendidos + ${Math.round(sel.fc_usual)} habituales × ${Math.round((1 - sel.fc_r) * 100)} % que aún falta ≈ ${sel.forecast}`) }}
+              <small>{{ L(`${selDay.days_left} day(s) before; this departure carried ${Math.round(sel.fc_usual)} on average (same direction, weekday and hour, last 8 weeks); usually ${Math.round(sel.fc_r * 100)} % is already sold at this point.`,
+                `A ${selDay.days_left} día(s) de la salida; esta salida llevó ${Math.round(sel.fc_usual)} en promedio (mismo sentido, día y hora, últimas 8 semanas); a esta altura suele estar vendido el ${Math.round(sel.fc_r * 100)} %.`) }}</small>
+            </div></dd></template>
         </dl>
 
         <!-- Programming this date: its own bordered box. -->
@@ -276,7 +312,9 @@ const w = (a, b) => (b ? `${Math.min(100, Math.round((a / b) * 100))}%` : '0%');
 const money = v => Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // Colour = the share of the seats: sold for a past day / today, the forecast for one to come (the user, 2026-11-26):
 // under 80 % red, 80-89 % green, 90 % or more orange (reinforce); a bus clash marks the time red.
-const occ = (x, d) => (x.seats ? (d.past || d.today ? x.sold : x.forecast) / x.seats : null);
+// Today and tomorrow by what is sold; from the day after tomorrow by the forecast (the user's choice, 2026-11-26).
+const bySold = d => d.past || (d.days_left ?? 0) <= 1;
+const occ = (x, d) => (x.seats ? (bySold(d) ? x.sold : x.forecast) / x.seats : null);
 function cls(x, d) {
   const o = occ(x, d);
   const lvl = o === null ? 'st-na' : o >= (data.value.thresholds?.high ?? 0.9) ? 'st-hi' : o >= (data.value.thresholds?.red ?? 0.8) ? 'st-ok' : 'st-red';
@@ -316,6 +354,8 @@ const channelRows = computed(() => Object.entries(sel.value?.channels || {})
 
 // The bus shown in the panel: the one being picked, else the departure's.
 const photoBus = computed(() => (data.value.vehicles || []).find(v => v.id === (edit.vehicle_id || sel.value?.vehicle_id)) || null);
+
+const chName = k => L((CHANNELS[k] || [k, k])[0], (CHANNELS[k] || [k, k])[1]);
 
 // ---- one departure
 const sel = ref(null);
@@ -504,10 +544,21 @@ async function exportWeek() {
 .pg-nophoto :deep(.anticon) { font-size: 32px; }
 .pg-photo-cap { padding: 6px 10px; font-size: 12.5px; color: #475467; border-top: 1px solid var(--line); }
 .pg-end { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px !important; }
-.pg-legend-i { color: #98a2b3; font-size: 15px; cursor: help; margin-left: 2px; }
-.pg-legend p { margin: 0 0 6px; font-size: 12px; }
-.pg-legend div { display: flex; align-items: center; gap: 7px; font-size: 12px; line-height: 20px; }
+.pg-legend-i { color: #27507d; font-size: 12px; cursor: help; margin-left: 4px; white-space: nowrap; }
+.pg-legend p { margin: 0 0 6px; font-size: 12.5px; color: #344054; }
+.pg-legend h4 { margin: 8px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #f28c13; }
+.pg-legend h4:first-child { margin-top: 0; }
+.pg-fc { margin-top: 4px; padding: 6px 8px; background: #f6f8fb; border-radius: 6px; font-size: 12.5px; }
+.pg-fc small { display: block; color: #667085; margin-top: 2px; }
+.pg-legend div { display: flex; align-items: center; gap: 7px; font-size: 12.5px; line-height: 21px; color: #344054; }
 .pg-legend i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
+.pg-hov { font-size: 12.5px; color: #344054; }
+.pg-hov-r { display: flex; justify-content: space-between; gap: 12px; }
+.pg-hov-r span { color: #667085; }
+.pg-hov-ch { font-size: 11.5px; color: #667085; margin: 0 0 6px; }
+.pg-hov-ex { margin: 4px 0; padding: 6px 8px; background: #f6f8fb; border-radius: 6px; }
+.pg-hov-ex small { display: block; color: #667085; margin-top: 2px; }
+.pg-hov-c { font-size: 11px; color: #98a2b3; margin-top: 4px; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
