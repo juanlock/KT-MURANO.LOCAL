@@ -154,7 +154,8 @@ class TransportSchedule
     public static function vehicles(int $cid): array
     {
         return DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->orderByRaw('CAST(REGEXP_SUBSTR(name, "[0-9]+") AS UNSIGNED)')->orderBy('name')
-            ->get(['id', 'name', 'plate_number', 'seats'])->mapWithKeys(fn ($v) => [$v->id => ['id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'seats' => $v->seats]])->all();
+            ->get(['id', 'name', 'plate_number', 'seats', 'image', 'make', 'model', 'year'])->mapWithKeys(fn ($v) => [$v->id => ['id' => $v->id, 'name' => $v->name, 'plate' => $v->plate_number, 'seats' => $v->seats,
+                'image' => $v->image ? '/'.ltrim($v->image, '/') : null, 'model' => trim(implode(' ', array_filter([$v->make, $v->model, $v->year]))) ?: null]])->all();
     }
 
     /** id => {id, label, origin, destination} of the company's routes. */

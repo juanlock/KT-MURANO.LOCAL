@@ -118,8 +118,9 @@
       </div>
     </a-spin>
 
-    <!-- One departure: what it carries, why the suggestion, and the date's change. -->
-    <a-drawer :open="!!sel" :width="420" :title="sel ? `${selDay.label} · ${ampm(sel.time)} · ${L(sideName(sel.side).en, sideName(sel.side).es)}` : ''" @close="sel = null">
+    <!-- One departure (2026-11-26, the user's order): what to do, the data, programming in its own bordered box, the sales
+         as a table (the agency's cashiers in a helper), the bus's photo, then source and note at the end. -->
+    <a-drawer :open="!!sel" :width="560" :title="sel ? `${selDay.label} · ${ampm(sel.time)} · ${L(sideName(sel.side).en, sideName(sel.side).es)}` : ''" @close="sel = null">
       <template v-if="sel">
         <div v-if="sel.suggest" class="pg-sug" :class="sel.suggest">
           <b>{{ sel.suggest === 'reinforce' ? L('Reinforce', 'Reforzar') : L('Low occupancy', 'Baja ocupación') }}</b>
@@ -127,54 +128,32 @@
             ? L(`about ${sel.forecast} passengers expected for ${sel.seats} seats: add a bus or move it to a bigger one.`, `se esperan unos ${sel.forecast} pasajeros para ${sel.seats} asientos: agregar un bus o pasar a uno más grande.`)
             : L(`about ${sel.forecast} passengers expected for ${sel.seats} seats: merge with a near departure or use a smaller bus.`, `se esperan unos ${sel.forecast} pasajeros para ${sel.seats} asientos: juntar con una salida cercana o usar un bus más chico.`) }}
         </div>
-        <a-alert v-for="(a, i) in sel.alerts" :key="i" type="error" show-icon :message="a" style="margin-bottom: 6px; padding: 4px 10px" />
-        <!-- The bar explained (2026-11-26): the seats sold by channel, who sold them at the agencies and where they board. -->
-        <div class="pg-h">{{ L('Tickets sold', 'Pasajes vendidos') }}: {{ sel.sold }}<template v-if="sel.seats"> / {{ sel.seats }} {{ L('seats', 'asientos') }} ({{ pct(sel.sold, sel.seats) }})</template></div>
-        <div v-if="channelRows.length" class="pg-ch">
-          <div class="pg-chbar">
-            <i v-for="c in channelRows" :key="c.key" :style="{ width: (sel.seats ? c.n / sel.seats : c.n / sel.sold) * 100 + '%', background: c.color }" :title="`${c.key} ${c.n}`" />
-          </div>
-          <div v-for="c in channelRows" :key="c.key">
-            <div class="pg-chrow"><span class="dot" :style="{ background: c.color }" /><span>{{ c.label }}</span><b class="r">{{ c.n }}</b><span class="r">S/ {{ money(c.amount) }}</span></div>
-            <div v-if="c.key === 'Agencia' && Object.keys(sel.sellers || {}).length" class="pg-sellers">
-              {{ Object.entries(sel.sellers).map(([k, v]) => `${k} ${v}`).join(' · ') }}
-            </div>
-          </div>
-          <div v-if="Object.keys(sel.by_point || {}).length" class="pg-sellers" style="margin-left: 0; margin-top: 6px">
-            <b>{{ L('Boarding at', 'Embarcan en') }}:</b> {{ Object.entries(sel.by_point).map(([k, v]) => `${k} ${v}`).join(' · ') }}
-          </div>
-          <div class="pg-sellers" style="margin-left: 0">{{ L('Source: Jelaf, Control de Embarque (one row per passenger).', 'Fuente: Jelaf, Control de Embarque (una fila por pasajero).') }}</div>
-        </div>
-        <div v-else class="pg-sellers" style="margin-left: 0">{{ L('Nothing sold yet in Jelaf.', 'Aún sin ventas en Jelaf.') }}</div>
+        <a-alert v-for="(a, i) in sel.alerts" :key="i" type="error" show-icon :message="a" style="margin-bottom: 8px; padding: 4px 10px" />
+
         <dl class="pg-dl">
           <dt>{{ L('Bus', 'Bus') }}</dt>
           <dd>{{ sel.bus || L('not assigned yet', 'aún sin asignar') }}<small v-if="sel.plate"> · {{ sel.plate }}</small>
             <small v-if="sel.bus_from === 'base'"> · {{ L('usual bus of the base timetable', 'bus habitual del horario base') }}</small>
             <small v-else-if="sel.bus_from === 'jelaf'"> · Jelaf</small></dd>
           <dt>{{ L('Service', 'Servicio') }}</dt><dd>{{ sel.tag || '—' }}</dd>
-          <dt>{{ L('Terminal', 'Terminal') }}</dt><dd>{{ sel.terminal || '—' }}<small v-if="sel.boardings?.length"> · {{ sel.boardings.map(b => `${b.terminal} ${ampm(b.time)}`).join(', ') }}</small></dd>
+          <dt>{{ L('Leaves from', 'Sale de') }}</dt><dd>{{ sel.terminal || '—' }}<small v-if="sel.boardings?.length"> · {{ sel.boardings.map(b => `${b.terminal} ${ampm(b.time)}`).join(', ') }}</small></dd>
           <dt>{{ L('Route', 'Ruta') }}</dt><dd>{{ sel.route || '—' }}</dd>
-          <dt>{{ L('Sold', 'Vendidos') }}</dt><dd><b>{{ sel.sold }}</b><template v-if="sel.seats"> / {{ sel.seats }} {{ L('seats', 'asientos') }}</template><template v-if="selDay.past"> · {{ sel.boarded }} {{ L('boarded', 'embarcaron') }}</template></dd>
+          <dt>{{ L('Sold', 'Vendidos') }}</dt><dd><b>{{ sel.sold }}</b><template v-if="sel.seats"> / {{ sel.seats }} {{ L('seats', 'asientos') }} ({{ pct(sel.sold, sel.seats) }})</template><template v-if="selDay.past"> · {{ sel.boarded }} {{ L('boarded', 'embarcaron') }}</template></dd>
           <template v-if="!selDay.past"><dt>{{ L('Forecast', 'Pronóstico') }}</dt><dd><b>{{ sel.forecast }}</b> ({{ pct(sel.forecast, sel.seats) }})
             <a-tooltip :title="L('Sold so far + what usually comes in the days left (the 2026 sales curve, same side, weekday and hour)', 'Lo vendido + lo que suele venderse en los días que faltan (curva de ventas de 2026, mismo lado, día y hora)')"><InfoCircleOutlined /></a-tooltip></dd></template>
-          <dt>{{ L('Amount', 'Monto') }}</dt><dd>S/ {{ money(sel.amount) }}</dd>
-          <dt>{{ L('Boarding points', 'Embarques') }}</dt><dd>{{ sel.points || '—' }}</dd>
-          <dt>{{ L('Source', 'Origen') }}</dt>
-          <dd>{{ sel.source === 'both' ? L('Plan + Jelaf', 'Plan + Jelaf') : sel.source === 'plan' ? L('Plan only (not open in Jelaf / nothing sold)', 'Solo plan (sin abrir en Jelaf / sin ventas)') : L('Jelaf only (not in the plan)', 'Solo Jelaf (no está en el plan)') }}
-            <small v-if="sel.programacion"> · {{ L('programming', 'programación') }} {{ sel.programacion }}</small></dd>
-          <template v-if="sel.note"><dt>{{ L('Note', 'Nota') }}</dt><dd>{{ sel.note }}</dd></template>
         </dl>
 
-        <template v-if="data.can_edit && !selDay.past">
-          <a-divider style="margin: 12px 0 8px">{{ L('Program this date', 'Programar esta fecha') }}</a-divider>
-          <a-form layout="vertical" size="small">
+        <!-- Programming this date: its own bordered box. -->
+        <div v-if="data.can_edit && !selDay.past" class="pg-box">
+          <div class="pg-box-t">{{ L('Program this date', 'Programar esta fecha') }}</div>
+          <a-form layout="vertical">
             <div class="pg-row">
               <a-form-item :label="L('Bus', 'Bus')" style="flex: 1"><a-select v-model:value="edit.vehicle_id" :options="busOptions" allow-clear show-search option-filter-prop="label" /></a-form-item>
-              <a-form-item :label="L('Time', 'Hora')" style="width: 90px"><a-input v-model:value="edit.time" placeholder="18:30" /></a-form-item>
+              <a-form-item :label="L('Time', 'Hora')" style="width: 100px"><a-input v-model:value="edit.time" placeholder="18:30" /></a-form-item>
             </div>
             <div class="pg-row">
               <a-form-item :label="L('Leaves from', 'Sale de')" style="flex: 1"><a-select v-model:value="edit.terminal" :options="terminalOptions(sel.side)" /></a-form-item>
-              <a-form-item :label="L('Service', 'Servicio')" style="width: 130px"><a-select v-model:value="edit.tag" :options="tagOptions" allow-clear /></a-form-item>
+              <a-form-item :label="L('Service', 'Servicio')" style="width: 150px"><a-select v-model:value="edit.tag" :options="tagOptions" allow-clear /></a-form-item>
             </div>
             <a-form-item :label="L('Note (why)', 'Nota (por qué)')"><a-input v-model:value="edit.note" :maxlength="250" /></a-form-item>
             <div class="pg-actions">
@@ -187,7 +166,42 @@
             </div>
             <div v-if="!sel.slot_id && !sel.added" class="pg-hint">{{ L('Not in the plan: add it to the plan in Programación de buses to change it.', 'No está en el plan: agréguela en Programación de buses para cambiarla.') }}</div>
           </a-form>
-        </template>
+        </div>
+
+        <!-- The bar explained: the tickets sold by channel, as a table. -->
+        <div class="pg-h">{{ L('Tickets sold by channel', 'Pasajes vendidos por canal') }}</div>
+        <table v-if="channelRows.length" class="pg-stable">
+          <thead><tr><th>{{ L('Channel', 'Canal') }}</th><th class="r">{{ L('Tickets', 'Pasajes') }}</th><th class="r">%</th><th class="r">{{ L('Amount', 'Monto') }}</th></tr></thead>
+          <tbody>
+            <tr v-for="c in channelRows" :key="c.key">
+              <td><span class="dot" :style="{ background: c.color }" />{{ c.label }}
+                <a-tooltip v-if="c.key === 'Agencia' && Object.keys(sel.sellers || {}).length" :title="Object.entries(sel.sellers).map(([k, v]) => `${k}: ${v}`).join(' · ')">
+                  <InfoCircleOutlined class="pg-i" />
+                </a-tooltip>
+              </td>
+              <td class="r">{{ c.n }}</td><td class="r">{{ pct(c.n, sel.sold) }}</td><td class="r">S/ {{ money(c.amount) }}</td>
+            </tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="r">{{ sel.sold }}</td><td class="r">100 %</td><td class="r">S/ {{ money(sel.amount) }}</td></tr></tfoot>
+        </table>
+        <div v-else class="pg-muted">{{ L('Nothing sold yet in Jelaf.', 'Aún sin ventas en Jelaf.') }}</div>
+        <div v-if="Object.keys(sel.by_point || {}).length" class="pg-muted"><b>{{ L('Boarding at', 'Embarcan en') }}:</b> {{ Object.entries(sel.by_point).map(([k, v]) => `${k} ${v}`).join(' · ') }}</div>
+
+        <!-- The bus (the one being picked in the box, else the departure's), for a visual hint. -->
+        <div class="pg-h">{{ L('The bus', 'El bus') }}</div>
+        <div class="pg-photo">
+          <img v-if="photoBus?.image" :src="photoBus.image" :alt="photoBus.name" />
+          <div v-else class="pg-nophoto"><CarOutlined /><span>{{ photoBus ? L('No photo of this bus', 'Sin foto de este bus') : L('No bus assigned', 'Sin bus asignado') }}</span></div>
+          <div v-if="photoBus" class="pg-photo-cap"><b>{{ photoBus.name }}</b> · {{ photoBus.plate }}<template v-if="photoBus.seats"> · {{ photoBus.seats }} {{ L('seats', 'asientos') }}</template><template v-if="photoBus.model"> · {{ photoBus.model }}</template></div>
+        </div>
+
+        <dl class="pg-dl pg-end">
+          <dt>{{ L('Source', 'Origen') }}</dt>
+          <dd>{{ sel.source === 'both' ? L('Plan + Jelaf', 'Plan + Jelaf') : sel.source === 'plan' ? L('Plan only (not open in Jelaf / nothing sold)', 'Solo plan (sin abrir en Jelaf / sin ventas)') : L('Jelaf only (not in the plan)', 'Solo Jelaf (no está en el plan)') }}
+            <small v-if="sel.programacion"> · {{ L('programming', 'programación') }} {{ sel.programacion }}</small>
+            <small> · {{ L('sales: Jelaf, Control de Embarque', 'ventas: Jelaf, Control de Embarque') }}</small></dd>
+          <template v-if="sel.note"><dt>{{ L('Note', 'Nota') }}</dt><dd>{{ sel.note }}</dd></template>
+        </dl>
       </template>
     </a-drawer>
 
@@ -211,7 +225,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import dayjs from 'dayjs';
 import { message } from 'ant-design-vue';
-import { LeftOutlined, RightOutlined, FileExcelOutlined, PlusOutlined, WarningFilled, InfoCircleOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, RightOutlined, FileExcelOutlined, PlusOutlined, WarningFilled, InfoCircleOutlined, CarOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { getActingCompanyId } from '../lib/actingCompany';
 import { useFormat } from '../composables/useFormat';
@@ -285,6 +299,9 @@ const CHANNELS = { Agencia: ['Agency', 'Agencia', '#152d4a'], Web: ['Web', 'Web'
 const channelRows = computed(() => Object.entries(sel.value?.channels || {})
   .map(([key, v]) => ({ key, n: v.n, amount: v.amount, label: L((CHANNELS[key] || [key, key])[0], (CHANNELS[key] || [key, key])[1]), color: (CHANNELS[key] || [0, 0, '#98a2b3'])[2] }))
   .sort((a, b) => (a.key === 'Agencia' ? -1 : b.key === 'Agencia' ? 1 : b.n - a.n)));
+
+// The bus shown in the panel: the one being picked, else the departure's.
+const photoBus = computed(() => (data.value.vehicles || []).find(v => v.id === (edit.vehicle_id || sel.value?.vehicle_id)) || null);
 
 // ---- one departure
 const sel = ref(null);
@@ -454,6 +471,25 @@ async function exportWeek() {
 .pg-chrow .r { text-align: right; font-variant-numeric: tabular-nums; }
 .pg-sellers { font-size: 11.5px; color: #667085; margin: 2px 0 0 18px; }
 .pg-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #98a2b3; margin: 10px 0 4px; }
+/* The departure panel (2026-11-26): roomier, programming in a bordered box, sales as a table, the bus's photo. */
+.pg-dl { grid-template-columns: 120px 1fr !important; gap: 6px 12px !important; font-size: 13.5px !important; margin-bottom: 14px !important; }
+.pg-box { border: 1px solid #d0d9e6; border-radius: 10px; padding: 12px 14px 10px; margin: 4px 0 16px; background: #fbfcfe; }
+.pg-box-t { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); margin-bottom: 8px; }
+.pg-box :deep(.ant-form-item) { margin-bottom: 10px; }
+.pg-stable { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 6px; }
+.pg-stable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #98a2b3; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.pg-stable td { padding: 6px 8px; border-bottom: 1px solid #f2f4f7; }
+.pg-stable .r { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-stable tfoot td { font-weight: 700; border-bottom: none; border-top: 1px solid var(--line); }
+.pg-stable .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 7px; }
+.pg-i { color: #98a2b3; margin-left: 5px; cursor: help; }
+.pg-muted { font-size: 12px; color: #667085; margin-bottom: 6px; }
+.pg-photo { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+.pg-photo img { display: block; width: 100%; max-height: 240px; object-fit: cover; background: #f2f5f9; }
+.pg-nophoto { height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #b0b8c4; background: #f6f8fb; font-size: 12px; }
+.pg-nophoto :deep(.anticon) { font-size: 32px; }
+.pg-photo-cap { padding: 6px 10px; font-size: 12.5px; color: #475467; border-top: 1px solid var(--line); }
+.pg-end { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px !important; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
