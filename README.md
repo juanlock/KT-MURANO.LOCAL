@@ -217,6 +217,16 @@ The last 5 sessions. The full history is in `kt_logs` (older daily reports in
   in the store last entered.
 - **Security:** a store page whose company is unknown, the install's own (999) or one with the Store module off answers
   404 (before, `/online_store` from a new PC showed the install's store, and stores with the module off were public).
+- **Turismo boards say where their figures come from:** every dashboard tab has a line with its name, its source
+  (which AuraSoft file, Murano...) and the filter it follows; the (i) lists AuraSoft's files with their dates. In
+  Producción por bus each departure is tagged AS (AuraSoft), RD (daily report, no parcels / excess) or M (Murano); the
+  PDF and Excel downloads carry the same source and filter.
+- **A company's IT Admin is that company's SuperAdmin:** every dashboard tab and every permission any other role of
+  the company has, kept up to date after each update.
+- **Date filter "Día":** the calendar now changes month and year.
+- **AuraSoft:** a departure of the client's daily report recorded with another bus (same route, time and passengers) is
+  recognised as the same departure. November's production per bus (01-25) imported for Turismo: parcels and excess
+  complete.
 - Setup: `php artisan migrate` and `npm run build`.
 
 ### 2026-11-24 (Thundera)
