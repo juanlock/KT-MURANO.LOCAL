@@ -55,6 +55,19 @@ class AuraSoftTrips
                 $tripId = DB::table('transport_trips')->where('company_id', $companyId)->whereNull('deleted_at')->where('vehicle_id', $r->vehicle_id)
                     ->where('route_id', $route->id)->whereBetween('departure_at', [$dep->copy()->subMinutes(90), $dep->copy()->addMinutes(90)])->value('id');
             }
+            // The client's daily report sometimes names another bus (2026-11-25: 05-11 20:30 "Bus 220" = AuraSoft's Bus 200,
+            // same 27 passengers): a report departure on the same route and time with the same passengers is that departure,
+            // and AuraSoft's bus wins. Never takes a departure another AuraSoft row already holds.
+            if (! $tripId) {
+                $tripId = DB::table('transport_trips as t')->where('t.company_id', $companyId)->whereNull('t.deleted_at')->where('t.source', 'report')
+                    ->where('t.route_id', $route->id)->where('t.reported_passengers', (int) $r->seats)
+                    ->whereBetween('t.departure_at', [$dep->copy()->subMinutes(90), $dep->copy()->addMinutes(90)])
+                    ->whereNotExists(fn ($q) => $q->from('transport_aurasoft_rows as x')->whereColumn('x.trip_id', 't.id')->where('x.is_current', 1))
+                    ->orderByRaw('ABS(TIMESTAMPDIFF(MINUTE, t.departure_at, ?))', [$dep->toDateTimeString()])->value('t.id');
+                if ($tripId && $r->vehicle_id) {
+                    DB::table('transport_trips')->where('id', $tripId)->update(['vehicle_id' => $r->vehicle_id]);
+                }
+            }
             $set = [
                 'reported_passengers' => (int) $r->seats, 'reported_income' => round((float) $r->ticket_income, 2),
                 'reported_parcels' => (int) $r->parcels, 'reported_parcel_income' => round((float) $r->parcel_income, 2),
