@@ -13,13 +13,13 @@
       <!-- One height for every control, groups apart, "Todos" first on its own, a Reset at the end and the bar centred when
            nothing else shares the row (user's rules, 2026-11-26). -->
       <div class="dash-filters">
-        <div class="df-all" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset('all')">
+        <div v-if="!dayOnly" class="df-all" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset('all')">
           <a-button :type="period === 'all' ? 'primary' : 'default'" :disabled="loading" @click="period = 'all'; load()">
             {{ $t(ALL_PRESET.labelKey) }}<StarFilled v-if="savedDatePreset === 'all'" class="def-star" />
           </a-button>
         </div>
         <!-- Same date presets + editable Start date / to as Sales -> List Sales. -->
-        <DateRangeFields :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
+        <DateRangeFields v-if="!dayOnly" :value="rangeFields" :disabled="loading" @change="onRangeEdit" />
         <!-- Double-click any filter choice = your default when the Dashboard
              opens (★ marks it; double-click it again to clear). Saved on the
              user's account, so it follows them to every PC. -->
@@ -29,9 +29,9 @@
           <!-- The date default is the user's ONE default for every page with
                these buttons (lib/datePresetDefault.js). -->
           <!-- "Día" (2026-11-24): a calendar day, ‹ › to move it; between the dates and "All". -->
-          <DayPresetControl :active="period === 'day'" :single="period === 'today'" :disabled="loading"
+          <DayPresetControl :active="period === 'day' || (dayOnly && period === 'today')" :single="period === 'today' && !dayOnly" :disabled="loading"
             @pick="period = 'day'; load()" />
-          <div class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
+          <div v-if="!dayOnly" class="preset-buttons" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-radio-group v-model:value="period" button-style="solid" :disabled="loading" @change="load()">
               <a-radio-button v-for="p in PERIOD_PRESETS" :key="p.value" :value="p.value">
                 {{ $t(p.labelKey) }}<StarFilled v-if="savedDatePreset === p.value" class="def-star" />
@@ -41,7 +41,7 @@
           <!-- Phones: the 8 preset buttons don't fit in a row (they overlapped
                the other filters), so the same choice is a dropdown. Kept in
                the presets' own order (All -> Last Year), not alphabetical. -->
-          <div class="preset-select" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
+          <div v-if="!dayOnly" class="preset-select" :title="$t('tx_Double_click_a_date_button_to_make_it_your_default_on_every__9834a')" @dblclick="toggleDatePreset(period)">
             <a-select
               :value="period ?? undefined" style="width: 100%" :disabled="loading" :placeholder="$t('CustomRange')"
               @update:value="v => (period = v)"
@@ -50,7 +50,7 @@
             />
           </div>
         </div>
-        <div :title="DEFAULT_HINT" @dblclick="toggleDefault('warehouse_id', warehouseId, warehouseLabel(warehouseId))">
+        <div v-if="!dayOnly" :title="DEFAULT_HINT" @dblclick="toggleDefault('warehouse_id', warehouseId, warehouseLabel(warehouseId))">
           <a-select
             v-model:value="warehouseId"
             class="wh-select"
@@ -59,7 +59,7 @@
           />
         </div>
         <!-- Multi-Currency: view the base-currency figures converted -->
-        <div v-if="currencyVisible" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
+        <div v-if="currencyVisible && !dayOnly" :title="DEFAULT_HINT" @dblclick="toggleDefault('currency_id', currentCurrencyId, currencyLabel(currentCurrencyId))">
           <ViewCurrencySelect class="wh-select" />
         </div>
         <div class="df-actions">
@@ -141,6 +141,10 @@
             <a-tab-pane v-if="transportTabs.includes('transport_programming')" key="transport_programming" :tab="tabLabel('transport_programming')">
               <TransportProgrammingPanel />
               <ReportSourceBar board="transport_programming" :range="rangeFields" class="bt-source" />
+            </a-tab-pane>
+            <a-tab-pane v-if="transportTabs.includes('transport_fleet')" key="transport_fleet" :tab="tabLabel('transport_fleet')">
+              <TransportFleetPanel />
+              <ReportSourceBar board="transport_fleet" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_departures')" key="transport_departures" :tab="tabLabel('transport_departures')">
               <TransportDeparturesPanel :range="rangeFields" />
@@ -439,7 +443,7 @@ import { t as tEs } from '../i18n/index.js';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import TransportOutlookPanel from '../components/TransportOutlookPanel.vue';
-import { DATE_PRESETS, presetDates, presetOf } from '../lib/datePresets';
+import { DATE_PRESETS, presetDates, presetOf, pickedDay } from '../lib/datePresets';
 import DayPresetControl from '../components/DayPresetControl.vue';
 // "Día" has its own control (DayPresetControl); the buttons are the ranges.
 const RANGE_PRESETS = DATE_PRESETS.filter(p => p.value !== 'day');
@@ -479,6 +483,7 @@ import TransportAuraParcelsPanel from '../components/TransportAuraParcelsPanel.v
 import TransportCustomersPanel from '../components/TransportCustomersPanel.vue';
 import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
 import TransportProgrammingPanel from '../components/TransportProgrammingPanel.vue';
+import TransportFleetPanel from '../components/TransportFleetPanel.vue';
 import TransportMandoPanel from '../components/TransportMandoPanel.vue';
 import ReportSourceBar from '../components/ReportSourceBar.vue';
 import { useUiStore } from '../stores/ui';
@@ -526,14 +531,14 @@ const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && aut
 const TAB_GROUPS = [
   { key: 'mgmt', en: 'Management', es: 'Gerencia', tabs: ['transport_owner', 'transport_profit', 'transport_indicators', 'transport_risks', 'transport_outlook'] },
   { key: 'admin', en: 'Administration', es: 'Administración', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers', 'transport_expenses'] },
-  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_programming', 'transport_departures', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims', 'transport_monitor'] },
+  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_programming', 'transport_fleet', 'transport_departures', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims', 'transport_monitor'] },
 ];
 const TAB_LABELS = {
   transport_owner: ['Summary', 'Resumen'], transport_profit: ['Profit', 'Rentabilidad'], transport_indicators: ['Indicators', 'Indicadores'],
   transport_risks: ['Risks', 'Riesgos'], transport_outlook: ['Outlook', 'Mando'],
   transport_daysales: ['Sales', 'Ventas'], transport_pointsales: ['Points of sale', 'Pto. venta'], transport_cashbook: ['Cash', 'Caja'],
   transport_customers: ['Customers', 'Clientes'], transport_expenses: ['Expenses', 'Gastos'],
-  transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['BusTrack', 'BusTrack'],
+  transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_fleet: ['Fleet', 'Flota'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['BusTrack', 'BusTrack'],
   transport: ['Agencies', 'Agencias'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
   transport_claims: ['Complaints', 'Reclamos'],
 };
@@ -541,18 +546,18 @@ const TAB_LABELS = {
 const TAB_TITLES = {
   transport_owner: 'Resumen del negocio', transport_profit: 'Rentabilidad por ruta', transport_outlook: 'Mando operativo',
   transport_daysales: 'Ventas del día', transport_pointsales: 'Ventas por punto de venta', transport_cashbook: 'Caja y clientes',
-  transport_production: 'Producción por bus', transport_departures: 'Reporte de salidas', transport_monitor: 'BusTrack: los buses en ruta en vivo',
+  transport_production: 'Producción por bus', transport_fleet: 'Flota: uso, ubicación y estado de cada bus', transport_departures: 'Reporte de salidas', transport_monitor: 'BusTrack: los buses en ruta en vivo',
   transport: 'Agencias: terminales, buses, tripulación y salidas de cada agencia', transport_aura_parcels: 'Encomiendas AuraSoft',
 };
 // The board tabs' look: navy bar, orange open tab (the user's pick, 2026-11-26).
 const tabStyle = 'bt-style-d';
 const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
 // Boards with their own period or none (Mando: next 21 days; Programación: its week; BusTrack: live; AuraSoft: latest kardex).
-const NO_DATE_TABS = ['transport_outlook', 'transport_programming', 'transport_monitor', 'transport_aura_parcels'];
+const NO_DATE_TABS = ['transport_outlook', 'transport_programming', 'transport_fleet', 'transport_monitor', 'transport_aura_parcels'];
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
-  transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_programming: () => programmingPanel.value, transport_departures: () => departuresPanel.value,
+  transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_programming: () => programmingPanel.value, transport_fleet: () => programmingPanel.value, transport_departures: () => departuresPanel.value,
   transport_outlook: () => outlookPanel.value, transport_monitor: () => monitorPanel.value, transport: () => transportBoard.value,
   transport_owner: () => ownerPanel.value, transport_profit: () => profitPanel.value, transport_expenses: () => profitPanel.value,
   transport_indicators: () => profitPanel.value, transport_risks: () => profitPanel.value, transport_aura_parcels: () => profitPanel.value,
@@ -576,6 +581,21 @@ const transportTab = computed({
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.
 watch(transportTab, () => nextTick(() => window.dispatchEvent(new Event('resize'))));
+// Boards of ONE day (user, 2026-11-27, Ventas): the other date filters and the location change nothing there, so only the
+// "Día" control shows, with the day and its ‹ › arrows. Entering one moves the filter to a single day: the end of the range
+// that was on (today at most).
+const DAY_TABS = ['transport_daysales'];
+const dayOnly = computed(() => boardMode.value && DAY_TABS.includes(transportTab.value));
+function toOneDay() {
+  const today = dayjs().format('YYYY-MM-DD');
+  if (dayOnly.value && period.value === 'today') pickedDay.value = today;
+  if (!dayOnly.value || period.value === 'day' || period.value === 'today') return;
+  const end = rangeFields.value?.[1] && rangeFields.value[1] < today ? rangeFields.value[1] : today;
+  pickedDay.value = end;
+  period.value = end === today ? 'today' : 'day';
+  load();
+}
+watch(dayOnly, on => { if (on) toOneDay(); });
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
@@ -614,6 +634,7 @@ const warehouseId = ref(defaults.value.warehouse_id ?? '');
 /** Reset (2026-11-26): the user's defaults (★), else today and every location. */
 function resetFilters() {
   period.value = startPreset('today');
+  if (dayOnly.value && period.value !== 'today') { pickedDay.value = dayjs().format('YYYY-MM-DD'); period.value = 'today'; }
   warehouseId.value = defaults.value.warehouse_id ?? '';
   load();
 }
@@ -1015,7 +1036,8 @@ async function load() {
   }
 }
 
-onMounted(load);
+// A one-day board opening first (Ventas) starts on one day.
+onMounted(() => { if (dayOnly.value && period.value !== 'day' && period.value !== 'today') toOneDay(); else { toOneDay(); load(); } });
 </script>
 
 <style scoped>

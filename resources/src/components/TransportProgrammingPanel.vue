@@ -127,35 +127,7 @@
         </div>
       </div>
 
-      <!-- The buses, to help pick one (user, 2026-11-26): use, where each one is, what keeps it off the road. -->
-      <div class="pg-buses">
-        <div class="pg-band pg-band-b"><span>{{ L('BUSES', 'BUSES') }}</span>
-          <a-segmented v-model:value="busSort" size="small" :options="busSortOptions" class="pg-bsort" />
-        </div>
-        <table class="pg-btable">
-          <thead>
-            <tr>
-              <th>Bus</th><th class="r">{{ L('Seats', 'Asientos') }}</th><th>{{ L('Where it is', 'Dónde está') }}</th><th>{{ L('Last trip', 'Último viaje') }}</th>
-              <th class="r">{{ L('Trips 30 d', 'Viajes 30 d') }}</th><th>{{ L('Occupancy 30 d', 'Ocupación 30 d') }}</th><th class="r">{{ L('This week', 'Esta semana') }}</th><th>{{ L('Status', 'Estado') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="b in buses" :key="b.id" :class="{ bad: !b.ok }">
-              <td><b>{{ b.name }}</b> <small>{{ b.plate }}</small></td>
-              <td class="r">{{ b.seats || '—' }}</td>
-              <td>{{ b.where ? (b.where === 'LIMA' ? 'Lima' : b.where.charAt(0) + b.where.slice(1).toLowerCase()) : '—' }}<small v-if="b.idle_days !== null"> · {{ b.idle_days === 0 ? L('today', 'hoy') : L(`${b.idle_days} d ago`, `hace ${b.idle_days} d`) }}</small></td>
-              <td><small>{{ b.last ? fmt.dateTime(b.last) : '—' }} {{ b.last_route || '' }}</small></td>
-              <td class="r">{{ b.trips }}</td>
-              <td><div class="pg-occ"><div class="pg-bar"><i class="sd" :style="{ width: b.occupancy !== null ? Math.min(100, Math.round(b.occupancy * 100)) + '%' : '0%' }" /></div><span>{{ b.occupancy !== null ? Math.round(b.occupancy * 100) + ' %' : '—' }}</span></div></td>
-              <td class="r">{{ b.week_sure }}<small v-if="b.week_usual" :title="L('in the base timetable', 'en el horario base')"> +{{ b.week_usual }}</small></td>
-              <td>
-                <span v-if="!b.alerts.length" class="pg-ok">{{ L('Available', 'Disponible') }}</span>
-                <span v-for="(a, i) in b.alerts" :key="i" class="pg-al" :class="a[0]">{{ a[1] }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- The buses table moved to its own tab, Operaciones -> Flota (user, 2026-11-27). -->
     </a-spin>
 
     <!-- One departure (2026-11-26, the user's order): what to do, the data, programming in its own bordered box, the sales

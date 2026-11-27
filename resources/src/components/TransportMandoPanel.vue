@@ -19,44 +19,51 @@
           <div v-if="w.days_loaded < 7" class="md-week-n">{{ L(`${w.days_loaded} of 7 days with sales loaded`, `${w.days_loaded} de 7 días con ventas cargadas`) }}</div>
         </div>
       </div>
+      <!-- The table (the user, 2026-11-27): soft Power BI colours (navy / orange only on the tabs), seats centred, "Pasajes
+           vendidos por medio" and "Egresos" as groups with their columns, the estimated profit / loss last, a loss row on 10 % red. -->
       <div class="md-wrap">
         <table class="md-t">
           <thead>
             <tr>
-              <th rowspan="2">{{ L('Departure', 'Salida') }}</th>
+              <th rowspan="2">{{ L('Time', 'Hora') }}</th>
               <th rowspan="2">{{ L('Route', 'Ruta') }}</th>
               <th rowspan="2">Bus</th>
-              <th rowspan="2" class="r">{{ L('Seats', 'Asientos') }}</th>
-              <th :colspan="channelKeys.length + 1" class="c md-grp">{{ L('Sold', 'Vendidos') }}</th>
-              <th rowspan="2" class="r" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ L('Expected', 'Esperados') }}</th>
-              <th rowspan="2" class="r" :title="L('Tickets still to sell to cover its expenses', 'Pasajes que faltan vender para cubrir sus egresos')">{{ L('To cover', 'Faltan') }}</th>
+              <th rowspan="2" class="c">{{ L('Seats', 'Asient.') }}</th>
+              <th :colspan="channelKeys.length + 1" class="c md-g-sold">{{ L('Tickets sold by channel', 'Pasajes vendidos por medio') }}</th>
+              <th rowspan="2" class="c" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ L('Expected', 'Esperados') }}</th>
+              <th rowspan="2" class="c" :title="L('Tickets still to sell to cover its expenses', 'Pasajes que faltan vender para cubrir sus egresos')">{{ L('To cover', 'Faltan') }}</th>
               <template v-if="data.money">
                 <th rowspan="2" class="r" :title="L('Expected passengers × its ticket price', 'Esperados × el precio de su pasaje')">{{ L('Income', 'Ingresos') }}</th>
-                <th rowspan="2" class="r" :title="L('The average expenses of its route over the last 30 days', 'Los egresos promedio de su ruta en los últimos 30 días')">{{ L('Expenses', 'Egresos') }}</th>
-                <th rowspan="2" class="r">{{ L('Possible profit / loss', 'Posible ganancia / pérdida') }}</th>
+                <th :colspan="costCols.length + 1" class="c md-g-cost" :title="L('What this trip will spend: the average of its route over the last 30 days', 'Lo que gastará este viaje: el promedio de su ruta en los últimos 30 días')">{{ L('Expenses', 'Egresos') }}</th>
+                <th rowspan="2" class="r md-res" :title="L('Estimated: income − expenses', 'Estimada: ingresos − egresos')">{{ L('Profit /', 'Ganancia /') }}<br>{{ L('Loss', 'Pérdida') }}</th>
               </template>
             </tr>
             <tr>
-              <th v-for="k in channelKeys" :key="k" class="r md-sub">{{ chName(k) }}</th>
-              <th class="r md-sub">Total</th>
+              <th v-for="k in channelKeys" :key="k" class="c md-sub md-g-sold">{{ chName(k) }}</th>
+              <th class="c md-sub md-g-sold">Total</th>
+              <template v-if="data.money">
+                <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost">{{ L(k.en, k.es) }}</th>
+                <th class="r md-sub md-g-cost">Total</th>
+              </template>
             </tr>
           </thead>
           <tbody>
             <template v-for="g in groups" :key="g.date">
               <tr class="md-day"><td :colspan="colCount">{{ g.label }} <small>· {{ g.rows.length }} {{ L('departures', 'salidas') }}</small></td></tr>
-              <tr v-for="r in g.rows" :key="g.date + r.time + r.side + r.route">
+              <tr v-for="r in g.rows" :key="g.date + r.time + r.side + r.route" :class="{ 'md-loss': r.result != null && r.result < 0 }">
                 <td class="md-time">{{ ampm(r.time) }}</td>
-                <td class="md-route">{{ r.route }}</td>
+                <td class="md-route" :title="r.route">{{ shortRoute(r.route) }}</td>
                 <td><span :class="{ 'md-tent': r.bus_from === 'base' }">{{ r.bus || '—' }}</span> <small v-if="r.tag" class="md-tag">{{ r.tag }}</small></td>
-                <td class="r">{{ r.seats || '—' }}</td>
-                <td v-for="k in channelKeys" :key="k" class="r md-ch">{{ r.channels?.[k]?.n || '' }}</td>
-                <td class="r"><b>{{ r.sold }}</b></td>
-                <td class="r">{{ r.forecast }}<small v-if="r.seats" class="md-pct">{{ pct(r.forecast, r.seats) }}</small><span v-if="r.over" class="md-over" :title="L(`About ${r.over} more passengers than seats: reinforce`, `Unos ${r.over} pasajeros más que asientos: reforzar`)">↑{{ r.over }}</span></td>
-                <td class="r" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
+                <td class="c">{{ r.seats || '—' }}</td>
+                <td v-for="k in channelKeys" :key="k" class="c md-ch">{{ r.channels?.[k]?.n || '' }}</td>
+                <td class="c"><b>{{ r.sold }}</b></td>
+                <td class="c">{{ r.forecast }}<small v-if="r.seats" class="md-pct">{{ pct(r.forecast, r.seats) }}</small><span v-if="r.over" class="md-over" :title="L(`About ${r.over} more passengers than seats: reinforce`, `Unos ${r.over} pasajeros más que asientos: reforzar`)">↑{{ r.over }}</span></td>
+                <td class="c" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
                 <template v-if="data.money">
-                  <td class="r">{{ r.income == null ? '—' : 'S/ ' + money0(r.income) }}</td>
-                  <td class="r">{{ r.cost == null ? '—' : 'S/ ' + money0(r.cost) }}</td>
-                  <td class="r"><span v-if="r.result != null" class="md-res" :class="r.result < 0 ? 'neg' : 'pos'">{{ r.result < 0 ? '−' : '+' }} S/ {{ money0(Math.abs(r.result)) }}</span><span v-else>—</span></td>
+                  <td class="r">{{ r.income == null ? '—' : money0(r.income) }}</td>
+                  <td v-for="k in costCols" :key="k.key" class="r md-cost">{{ costOf(r, k) }}</td>
+                  <td class="r md-cost-t">{{ r.cost == null ? '—' : money0(r.cost) }}</td>
+                  <td class="r"><b v-if="r.result != null" :class="r.result < 0 ? 'md-neg' : 'md-pos'">{{ r.result < 0 ? '−' : '+' }}{{ money0(Math.abs(r.result)) }}</b><span v-else>—</span></td>
                 </template>
               </tr>
             </template>
@@ -65,15 +72,16 @@
           <tfoot v-if="rows.length">
             <tr>
               <td colspan="3">Total</td>
-              <td class="r">{{ s.seats }}</td>
-              <td v-for="k in channelKeys" :key="k" class="r">{{ s.channels?.[k] || 0 }}</td>
-              <td class="r">{{ s.sold }}</td>
-              <td class="r">{{ s.forecast }}</td>
-              <td class="r">{{ s.missing }}</td>
+              <td class="c">{{ s.seats }}</td>
+              <td v-for="k in channelKeys" :key="k" class="c">{{ s.channels?.[k] || 0 }}</td>
+              <td class="c">{{ s.sold }}</td>
+              <td class="c">{{ s.forecast }}</td>
+              <td class="c">{{ s.missing }}</td>
               <template v-if="data.money">
-                <td class="r">S/ {{ money0(s.income) }}</td>
-                <td class="r">S/ {{ money0(s.cost) }}</td>
-                <td class="r"><span class="md-res" :class="s.result < 0 ? 'neg' : 'pos'">{{ s.result < 0 ? '−' : '+' }} S/ {{ money0(Math.abs(s.result)) }}</span></td>
+                <td class="r">{{ money0(s.income) }}</td>
+                <td v-for="k in costCols" :key="k.key" class="r">{{ money0(rows.reduce((n, r) => n + costRaw(r, k), 0)) }}</td>
+                <td class="r">{{ money0(s.cost) }}</td>
+                <td class="r"><b :class="s.result < 0 ? 'md-neg' : 'md-pos'">{{ s.result < 0 ? '−' : '+' }} S/ {{ money0(Math.abs(s.result)) }}</b></td>
               </template>
             </tr>
           </tfoot>
@@ -106,11 +114,24 @@ const s = computed(() => data.value.summary || {});
 // Agency first, then the online channels; PeruBus always shown (the user asked for it).
 const CH = { Agencia: ['Agency', 'Agencia'], Web: ['Web', 'Web'], RedBus: ['RedBus', 'RedBus'], Kupos: ['Kupos', 'Kupos'], PeruBus: ['PeruBus', 'PeruBus'], Kiosco: ['Kiosk', 'Kiosco'], Carritoc: ['Carritoc', 'Carritoc'] };
 const chName = k => L(...(CH[k] || [k, k]));
+// "CHICLAYO → LIMA" -> "CIX → LIM" so the table fits one screen (the full name on hover).
+const CODES = { LIMA: 'LIM', CHICLAYO: 'CIX', TRUJILLO: 'TRU', CHEPEN: 'CHE', 'CHEPÉN': 'CHE' };
+const shortRoute = r => String(r || '').split('→').map(x => CODES[x.trim()] || x.trim().slice(0, 3)).join(' → ');
 const channelKeys = computed(() => {
   const seen = new Set(Object.keys(s.value.channels || {}));
   return Object.keys(CH).filter(k => seen.has(k) || ['Agencia', 'Web', 'PeruBus'].includes(k));
 });
-const colCount = computed(() => 7 + channelKeys.value.length + (data.value.money ? 3 : 0));
+// The expenses of a departure by kind (TransportProfit's, averaged per route); the small ones together in "Otros".
+const costCols = [
+  { key: 'fuel', en: 'Fuel', es: 'Comb.', keys: ['fuel'] },
+  { key: 'tolls', en: 'Tolls', es: 'Peajes', keys: ['tolls'] },
+  { key: 'payroll', en: 'Payroll', es: 'Planilla', keys: ['payroll', 'staff'] },
+  { key: 'depreciation', en: 'Deprec.', es: 'Deprec.', keys: ['depreciation'] },
+  { key: 'other', en: 'Other', es: 'Otros', keys: ['maintenance', 'agency', 'meals'] },
+];
+const costRaw = (r, k) => k.keys.reduce((n, x) => n + Number(r.costs?.[x] || 0), 0);
+const costOf = (r, k) => (r.costs ? (costRaw(r, k) ? money0(costRaw(r, k)) : '—') : '—');
+const colCount = computed(() => 7 + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
 const groups = computed(() => {
   const out = [];
   for (const r of rows.value) {
@@ -142,37 +163,41 @@ const tiles = computed(() => {
 </script>
 
 <style scoped>
-.md-wrap { overflow: auto; max-height: calc(100vh - 400px); border: 1px solid #e3e8ef; border-radius: 10px; }
-.md-t { width: 100%; border-collapse: collapse; font-size: 12.5px; color: #344054; }
-.md-t thead th { position: sticky; top: 0; background: #152d4a; color: #fff; font-weight: 600; font-size: 11.5px; padding: 6px 8px; text-align: left; white-space: nowrap; z-index: 1; }
-.md-t thead tr:nth-child(2) th { top: 29px; background: #27507d; font-weight: 500; }
+/* Power BI-like soft colours (2026-11-27: navy and orange only on the tabs). */
+.md-wrap { overflow: auto; max-height: calc(100vh - 400px); border: 1px solid #e1e4e8; border-radius: 8px; }
+.md-t { width: 100%; border-collapse: collapse; font-size: 12px; color: #252423; }
+.md-t thead th { position: sticky; top: 0; background: #f3f4f6; color: #252423; font-weight: 600; font-size: 11px; padding: 5px 6px; text-align: left; white-space: nowrap; z-index: 1; border-bottom: 1px solid #e1e4e8; }
+.md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 11px; }
 .md-t th.r, .md-t td.r { text-align: right; }
-.md-t th.c { text-align: center; }
-.md-t th.md-grp { background: #f28c13; }
-.md-t td { padding: 4px 8px; border-bottom: 1px solid #f0f2f5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.md-t th.c, .md-t td.c { text-align: center; }
+.md-t th.md-g-sold { background: #e8f2fe; color: #0b5cad; }
+.md-t th.md-g-cost { background: #fdeee8; color: #a5401a; }
+.md-t td { padding: 3px 5px; border-bottom: 1px solid #f0f1f3; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .md-t tbody tr:hover td { background: #f5f8fc; }
-.md-day td { background: #fff6ea !important; color: #152d4a; font-weight: 700; padding: 6px 8px; border-top: 1px solid #f6d7ae; }
+.md-t tbody tr.md-loss td { background: rgba(214, 69, 80, 0.1); }
+.md-t tbody tr.md-loss:hover td { background: rgba(214, 69, 80, 0.16); }
+.md-day td { background: #f3f6fb !important; color: #12239e; font-weight: 700; padding: 6px 8px; }
 .md-day small { color: #8a94a6; font-weight: 500; }
-.md-time { font-weight: 700; color: #152d4a; }
+.md-time { font-weight: 700; color: #252423; }
 .md-route { font-size: 11.5px; }
 .md-tent { color: #8a94a6; font-style: italic; }
 .md-tag { color: #8a94a6; font-size: 10px; }
-.md-ch { color: #667085; }
+.md-ch { color: #605e5c; }
+.md-cost { color: #605e5c; }
+.md-cost-t { font-weight: 600; }
 .md-pct { color: #98a2b3; font-size: 10.5px; margin-left: 5px; }
-.md-over { margin-left: 5px; color: #c46a06; font-weight: 700; font-size: 11px; cursor: help; }
+.md-over { margin-left: 5px; color: #e66c37; font-weight: 700; font-size: 11px; cursor: help; }
+.md-miss { color: #d64550; font-weight: 700; }
+.md-neg { color: #d64550; }
+.md-pos { color: #1aab40; }
+.md-t tfoot td { position: sticky; bottom: 0; background: #eef1f5; font-weight: 700; padding: 6px 8px; border-top: 2px solid #d0d5dd; }
+.md-empty { text-align: center; color: #98a2b3; padding: 24px; }
 .md-weeks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
-.md-week { border: 1px solid #e3e8ef; border-radius: 8px; padding: 6px 10px; background: #fbfcfe; }
-.md-week-h { font-size: 12.5px; color: #152d4a; }
+.md-week { border: 1px solid #e1e4e8; border-radius: 8px; padding: 6px 10px; background: #fbfcfe; }
+.md-week-h { font-size: 12.5px; color: #12239e; }
 .md-week-h span { color: #8a94a6; margin-left: 4px; }
 .md-week-b { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: #475467; margin-top: 2px; }
 .md-week-n { font-size: 10.5px; color: #98a2b3; margin-top: 2px; }
-.md-bad { color: #b42318; }
-.md-good { color: #1f7a45; }
-@media (max-width: 900px) { .md-weeks { grid-template-columns: 1fr; } }
-.md-miss { color: #b42318; font-weight: 700; }
-.md-res { display: inline-block; min-width: 92px; padding: 1px 8px; border-radius: 5px; color: #fff; font-weight: 700; }
-.md-res.neg { background: #d92d20; }
-.md-res.pos { background: #2e9e5b; }
-.md-t tfoot td { position: sticky; bottom: 0; background: #eef2f7; font-weight: 700; padding: 6px 8px; border-top: 2px solid #c9d2de; }
-.md-empty { text-align: center; color: #98a2b3; padding: 24px; }
-</style>
+.md-bad { color: #d64550; }
+.md-good { color: #1aab40; }
+@media (max-width: 900px) { .md-weeks { grid-template-columns: 1fr; } }</style>

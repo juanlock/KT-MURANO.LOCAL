@@ -83,6 +83,8 @@ const BOARDS = {
   transport_customers: { t: ['Customers', 'Clientes'], s: () => `${AURA.detail()} (${L('DNI / RUC of each sale', 'DNI / RUC de cada venta')})`, files: ['detail'], date: 'range' },
   transport_aura_parcels: { t: ['AuraSoft parcels', 'Encomiendas AuraSoft'], s: () => AURA.parcels(), files: ['parcels'], date: 'none',
     n: () => L('It shows the latest kardex uploaded per branch; the date filter does not apply.', 'Muestra el último kardex subido de cada sucursal; el filtro de fechas no se aplica.') },
+  transport_fleet: { t: ['Fleet', 'Flota'], s: () => L('Jelaf\'s Control de Embarque of the last 30 days + the fleet\'s papers and workshop jobs', 'el Control de Embarque de Jelaf de los últimos 30 días + los papeles y trabajos de taller de la flota'), files: [], date: 'none',
+    n: () => L('Always the last 30 days; the date filter does not apply.', 'Siempre los últimos 30 días; el filtro de fechas no se aplica.') },
   transport_programming: { t: ['Programming', 'Programación'], s: () => L('the plan of Programación de buses + Jelaf\'s Control de Embarque (seats sold ahead, every night for the next 14 days)', 'el plan de Programación de buses + el Control de Embarque de Jelaf (pasajes vendidos por adelantado, cada noche para los próximos 14 días)'), files: [], date: 'none',
     n: () => L('Its own week picker is inside the board; the forecast uses the 2026 sales curve.', 'La semana se elige dentro del tablero; el pronóstico usa la curva de ventas de 2026.') },
   transport_departures: { t: ['Departures report', 'Reporte de salidas'], s: () => MURANO_TRIPS(), files: ['production'], date: 'day',
@@ -122,6 +124,7 @@ const GOALS = {
   transport_claims: ['shows how many complaints there are, why and at which agency, and whether the service gets better or worse (complaints per 1,000 passengers).', 'muestra cuántos reclamos hay, por qué y en qué agencia, y si el servicio mejora o empeora (reclamos por cada 1,000 pasajeros).'],
   transport_monitor: ['follows live the buses on the road (the pilot\'s phone GPS), their delay and their departure and arrival reports.', 'sigue en vivo los buses en ruta (GPS del celular del piloto), su atraso y sus reportes de salida y llegada.'],
   transport: ['shows each agency with its departures, terminals and incidents, the fleet right now and the routes with distance, time, tolls and fuel.', 'muestra cada agencia con sus salidas, terminales e incidencias, la flota de ahora y las rutas con su distancia, tiempo, peajes y combustible.'],
+  transport_fleet: ['is for knowing each bus: how much it is used, where it is, how full it travels and what keeps it off the road (workshop, papers due), to pick the right one when programming.', 'sirve para conocer cada bus: cuánto se usa, dónde está, qué tan lleno viaja y qué lo saca de la ruta (taller, papeles por vencer), para escoger el adecuado al programar.'],
   transport_programming: ['is for programming the buses: the week with what each departure sold and is expected to carry, whether it made or lost money, and changing bus, time or terminal per date.', 'sirve para programar los buses: muestra la semana con lo vendido y lo esperado de cada salida, si ganó o perdió dinero, y permite cambiar bus, hora o terminal por fecha.'],
 };
 const goal = computed(() => (GOALS[props.board] ? L(...GOALS[props.board]) : ''));
@@ -156,6 +159,6 @@ const filterText = computed(() => {
 .rsb-tip-body { font-size: 12px; line-height: 18px; }
 .rsb-file { margin-top: 2px; }
 .rsb-per { margin-top: 2px; opacity: 0.85; }
-.rsb-goal { margin: 10px 0 6px; padding: 8px 14px; border-radius: 8px; background: linear-gradient(100deg, rgba(21, 45, 74, 0.07), rgba(242, 140, 19, 0.08)); border-left: 4px solid #f28c13; font-size: 13px; color: #1f2a3c; line-height: 1.45; }
-.rsb-goal b { color: #152d4a; }
+.rsb-goal { margin: 10px 0 6px; padding: 8px 14px; border-radius: 8px; background: #eef5ff; border: 1px solid #d6e6fb; font-size: 13px; color: #1f2a3c; line-height: 1.45; }
+.rsb-goal b { color: #12239e; }
 </style>

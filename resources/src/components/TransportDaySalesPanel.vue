@@ -4,13 +4,8 @@
   <div>
     <a-card v-if="data.enabled" :bordered="false" :body-style="{ padding: '8px' }">
       <a-spin :spinning="loading">
+        <!-- The day is picked only in the filter above ("Día" with its ‹ ›; user, 2026-11-27: this second selector was too much). -->
         <div class="ds-day">
-          <a-button size="small" :disabled="!data.prev" @click="go(data.prev)"><LeftOutlined /></a-button>
-          <b>{{ data.date ? longDate(data.date) : '—' }}</b>
-          <a-button size="small" :disabled="!data.next" @click="go(data.next)"><RightOutlined /></a-button>
-          <a-tooltip :title="tr('The end date of the filter above (today at most); the arrows go to the day before / after with departures.', 'La fecha final del filtro de arriba (como máximo hoy); las flechas van al día anterior / siguiente con salidas.')">
-            <InfoCircleOutlined class="ds-i" />
-          </a-tooltip>
           <!-- Her "REPORTE DEL DIA VENTAS" (2026-11-24): Excel = one sheet per day of the filter's period; PDF = this day. -->
           <span class="ds-tools">
             <!-- Mayte's day in one place (2026-11-24): upload AuraSoft's report, then complete what it lacks, then her files. -->
@@ -283,7 +278,6 @@ async function exportFile(format) {
 }
 onMounted(load);
 watch(() => props.range?.[1], () => { day.value = null; load(); });
-
 const plain = v => money(Number(v || 0)).replace(/^[^\d-]+/, '');
 const busName = n => String(n).replace(/^Bus\s+/i, '');
 const hm = d => (d ? dayjs(d).format('hh:mm A') : '');

@@ -40,7 +40,8 @@ import { BLUE, GOOD, BAD } from '../lib/transportCharts';
 
 defineProps({ items: { type: Array, required: true }, asTable: Boolean, toggle: { type: Boolean, default: true }, colored: { type: Boolean, default: true } });
 // Coloured cards are the standard (the user, 2026-11-26): each card its own soft colour, the figures centred, no left line.
-const PALETTE = ['#152d4a', '#f28c13', '#0e9384', '#7a5af8', '#2e9e5b', '#2f6fd6', '#c11574'];
+// Power BI's default theme (2026-11-27: navy and orange only on the tabs).
+const PALETTE = ['#118DFF', '#12239E', '#E66C37', '#6B007B', '#E044A7', '#744EC2', '#1AAB40', '#D9B300'];
 const tint = n => { const c = PALETTE[n % PALETTE.length]; return { '--ts-c': c, background: c + '14', borderColor: c + '33' }; };
 defineEmits(['update:asTable']);
 
