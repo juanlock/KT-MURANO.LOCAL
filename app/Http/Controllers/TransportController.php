@@ -801,15 +801,48 @@ class TransportController extends Controller
                 ]];
         }
 
+        $incomeOut = ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)];
+        $ticketsOut = ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')];
+        $costsOut = ['fuel' => round($fuel, 2), 'maintenance' => round($maintenance, 2), 'total' => round($fuel + $maintenance, 2)];
+        $source = 'sales';
+        // A company that does not sell on Murano's POS (Turismo, 2026-11-27: Resumen showed S/ 0 -- it had no sales at all):
+        // income, tickets, agencies, routes and the fleet's costs come from its departures (AuraSoft / the client's reports,
+        // TransportProfit), the same figures as the other boards.
+        if ($incomeOut['month'] == 0.0 && $incomeOut['today'] == 0.0) {
+            $all = collect(\App\Services\TransportProfit::compute($cid, min($month, $today), max($periodEnd, $today), $scope)['routes'] ?? [])
+                ->flatMap(fn ($r) => $r['trips']);
+            $day = fn ($t) => substr((string) $t['departure_at'], 0, 10);
+            $inP = $all->filter(fn ($t) => $day($t) >= $month && $day($t) <= $periodEnd);
+            $inT = $all->filter(fn ($t) => $day($t) === $today);
+            if ($inP->isNotEmpty() || $inT->isNotEmpty()) {
+                $source = 'trips';
+                $inc = fn ($c) => round((float) $c->sum(fn ($t) => $t['income']['total'] ?? 0), 2);
+                $originOf = fn ($t) => mb_strtoupper(trim(explode('→', (string) $t['route'])[0]));
+                $rows = $agencies->map(function ($a) use ($inP, $inT, $originOf, $inc) {
+                    $mine = fn ($c) => $c->filter(fn ($t) => $originOf($t) === mb_strtoupper($a->name));
+                    $p = $mine($inP);
+                    $t = $mine($inT);
+
+                    return ['name' => $a->name, 'today' => $inc($t), 'month' => $inc($p), 'tickets_today' => (int) $t->sum('sold'), 'tickets_month' => (int) $p->sum('sold')];
+                })->values();
+                $routes = $inP->groupBy('route')->map(fn ($g, $name) => ['route' => $name, 'tickets' => (int) $g->sum('sold'), 'income' => $inc($g)])
+                    ->where('tickets', '>', 0)->sortByDesc('tickets')->values();
+                $incomeOut = ['today' => $inc($inT), 'month' => $inc($inP)];
+                $ticketsOut = ['today' => (int) $inT->sum('sold'), 'month' => (int) $inP->sum('sold')];
+                $kind = fn ($k) => round((float) $inP->sum(fn ($t) => $t['costs'][$k] ?? 0), 2);
+                $costsOut = ['fuel' => $kind('fuel'), 'maintenance' => $kind('maintenance'), 'total' => round((float) $inP->sum(fn ($t) => $t['costs']['total'] ?? 0), 2)];
+            }
+        }
+
         return response()->json([
             'months' => $months, 'granularity' => $daily ? 'day' : 'month',
             'period' => ['from' => $month, 'to' => $periodEnd, 'filtered' => $ranged],
-            'enabled' => true,
-            'income' => ['today' => round((float) $income->sum('today_total'), 2), 'month' => round((float) $income->sum('month_total'), 2)],
-            'tickets' => ['today' => (int) $lines->sum('qty_today'), 'month' => (int) $lines->sum('qty')],
+            'enabled' => true, 'source' => $source,
+            'income' => $incomeOut,
+            'tickets' => $ticketsOut,
             'trips' => ['total' => (int) $trips->sum(), 'scheduled' => (int) ($trips['scheduled'] ?? 0), 'in_progress' => (int) ($trips['in_progress'] ?? 0),
                 'completed' => (int) ($trips['completed'] ?? 0), 'cancelled' => (int) ($trips['cancelled'] ?? 0)],
-            'costs' => ['fuel' => round($fuel, 2), 'maintenance' => round($maintenance, 2), 'total' => round($fuel + $maintenance, 2)],
+            'costs' => $costsOut,
             'agencies' => $rows, 'routes' => $routes->take(5)->values(), 'alerts' => array_slice($alerts, 0, 6), 'alerts_total' => count($alerts),
             // Whether the buses have any papers' date or maintenance plan at all (2026-11-27: without them "0" means "no data").
             'fleet_data' => $buses && (DB::table('vehicles')->whereIn('id', $buses)->where(fn ($q) => $q->whereNotNull('insurance_expiry')->orWhereNotNull('inspection_expiry')->orWhereNotNull('registration_expiry'))->exists()
