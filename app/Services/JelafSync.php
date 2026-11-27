@@ -43,6 +43,32 @@ class JelafSync
     /** Run one report for a date range; returns the run row. Never throws: a failure is recorded on the run. */
     public static function run(int $cid, string $report, string $from, string $to, string $trigger = 'night', ?int $userId = null, ?callable $say = null): object
     {
+        // One Jelaf import at a time (2026-11-27, "Actualizar todo"): two runs with the same Jelaf user get each other's file.
+        // The night waits for a manual run to end; a manual run while another is going is refused (the caller says so).
+        $lock = Cache::lock('jelaf_sync_run', 1800);
+        $got = false;
+        try {
+            $got = $trigger === 'night' ? $lock->block(900) : $lock->get();
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            $got = false;
+        }
+        if (! $got) {
+            $busy = DB::table('transport_jelaf_runs')->where('status', 'running')->orderByDesc('id')->first();
+            $msg = __('Another Jelaf import is running (:r since :t). Try again in a few minutes.',
+                ['r' => self::REPORTS[$busy->report ?? ''][0] ?? 'Jelaf', 't' => $busy ? substr((string) $busy->started_at, 11, 5) : '—']);
+            abort_if($trigger !== 'night', 409, $msg);
+
+            return (object) ['status' => 'failed', 'files' => 0, 'rows' => 0, 'message' => $msg];
+        }
+        try {
+            return self::runLocked($cid, $report, $from, $to, $trigger, $userId, $say);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private static function runLocked(int $cid, string $report, string $from, string $to, string $trigger, ?int $userId, ?callable $say): object
+    {
         $say ??= fn ($m) => null;
         $id = DB::table('transport_jelaf_runs')->insertGetId(['company_id' => $cid, 'report' => $report, 'date_from' => $from, 'date_to' => $to,
             'trigger' => $trigger, 'status' => 'running', 'user_id' => $userId, 'started_at' => now()]);

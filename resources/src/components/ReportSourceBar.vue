@@ -52,8 +52,8 @@ import { useUiStore } from '../stores/ui';
 const props = defineProps({
   board: { type: String, required: true }, // the dashboard tab key
   range: { type: Array, default: null }, // [from, to] YYYY-MM-DD; null = all dates
-  // Only the goal, without the "Fuente / Filtro" line (2026-11-27, Ventas: "esa línea no ayuda").
-  noLine: { type: Boolean, default: false },
+  // Only the goal, without the "Fuente / Filtro" line (2026-11-27: off on every board, the user: "saca la línea que se repite abajo"; the source and dates stay in the boards' own notes).
+  noLine: { type: Boolean, default: true },
 });
 
 const fmt = useFormat();
@@ -83,7 +83,7 @@ const BOARDS = {
   transport_pointsales: { t: ['Sales by point of sale', 'Ventas por punto de venta'], s: () => AURA.liquidation(), files: ['liquidation'], date: 'range' },
   transport_cashbook: { t: ['Cash and customers', 'Caja y clientes'], s: () => AURA.detail(), files: ['detail'], date: 'range' },
   transport_customers: { t: ['Customers', 'Clientes'], s: () => `${AURA.detail()} (${L('DNI / RUC of each sale', 'DNI / RUC de cada venta')})`, files: ['detail'], date: 'range' },
-  transport_aura_parcels: { t: ['AuraSoft parcels', 'Encomiendas AuraSoft'], s: () => AURA.parcels(), files: ['parcels'], date: 'none',
+  transport_aura_parcels: { t: ['Parcels', 'Encomiendas'], s: () => AURA.parcels(), files: ['parcels'], date: 'none',
     n: () => L('It shows the latest kardex uploaded per branch; the date filter does not apply.', 'Muestra el último kardex subido de cada sucursal; el filtro de fechas no se aplica.') },
   transport_fleet: { t: ['Fleet', 'Flota'], s: () => L('Jelaf\'s Control de Embarque of the last 30 days + the fleet\'s papers and workshop jobs', 'el Control de Embarque de Jelaf de los últimos 30 días + los papeles y trabajos de taller de la flota'), files: [], date: 'none',
     n: () => L('Always the last 30 days; the date filter does not apply.', 'Siempre los últimos 30 días; el filtro de fechas no se aplica.') },

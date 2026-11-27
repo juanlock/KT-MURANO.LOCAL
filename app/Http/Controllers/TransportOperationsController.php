@@ -825,6 +825,10 @@ class TransportOperationsController extends Controller
             ];
         }
 
+        // The boards built on run departures (Gastos, Rentabilidad, Indicadores, Riesgos) end at the last completed one (2026-11-27).
+        $out['trips'] = ['to' => substr((string) DB::table('transport_trips')->where('company_id', $cid)->whereNull('deleted_at')
+            ->where('status', 'completed')->max('departure_at'), 0, 10) ?: null];
+
         return response()->json(['enabled' => true, 'sources' => $out]);
     }
 

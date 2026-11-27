@@ -548,7 +548,7 @@ const TAB_LABELS = {
   transport_daysales: ['Sales', 'Ventas'], transport_pointsales: ['Points of sale', 'Pto. venta'], transport_cashbook: ['Cash', 'Caja'],
   transport_customers: ['Customers', 'Clientes'], transport_expenses: ['Expenses', 'Gastos'],
   transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_fleet: ['Fleet', 'Flota'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['BusTrack', 'BusTrack'],
-  transport: ['Agencies', 'Agencias'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
+  transport: ['Agencies', 'Agencias'], transport_aura_parcels: ['Parcels', 'Encomiendas'], transport_parcels: ['Parcels (Murano)', 'Encom. Murano'],
   transport_claims: ['Complaints', 'Reclamos'],
 };
 // The full name, shown when the mouse rests on a tab.
@@ -556,7 +556,7 @@ const TAB_TITLES = {
   transport_owner: 'Resumen del negocio', transport_profit: 'Rentabilidad por ruta', transport_outlook: 'Mando operativo',
   transport_daysales: 'Ventas del día', transport_pointsales: 'Ventas por punto de venta', transport_cashbook: 'Caja y clientes',
   transport_production: 'Producción por bus', transport_fleet: 'Flota: uso, ubicación y estado de cada bus', transport_departures: 'Reporte de salidas', transport_monitor: 'BusTrack: los buses en ruta en vivo',
-  transport: 'Agencias: terminales, buses, tripulación y salidas de cada agencia', transport_aura_parcels: 'Encomiendas AuraSoft',
+  transport: 'Agencias: terminales, buses, tripulación y salidas de cada agencia', transport_aura_parcels: 'Encomiendas por entregar y por cobrar (kardex de AuraSoft)',
 };
 // The board tabs' look: navy bar, orange open tab (the user's pick, 2026-11-26).
 const tabStyle = 'bt-style-d';
@@ -567,13 +567,14 @@ const NO_DATE_TABS = ['transport_outlook', 'transport_programming', 'transport_f
 // empty on "Hoy"): it shows up to the source's last date and says so in one line, instead of an empty board.
 // AuraSoft's production comes every night at 22:00; the Liquidación General / Detallada are uploaded by hand.
 const TAB_SOURCE = {
-  transport_daysales: 'production', transport_production: 'production', transport_profit: 'production', transport_expenses: 'production',
-  transport_indicators: 'production', transport_risks: 'production',
+  transport_daysales: 'production', transport_production: 'production', transport_profit: 'trips', transport_expenses: 'trips',
+  transport_indicators: 'trips', transport_risks: 'trips',
   transport_pointsales: 'liquidation', transport_cashbook: 'detail', transport_customers: 'detail',
 };
 const SOURCE_NAME = { production: ['AuraSoft production (every night at 22:00)', 'la producción de AuraSoft (llega cada noche a las 22:00)'],
   liquidation: ['AuraSoft «Liquidación General» (uploaded by hand)', 'la «Liquidación General» de AuraSoft (se sube a mano)'],
-  detail: ['AuraSoft «Liquidación Detallada» (uploaded by hand)', 'la «Liquidación Detallada» de AuraSoft (se sube a mano)'] };
+  detail: ['AuraSoft «Liquidación Detallada» (uploaded by hand)', 'la «Liquidación Detallada» de AuraSoft (se sube a mano)'],
+  trips: ['the costs of the departures already run', 'los egresos de las salidas ya terminadas'] };
 const sourceEnds = ref({});
 async function loadSourceEnds() {
   try {
@@ -592,12 +593,15 @@ const dm = d => dayjs(d).format('DD-MM');
 function lagNote(k) {
   const r = rangeFields.value;
   const e = effRange(k);
-  if (!r || !e || e === r || e[1] === r[1]) return '';
+  // Only when data is missing for days already gone (a range reaching into the future is not news).
+  if (!r || !e || e === r) return '';
+  const cap = r[1] < dayjs().format('YYYY-MM-DD') ? r[1] : dayjs().format('YYYY-MM-DD');
+  if (e[1] >= cap) return '';
   const src = SOURCE_NAME[TAB_SOURCE[k]] || ['', ''];
   const shown = e[0] === e[1] ? dm(e[0]) : `${dm(e[0])} – ${dm(e[1])}`;
   return es.value
-    ? `Sin datos después del ${dm(e[1])}: ${src[1]} llega hasta esa fecha. Mostrando ${shown}.`
-    : `No data after ${dm(e[1])}: ${src[0]} reaches that date. Showing ${shown}.`;
+    ? `Sin datos después del ${dm(e[1])} (fuente: ${src[1]}). Mostrando ${shown}.`
+    : `No data after ${dm(e[1])} (source: ${src[0]}). Showing ${shown}.`;
 }
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
