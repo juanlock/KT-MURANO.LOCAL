@@ -117,8 +117,8 @@ class JelafSync
                 for ($d = strtotime($from); $d <= strtotime($to); $d += 86400) {
                     $day = date('Y-m-d', $d);
                     $file = "$dir/ControlEmbarqueDetalle_NombrePasajero-$day.xlsx";
-                    $client->boarding('detalle', $day, $file) && $files++;
-                    $res = is_file($file) ? self::importBoardingFile($cid, $file, $day) : ['rows' => 0, 'departures' => 0];
+                    [$got, $res] = self::detalleDay($client, $cid, $day, $file, $say);
+                    $files += $got;
                     $rows += $res['rows'];
                     $sum['tickets'] += $res['rows'];
                     $sum['departures'] += $res['departures'];
@@ -153,12 +153,35 @@ class JelafSync
             $client->boarding('resumen', $day, $fileR) && $files++;
             sleep(2);
         }
-        if ($fresh || ! is_file($fileD)) {
-            $client->boarding('detalle', $day, $fileD) && $files++;
+        if (! $fresh && is_file($fileD)) {
+            return ['files' => $files] + self::importBoardingFile($cid, $fileD, $day);
+        }
+        [$got, $res] = self::detalleDay($client, $cid, $day, $fileD);
+
+        return ['files' => $files + $got] + $res + ['boarded' => 0, 'no_show' => 0, 'amount' => 0.0];
+    }
+
+    /**
+     * Download a day's Detalle and import it; when Jelaf hands the file of another day (another import with the same user at
+     * the same time), wait and ask again once; still wrong = that day is left as it was. Returns [files downloaded, result].
+     */
+    private static function detalleDay(JelafClient $client, int $cid, string $day, string $file, ?callable $say = null): array
+    {
+        $empty = ['rows' => 0, 'departures' => 0];
+        for ($try = 1; $try <= 2; $try++) {
+            $got = $client->boarding('detalle', $day, $file) ? 1 : 0;
+            if (! is_file($file)) {
+                return [$got, $empty];
+            }
+            try {
+                return [$got, self::importBoardingFile($cid, $file, $day)];
+            } catch (\RuntimeException $e) {
+                $say && $say("$day: ".$e->getMessage().($try === 1 ? ' Asking again.' : ' Day left as it was.'));
+                $try === 1 && sleep(8);
+            }
         }
 
-        return ['files' => $files] + (is_file($fileD) ? self::importBoardingFile($cid, $fileD, $day)
-            : ['rows' => 0, 'boarded' => 0, 'no_show' => 0, 'amount' => 0.0, 'departures' => 0]);
+        return [0, $empty];
     }
 
     private static function plateKey(?string $p): string
@@ -196,6 +219,17 @@ class JelafSync
         $book->disconnectWorksheets();
         unset($book);
         gc_collect_cycles();
+        // The file must be the day asked for (2026-11-26: two imports with the same Jelaf user at once got each other's file;
+        // the "27-11" one held 03-12): otherwise nothing of that day is touched.
+        foreach (array_slice($rows, 0, 12) as $r) {
+            $line = implode(' ', array_map(fn ($x) => (string) $x, $r));
+            if (preg_match('#DEL:\s*(\d{2}/\d{2}/\d{4})#', $line, $m)) {
+                if (self::dmy($m[1]) !== $day) {
+                    throw new \RuntimeException("Jelaf gave the file of {$m[1]} instead of $day.");
+                }
+                break;
+            }
+        }
         $h = null;
         $out = [];
         $plates = DB::table('vehicles')->where('company_id', $cid)->whereNull('deleted_at')->get(['id', 'plate_number'])

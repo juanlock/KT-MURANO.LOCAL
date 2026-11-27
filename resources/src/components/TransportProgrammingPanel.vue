@@ -83,23 +83,18 @@
                 :overlay-style="{ maxWidth: '340px' }" :title="`${ampm(x.time)} · ${x.bus || ''} ${x.tag || ''}`"
               >
                     <template #content>
-                      <div class="pg-hov">
-                        <div class="pg-hov-r"><span>{{ L('Sold', 'Vendidos') }}</span><b>{{ x.sold }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.sold, x.seats) }})</template></b></div>
-                        <div v-if="Object.keys(x.channels || {}).length" class="pg-hov-ch">
-                          {{ Object.entries(x.channels).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${chName(k)} ${v.n}`).join(' · ') }}
-                        </div>
-                        <template v-if="!x.gone">
-                          <div class="pg-hov-r"><span>{{ L('Forecast', 'Pronóstico') }}</span><b>{{ x.forecast }}<template v-if="x.seats"> / {{ x.seats }} ({{ pct(x.forecast, x.seats) }})</template></b></div>
-                          <div v-if="x.fc_usual !== null" class="pg-hov-ex">
-                            {{ L(`${x.sold} sold + ${Math.round(x.fc_usual)} usual × ${Math.round((1 - x.fc_r) * 100)} % still to come ≈ ${x.forecast}.`,
-                                 `${x.sold} vendidos + ${Math.round(x.fc_usual)} habituales × ${Math.round((1 - x.fc_r) * 100)} % que aún falta ≈ ${x.forecast}.`) }}
-                            <small>{{ L(`${d.days_left} day(s) before; usually ${Math.round(x.fc_r * 100)} % is sold by now; it carried ${Math.round(x.fc_usual)} on average (same direction, weekday and hour, last 8 weeks).`,
-                              `A ${d.days_left} día(s); a esta altura suele estar vendido el ${Math.round(x.fc_r * 100)} %; llevó ${Math.round(x.fc_usual)} en promedio (mismo sentido, día y hora, últimas 8 semanas).`) }}</small>
-                          </div>
-                        </template>
-                        <div v-if="x.gone && x.money" class="pg-hov-r" style="margin-top: 4px"><span>{{ L('Result', 'Resultado') }}</span><b :style="{ color: x.money.profit < 0 ? '#b42318' : '#1f7a45' }">S/ {{ money0(x.money.income.total) }} − S/ {{ money0(x.money.costs.total) }} = {{ x.money.profit < 0 ? '−' : '+' }}S/ {{ money0(Math.abs(x.money.profit)) }}</b></div>
-                        <div class="pg-hov-c">{{ L('Click: income vs costs, channels', 'Clic: ingresos vs gastos, canales') }}</div>
-                      </div>
+                      <!-- Hover = a small table (the user, 2026-11-26): seats, sold (how), excess + parcels, income, costs, total. -->
+                      <table class="pg-ht">
+                        <tr><td>{{ L('Seats', 'Asientos') }}</td><td class="r">{{ x.seats || '—' }}</td></tr>
+                        <tr><td>{{ L('Sold', 'Vendidos') }}</td><td class="r"><b>{{ x.sold }}</b><template v-if="x.seats"> ({{ pct(x.sold, x.seats) }})</template></td></tr>
+                        <tr v-if="Object.keys(x.channels || {}).length" class="pg-ht-sub"><td colspan="2">({{ Object.entries(x.channels).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${chName(k)} ${v.n}`).join(' · ') }})</td></tr>
+                        <tr v-if="!x.gone"><td>{{ L('Forecast', 'Pronóstico') }}</td><td class="r">{{ x.forecast }}<template v-if="x.seats"> ({{ pct(x.forecast, x.seats) }})</template></td></tr>
+                        <tr v-if="!x.gone && x.fc_usual !== null" class="pg-ht-sub"><td colspan="2">({{ L(`${x.sold} sold + ${Math.round(x.fc_usual)} usual × ${Math.round((1 - x.fc_r) * 100)} % still to come`, `${x.sold} vendidos + ${Math.round(x.fc_usual)} habituales × ${Math.round((1 - x.fc_r) * 100)} % que aún falta`) }})</td></tr>
+                        <tr><td>{{ L('Excess and parcels', 'Exceso y encomienda') }}</td><td class="r">{{ x.money ? 'S/ ' + money0(x.money.income.parcels) : '—' }}</td></tr>
+                        <tr class="pg-ht-sep"><td>{{ L('Income', 'Ingresos') }}</td><td class="r">S/ {{ money0(x.money ? x.money.income.total : x.amount) }}</td></tr>
+                        <tr><td>{{ L('Costs', 'Egresos') }}</td><td class="r">{{ x.money ? '− S/ ' + money0(x.money.costs.total) : '—' }}</td></tr>
+                        <tr class="pg-ht-tot" :class="x.money ? (x.money.profit < 0 ? 'neg' : 'pos') : ''"><td>Total</td><td class="r">{{ x.money ? (x.money.profit < 0 ? '− ' : '') + 'S/ ' + money0(Math.abs(x.money.profit)) : '—' }}</td></tr>
+                      </table>
                     </template>
                 <div class="pg-row-d" :class="[cls(x), { removed: x.removed, planonly: x.source === 'plan' }]" @click="open(x, d)">
                   <div class="pg-tr" :style="cols(side.key)">
@@ -638,6 +633,14 @@ async function exportWeek() {
 .st-red .pg-line .fc, .st-blue .pg-line .fc, .st-full .pg-line .fc, .st-na .pg-line .fc { display: none; }
 .st-na .pg-num, .st-na .pg-t.on { color: #b0b8c4 !important; }
 .pg-lists { max-height: calc(50vh - 105px) !important; }
+.pg-ht { border-collapse: collapse; font-size: 12.5px; color: #344054; min-width: 220px; }
+.pg-ht td { padding: 2px 0; }
+.pg-ht td.r { text-align: right; padding-left: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-ht-sub td { font-size: 11px; color: #667085; padding-top: 0; }
+.pg-ht-sep td { border-top: 1px solid #e3e8ef; padding-top: 4px; }
+.pg-ht-tot td { border-top: 1px solid #c9d2de; font-weight: 700; padding-top: 4px; }
+.pg-ht-tot.neg td { color: #b42318; }
+.pg-ht-tot.pos td { color: #1f7a45; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
