@@ -7,14 +7,15 @@
       <!-- Which week and which direction (the user, 2026-11-27, for Julio): a date in an earlier week shows that week as it went;
            Lima → Chiclayo and Chiclayo → Lima apart, never only together. -->
       <div class="md-bar">
-        <a-button size="small" :title="L('Week before', 'Semana anterior')" @click="shift(-7)"><LeftOutlined /></a-button>
+        <!-- The arrows say what they do (the user, 2026-11-27). -->
+        <a-button size="small" @click="shift(-7)"><LeftOutlined /> {{ L('See last week', 'Ver semana pasada') }}</a-button>
         <a-date-picker v-model:value="pick" size="small" value-format="YYYY-MM-DD" :allow-clear="false" class="md-date" @change="load" />
-        <a-button size="small" :disabled="!data.past" :title="L('Week after', 'Semana siguiente')" @click="shift(7)"><RightOutlined /></a-button>
+        <a-button size="small" :disabled="!data.past" @click="shift(7)">{{ L('See next week', 'Ver siguiente semana') }} <RightOutlined /></a-button>
         <span class="md-period">{{ data.past ? L(`Week ${dm(data.from)} – ${dm(data.to)} · as it went`, `Semana ${dm(data.from)} – ${dm(data.to)} · cómo le fue`) : L('Today and the next 2 days', 'Hoy y los próximos 2 días') }}</span>
         <a-button v-if="data.past" size="small" type="link" @click="pick = today; load()">{{ L('Back to today', 'Volver a hoy') }}</a-button>
         <a-segmented v-model:value="dir" size="small" :options="dirOptions" class="md-dir" />
       </div>
-      <TransportStrip :items="tiles" :toggle="false" />
+      <!-- No cards (the user, 2026-11-27: "están de más"): the week boxes and the table say it all. -->
       <!-- The three weeks: today's, the next and the one after -- or, for an earlier date, its week and the two before it.
            Each one per direction; a click opens that week. -->
       <div class="md-weeks">
@@ -117,7 +118,6 @@ import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
-import TransportStrip from './TransportStrip.vue';
 import { useUiStore } from '../stores/ui';
 
 const ui = useUiStore();
@@ -201,29 +201,12 @@ const ampm = t => (t ? dayjs(`2000-01-01 ${t}`).format('h:mm A') : '');
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '');
 const dm = d => dayjs(d).format('DD/MM');
 const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
-const tiles = computed(() => {
-  const x = s.value;
-  const past = data.value.past;
-  const t = [
-    { label: L('Departures', 'Salidas'), value: x.departures ?? 0 },
-    { label: L('At a loss', 'En pérdida'), value: x.loss ?? 0 },
-    { label: past ? L('Passengers', 'Pasajeros') : L('Sold', 'Vendidos'), value: x.sold ?? 0 },
-    { label: past ? L('Occupancy', 'Ocupación') : L('Expected occupancy', 'Ocupación esperada'), value: x.seats ? `${Math.round((x.forecast / x.seats) * 100)} %` : '—' },
-  ];
-  if (!past) t.push({ label: L('Tickets to cover', 'Pasajes que faltan'), value: x.missing ?? 0 });
-  if (data.value.money) {
-    t.push({ label: past ? L('Income', 'Ingresos') : L('Projected income', 'Ingresos proyectados'), value: `S/ ${money0(x.income)}` });
-    // Both directions: each one's result apart (2026-11-27), then the total.
-    if (dir.value === 'all') SIDES.forEach(sd => t.push({ label: L(sd.en, sd.es), value: signed(data.value.summary?.sides?.[sd.key]?.result) }));
-    t.push({ label: past ? L('Result', 'Resultado') : L('Possible result', 'Posible resultado'), value: signed(x.result) });
-  }
-  return t;
-});
+
 </script>
 
 <style scoped>
 /* Power BI-like soft colours (2026-11-27: navy and orange only on the tabs). */
-.md-wrap { overflow: auto; max-height: calc(100vh - 400px); border: 1px solid #e1e4e8; border-radius: 8px; }
+.md-wrap { overflow: auto; max-height: calc(100vh - 330px); border: 1px solid #e1e4e8; border-radius: 8px; }
 .md-t { width: 100%; border-collapse: collapse; font-size: 12px; color: #252423; }
 .md-t thead th { position: sticky; top: 0; background: #f3f4f6; color: #252423; font-weight: 600; font-size: 11px; padding: 5px 6px; text-align: left; white-space: nowrap; z-index: 1; border-bottom: 1px solid #e1e4e8; }
 .md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 11px; }
