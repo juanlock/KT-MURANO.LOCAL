@@ -1,7 +1,8 @@
 <template>
   <div class="page" :class="{ 'board-mode': boardMode }">
     <!-- ================= Header ================= -->
-    <div class="page-header">
+    <!-- A board that does not follow the date filter hides it (the user, 2026-11-26). -->
+    <div v-show="!(boardMode && NO_DATE_TABS.includes(transportTab))" class="page-header">
       <!-- A transport company's dashboard is a board: one screen, so no greeting and the filters in one row. -->
       <div v-if="!boardMode || demoMode">
         <a-typography-title v-if="!boardMode" :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
@@ -545,6 +546,8 @@ const TAB_TITLES = {
 // The board tabs' look: navy bar, orange open tab (the user's pick, 2026-11-26).
 const tabStyle = 'bt-style-d';
 const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
+// Boards with their own period or none (Mando: next 21 days; Programación: its week; BusTrack: live; AuraSoft: latest kardex).
+const NO_DATE_TABS = ['transport_outlook', 'transport_programming', 'transport_monitor', 'transport_aura_parcels'];
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
