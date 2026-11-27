@@ -32,7 +32,11 @@ class JelafClient
     /** Where the login file is: the repo root on a developer PC, ~/murano_deploy on the server (outside the website). */
     public static function envFile(): ?string
     {
-        foreach ([base_path('.env.jelaf'), rtrim((string) (getenv('HOME') ?: ''), '/').'/murano_deploy/.env.jelaf', dirname(base_path()).'/../murano_deploy/.env.jelaf'] as $f) {
+        // A web request on the server has no HOME (2026-11-27: "Importar ahora" said there was no login while the night found
+        // it): the account's home is also 3 levels above the site (~/domains/<site>/public_html) and the process owner's home.
+        $owner = function_exists('posix_getpwuid') && function_exists('posix_geteuid') ? ((posix_getpwuid(posix_geteuid()) ?: [])['dir'] ?? '') : '';
+        foreach ([base_path('.env.jelaf'), rtrim((string) (getenv('HOME') ?: ''), '/').'/murano_deploy/.env.jelaf',
+            dirname(base_path(), 3).'/murano_deploy/.env.jelaf', $owner ? rtrim($owner, '/').'/murano_deploy/.env.jelaf' : null] as $f) {
             if ($f && is_file($f)) {
                 return $f;
             }
