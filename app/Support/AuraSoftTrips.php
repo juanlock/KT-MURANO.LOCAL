@@ -75,6 +75,8 @@ class AuraSoftTrips
             ];
             if ($tripId) {
                 DB::table('transport_trips')->where('id', $tripId)->update($set);
+                // A departure that was still to leave when it was first imported is closed once its time has passed (2026-11-27).
+                DB::table('transport_trips')->where('id', $tripId)->where('status', 'scheduled')->where('departure_at', '<=', now())->update(['status' => 'completed']);
                 $out['updated']++;
             } elseif (! $r->vehicle_id) {
                 // A plate that is not a bus of Murano (2026-11-26: C7P959, AMP868 in Jan-Aug): a departure needs its bus, so the

@@ -22,12 +22,12 @@
               <th rowspan="2"></th>
             </tr>
             <tr>
-              <th v-for="c in INCOME_COLS" :key="c.key" class="r pp-gi pp-sub">{{ es ? c.es : c.en }}</th>
+              <th v-for="c in INCOME_COLS" :key="c.key" class="r pp-gi pp-sub" :title="es ? c.es : c.en">{{ es ? (c.short || c.es) : c.en }}</th>
               <th class="r pp-gi pp-sub">Total</th>
               <th v-for="c in EXPENSE_COLS" :key="c.key" class="r pp-ge pp-sub">
-                <a-tooltip v-if="noDataCol(c)" :title="noDataHelp(c.key === 'other' ? 'other' : c.key === 'staff' ? 'payroll' : c.key, es)"><span class="pp-dot">{{ es ? c.es : c.en }}</span></a-tooltip>
-                <a-tooltip v-else-if="c.key === 'fuel'" :title="es ? 'El combustible se ingresa a mano; en rojo, estimado.' : 'Fuel is typed by hand; in red, estimated.'"><span class="pp-dot">{{ es ? c.es : c.en }}</span></a-tooltip>
-                <template v-else>{{ es ? c.es : c.en }}</template>
+                <a-tooltip v-if="noDataCol(c)" :title="noDataHelp(c.key === 'other' ? 'other' : c.key === 'staff' ? 'payroll' : c.key, es)"><span class="pp-dot">{{ es ? (c.short || c.es) : c.en }}</span></a-tooltip>
+                <a-tooltip v-else-if="c.key === 'fuel'" :title="es ? 'El combustible se ingresa a mano; en rojo, estimado.' : 'Fuel is typed by hand; in red, estimated.'"><span class="pp-dot">{{ es ? (c.short || c.es) : c.en }}</span></a-tooltip>
+                <template v-else>{{ es ? (c.short || c.es) : c.en }}</template>
               </th>
               <th class="r pp-ge pp-sub">Total</th>
             </tr>
@@ -335,10 +335,10 @@ const tripColumns = computed(() => [
 @media (min-width: 900px) {
   .pp-grid { grid-template-columns: minmax(0, 3.6fr) minmax(0, 1fr); }
 }
-.pp-wrap { overflow-y: auto; overflow-x: hidden; border: 1px solid #e1e4e8; border-radius: 8px; }
-.pp-std { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; color: #252423; }
+.pp-wrap { overflow: auto; border: 1px solid #e1e4e8; border-radius: 8px; }
+.pp-std { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; color: #252423; }
 .pp-std th { position: sticky; top: 0; background: #f3f4f6; font-weight: 700; font-size: 12px; padding: 4px 4px; white-space: nowrap; border-bottom: 1px solid #e1e4e8; z-index: 1; }
-.pp-std thead tr:nth-child(2) th { top: 26px; font-weight: 500; font-size: 10px; }
+.pp-std thead tr:nth-child(2) th { top: 26px; font-weight: 500; font-size: 11px; }
 .pp-std th small { font-weight: 400; color: #8a94a6; }
 .pp-std th.pp-gi { background: #eaf7ee; color: #1f7a45; }
 .pp-std th.pp-ge { background: #fdeee8; color: #a5401a; }

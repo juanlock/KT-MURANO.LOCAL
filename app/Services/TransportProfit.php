@@ -139,7 +139,9 @@ class TransportProfit
                 'costs' => array_map(fn ($v) => round($v, 2), $costs) + ['total' => round($totalCost, 2)],
                 'estimated' => array_values(array_filter([$fuelEstimated && $fuel !== null ? 'fuel' : null, $tollsEstimated && $toll !== null ? 'tolls' : null])),
                 'profit' => round($totalIncome - $totalCost, 2),
-                'result' => $t->status === 'scheduled' ? 'pending' : ($totalIncome - $totalCost >= 0 ? 'gain' : 'loss'),
+                // Pending only while its time has not come (2026-11-27: AuraSoft creates a trip "scheduled" before it leaves and never
+                // closed it, so yesterday's departures stayed "por salir").
+                'result' => $t->status === 'scheduled' && strtotime((string) $t->departure_at) > time() ? 'pending' : ($totalIncome - $totalCost >= 0 ? 'gain' : 'loss'),
             ];
         }
 

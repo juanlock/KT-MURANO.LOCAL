@@ -3,14 +3,14 @@
 // their Total, then Ganancia / Pérdida. Always "Egresos", never "Gastos". Same order and names on every board.
 export const INCOME_COLS = [
   { key: 'tickets', en: 'Tickets', es: 'Pasajes' },
-  { key: 'parcels', en: 'Parcels', es: 'Encomiendas' },
-  { key: 'excess', en: 'Excess', es: 'Excesos' },
+  { key: 'parcels', en: 'Parcels', es: 'Encomiendas', short: 'Encom.' },
+  { key: 'excess', en: 'Excess', es: 'Excesos', short: 'Exces.' },
 ];
 export const EXPENSE_COLS = [
-  { key: 'fuel', en: 'Fuel', es: 'Combustible', parts: ['fuel'] },
+  { key: 'fuel', en: 'Fuel', es: 'Combustible', short: 'Comb.', parts: ['fuel'] },
   { key: 'tolls', en: 'Tolls', es: 'Peajes', parts: ['tolls'] },
   { key: 'staff', en: 'Staff', es: 'Personal', parts: ['payroll', 'staff'] },
-  { key: 'depreciation', en: 'Depreciation', es: 'Depreciación', parts: ['depreciation'] },
+  { key: 'depreciation', en: 'Depreciation', es: 'Depreciación', short: 'Deprec.', parts: ['depreciation'] },
   { key: 'other', en: 'Other', es: 'Otros', parts: ['maintenance', 'agency', 'meals'] },
 ];
 

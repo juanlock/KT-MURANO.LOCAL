@@ -59,7 +59,7 @@
               <th v-for="k in channelKeys" :key="k" class="c md-sub md-g-sold">{{ chName(k) }}</th>
               <th class="c md-sub md-g-sold">Total</th>
               <template v-if="data.money">
-                <th v-for="c in INCOME_COLS" :key="c.key" class="r md-sub md-g-inc">{{ L(c.en, c.es) }}</th>
+                <th v-for="c in INCOME_COLS" :key="c.key" class="r md-sub md-g-inc" :title="L(c.en, c.es)">{{ L(c.en, c.short || c.es) }}</th>
                 <th class="r md-sub md-g-inc">Total</th>
                 <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost" :class="{ 'md-hand': k.key === 'fuel' }">
                   <!-- Fuel is typed by hand (the user, 2026-11-27): AuraSoft has no fuel, only Mayte's own Excel. -->
@@ -222,9 +222,9 @@ const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigi
 <style scoped>
 /* Power BI-like soft colours (2026-11-27: navy and orange only on the tabs). */
 .md-wrap { overflow: auto; max-height: calc(100vh - 330px); border: 1px solid #e1e4e8; border-radius: 8px; }
-.md-t { width: 100%; border-collapse: collapse; font-size: 11px; color: #252423; }
+.md-t { width: 100%; border-collapse: collapse; font-size: 12px; color: #252423; }
 .md-t thead th { position: sticky; top: 0; background: #f3f4f6; color: #252423; font-weight: 600; font-size: 12px; font-weight: 700; padding: 5px 3px; text-align: left; white-space: nowrap; z-index: 1; border-bottom: 1px solid #e1e4e8; }
-.md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 10px; }
+.md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 11px; }
 .md-t th.r, .md-t td.r { text-align: right; }
 .md-t th.c, .md-t td.c { text-align: center; }
 .md-t th.md-g-sold { background: #e8f2fe; color: #0b5cad; }
@@ -239,11 +239,11 @@ const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigi
 .md-time { font-weight: 700; color: #252423; }
 .md-route { font-size: 11.5px; }
 .md-tent { color: #8a94a6; font-style: italic; }
-.md-tag { color: #8a94a6; font-size: 10px; }
+.md-tag { color: #8a94a6; font-size: 11px; }
 .md-ch { color: #605e5c; }
 .md-cost { color: #605e5c; }
 .md-cost-t { font-weight: 600; }
-.md-pct { color: #98a2b3; font-size: 10.5px; margin-left: 5px; }
+.md-pct { color: #98a2b3; font-size: 11px; margin-left: 5px; }
 .md-over { margin-left: 5px; color: #e66c37; font-weight: 700; font-size: 11px; cursor: help; }
 .md-miss { color: #d64550; font-weight: 700; }
 .md-neg { color: #d64550; }

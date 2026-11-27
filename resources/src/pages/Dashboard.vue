@@ -101,6 +101,12 @@
         <div v-if="transportTabs.length > 1" class="bt-bar" :class="{ 'with-date': boardUsesDates }" role="tablist">
           <!-- The date filter is hidden by default (the user, 2026-11-27: changing boards should not show it); this button opens it
                and says which period is on. -->
+          <!-- Text size of the boards (the user, 2026-11-27: "los números no se ven"): 3 sizes, saved on the user's account. -->
+          <span class="bt-size" :title="es ? 'Tamaño de la letra de los tableros' : 'Text size of the boards'">
+            <button type="button" :disabled="boardSize <= 0" @click="setBoardSize(boardSize - 1)">A−</button>
+            <span>{{ SIZE_NAMES[boardSize][es ? 1 : 0] }}</span>
+            <button type="button" :disabled="boardSize >= 2" @click="setBoardSize(boardSize + 1)">A+</button>
+          </span>
           <button v-if="boardUsesDates" type="button" class="bt-datebtn" :class="{ on: showDates }" @click="showDates = !showDates">
             <CalendarOutlined /> <span><b>{{ es ? 'Filtrar por fecha' : 'Filter by date' }}</b><small>{{ periodText }}</small></span>
           </button>
@@ -114,7 +120,7 @@
             </div>
           </div>
         </div>
-        <div class="bt-body" :class="{ alone: transportTabs.length < 2 }">
+        <div class="bt-body" :class="{ alone: transportTabs.length < 2, ['bt-size-' + boardSize]: true }" :style="boardSize ? { zoom: SIZES[boardSize] } : null">
           <a-tabs v-model:active-key="transportTab" class="transport-tabs" :tab-bar-style="{ display: 'none' }">
             <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales" :tab="tabLabel('transport_daysales')">
               <div v-if="lagNote('transport_daysales')" class="lag-note">{{ lagNote('transport_daysales') }}</div>
@@ -602,13 +608,23 @@ function lagNote(k) {
   if (!r || !e || e === r) return '';
   const cap = r[1] < dayjs().format('YYYY-MM-DD') ? r[1] : dayjs().format('YYYY-MM-DD');
   if (e[1] >= cap) return '';
+  // The run departures end yesterday: today's have not left yet (2026-11-27, the user read "Sin datos" as a fault).
+  if (TAB_SOURCE[k] === 'trips' && e[1] === dayjs().subtract(1, 'day').format('YYYY-MM-DD')) {
+    const shownT = e[0] === e[1] ? dm(e[0]) : `${dm(e[0])} – ${dm(e[1])}`;
+    return es.value ? `Las salidas de hoy todavía no parten: sus egresos y ganancia se ven cuando salgan. Mostrando ${shownT}.`
+      : `Today's departures have not left yet: their costs and profit show once they leave. Showing ${shownT}.`;
+  }
   const src = SOURCE_NAME[TAB_SOURCE[k]] || ['', ''];
   const shown = e[0] === e[1] ? dm(e[0]) : `${dm(e[0])} – ${dm(e[1])}`;
   return es.value
     ? `Sin datos después del ${dm(e[1])} (fuente: ${src[1]}). Mostrando ${shown}.`
     : `No data after ${dm(e[1])} (source: ${src[0]}). Showing ${shown}.`;
 }
-// The date filter of the boards (2026-11-27): hidden by default, opened by "Filtrar por fecha" beside the board titles; it
+// The boards' text size (2026-11-27): Normal, Grande (+15 %), Muy grande (+30 %); on the user's account (lib/userPrefs).
+const SIZES = [1, 1.15, 1.3];
+const SIZE_NAMES = [['Normal', 'Normal'], ['Large', 'Grande'], ['Larger', 'Muy grande']];
+const boardSize = computed(() => { const v = Number(getUserPref('board_text_size')); return v >= 0 && v <= 2 ? v : 0; });
+const setBoardSize = v => { setUserPref('board_text_size', Math.max(0, Math.min(2, v)) || null); nextTick(() => window.dispatchEvent(new Event('resize'))); };// The date filter of the boards (2026-11-27): hidden by default, opened by "Filtrar por fecha" beside the board titles; it
 // closes again when another board is picked, so switching boards shows only the board.
 const showDates = ref(false);
 const boardUsesDates = computed(() => boardMode.value && !NO_DATE_TABS.includes(transportTab.value));
@@ -1166,6 +1182,14 @@ onMounted(() => { if (boardMode.value) loadSourceEnds(); if (dayOnly.value && pe
 .bt-body :deep(.ant-tabs-content-holder) { padding: 0; }
 .bt-source { margin-top: 10px; }
 .bt-bar { position: relative; }
+.bt-bar.with-date, .bt-bar { padding-right: 150px !important; }
+.bt-size { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 4px; color: #fff; font-size: 11px; }
+.bt-size button { border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.1); color: #fff; border-radius: 6px; padding: 2px 7px; font-weight: 700; cursor: pointer; line-height: 18px; }
+.bt-size button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+.bt-size button:disabled { opacity: .35; cursor: default; }
+.bt-size span { min-width: 62px; text-align: center; opacity: .85; }
+.bt-body.bt-size-1, .bt-body.bt-size-2 { overflow-x: auto; }
+@media (max-width: 900px) { .bt-size { top: 8px; transform: none; } }
 .bt-bar.with-date { padding-left: 158px !important; }
 .bt-datebtn { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.1); color: #fff; border-radius: 8px; padding: 5px 10px; cursor: pointer; text-align: left; line-height: 1.15; max-width: 145px; }
