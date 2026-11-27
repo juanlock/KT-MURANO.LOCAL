@@ -160,7 +160,7 @@
 
     <!-- One departure (2026-11-26, the user's order): what to do, the data, programming in its own bordered box, the sales
          as a table (the agency's cashiers in a helper), the bus's photo, then source and note at the end. -->
-    <a-drawer :open="!!sel" :width="560" :title="sel ? `${selDay.label} · ${ampm(sel.time)} · ${L(sideName(sel.side).en, sideName(sel.side).es)}` : ''" @close="sel = null">
+    <a-drawer root-class-name="pg-drawer" :open="!!sel" :width="560" :title="sel ? `${selDay.label} · ${ampm(sel.time)} · ${L(sideName(sel.side).en, sideName(sel.side).es)}` : ''" @close="sel = null">
       <template v-if="sel">
         <div v-if="sel.suggest" class="pg-sug" :class="sel.suggest">
           <b>{{ sel.suggest === 'reinforce' ? L('Reinforce', 'Reforzar') : L('Low occupancy', 'Baja ocupación') }}</b>
@@ -665,4 +665,12 @@ async function exportWeek() {
 .pg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .pg-hint { margin-top: 8px; font-size: 12px; color: #667085; }
 @media (max-width: 900px) { .pg-grid { grid-template-columns: 1fr; } .pg-lists { max-height: none; } }
+</style>
+
+<style>
+/* The departure panel's title on the boards' navy (2026-11-26). Unscoped: the drawer is rendered outside this component. */
+.pg-drawer .ant-drawer-header { background: linear-gradient(100deg, #152d4a 0%, #1f3d63 60%, #27507d 100%); border-bottom: 3px solid #f28c13; }
+.pg-drawer .ant-drawer-title { color: #fff; font-weight: 700; }
+.pg-drawer .ant-drawer-close { color: rgba(255, 255, 255, 0.85); }
+.pg-drawer .ant-drawer-close:hover { color: #fff; }
 </style>
