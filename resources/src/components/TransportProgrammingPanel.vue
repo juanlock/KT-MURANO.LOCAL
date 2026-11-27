@@ -18,15 +18,15 @@
               <div><i style="background: #c9d5e4" /> {{ L('Light part: still expected (forecast)', 'Parte clara: lo que aún se espera (pronóstico)') }}</div>
               <h4>{{ L('Colours', 'Colores') }}</h4>
               <p>{{ L('Departures that already left (a past day, or today over an hour ago) — by what they carried:', 'Salidas que ya partieron (día pasado, u hoy hace más de una hora) — por lo que llevaron:') }}</p>
-              <div><i style="background: #d92d20" /> {{ L(`Red: it lost money (its income did not cover its costs; without its costs in Murano: under ${Math.round(be * 100)} % occupancy)`, `Rojo: perdió dinero (sus ingresos no cubrieron sus gastos; si Murano no tiene sus gastos: menos del ${Math.round(be * 100)} % de ocupación)`) }}</div>
+              <div><i style="background: #d92d20" /> {{ L(`Red: it lost money (its income did not cover its costs; without its costs in Murano: under ${Math.round(be * 100)} % occupancy)`, `Rojo: perdió dinero (sus ingresos no cubrieron sus egresos; si Murano no tiene sus egresos: menos del ${Math.round(be * 100)} % de ocupación)`) }}</div>
               <div><i style="background: #2f6fd6" /> {{ L('Blue: it made money, bus not full', 'Azul: ganó dinero, bus no lleno') }}</div>
               <div><i style="background: #2e9e5b" /> {{ L('Green: full bus (100 %)', 'Verde: bus lleno (100 %)') }}</div>
-              <div><i style="background: transparent" /> {{ L('Click a departure: income vs costs, sales by channel.', 'Clic en una salida: ingresos vs gastos, ventas por canal.') }}</div>
+              <div><i style="background: transparent" /> {{ L('Click a departure: income vs costs, sales by channel.', 'Clic en una salida: ingresos y egresos, ventas por canal.') }}</div>
               <p style="margin-top: 6px">{{ L('Departures still to come:', 'Salidas que aún no parten:') }}</p>
               <div><i style="background: #f28c13" /> {{ L('Orange: dark = sold so far, light = forecast', 'Naranja: oscuro = vendido hasta ahora, claro = pronóstico') }}</div>
               <div><i style="background: transparent; border: 1px solid #d92d20" /> {{ L('Time in red: the bus is in two places', 'Hora en rojo: el bus está en dos lugares') }}</div>
               <p v-if="data.break_even?.costs" class="pg-be">{{ L(`${Math.round(be * 100)} % covers the costs: last 30 days, costs S/ ${money0(data.break_even.costs)} against S/ ${money0(data.break_even.tickets_income)} of tickets at ${Math.round(data.break_even.occupancy * 100)} % occupancy (fuel partly estimated, maintenance not loaded yet).`,
-                `${Math.round(be * 100)} % cubre los gastos: últimos 30 días, costos S/ ${money0(data.break_even.costs)} frente a S/ ${money0(data.break_even.tickets_income)} de pasajes con ${Math.round(data.break_even.occupancy * 100)} % de ocupación (combustible en parte estimado, mantenimiento aún sin cargar).`) }}</p>
+                `${Math.round(be * 100)} % cubre los egresos: últimos 30 días, egresos S/ ${money0(data.break_even.costs)} frente a S/ ${money0(data.break_even.tickets_income)} de pasajes con ${Math.round(data.break_even.occupancy * 100)} % de ocupación (combustible en parte estimado, mantenimiento aún sin cargar).`) }}</p>
               <h4>{{ L('How the forecast is made', 'Cómo se calcula el pronóstico') }}</h4>
               <p>{{ L('Expected = sold + what usually still comes.', 'Esperados = vendidos + lo que todavía suele venderse.') }}</p>
               <p>{{ L('1) Usual passengers: the average this departure carried (same direction, weekday and hour) over the last 8 weeks.', '1) Pasajeros habituales: el promedio que llevó esta salida (mismo sentido, día de la semana y hora) en las últimas 8 semanas.') }}</p>
@@ -40,7 +40,7 @@
       </div>
       <div class="pg-chips">
         <span class="pg-chip c-hi" :title="L('Forecast at 90 % of the seats or more', 'Pronóstico de 90 % de los asientos o más')"><b>{{ s.reinforce }}</b> {{ L('reinforce', 'reforzar') }}</span>
-        <span class="pg-chip c-bad" :title="L('Departures that already left under the break-even occupancy', 'Salidas que ya partieron por debajo de la ocupación que cubre los gastos')"><b>{{ s.loss || 0 }}</b> {{ L('at a loss', 'en pérdida') }}</span>
+        <span class="pg-chip c-bad" :title="L('Departures that already left under the break-even occupancy', 'Salidas que ya partieron por debajo de la ocupación que cubre los egresos')"><b>{{ s.loss || 0 }}</b> {{ L('at a loss', 'en pérdida') }}</span>
         <span class="pg-chip" :class="s.conflicts ? 'c-bad' : 'c-ok'"><b>{{ s.conflicts }}</b> {{ L('bus clashes', 'choques') }}</span>
         <span class="pg-chip c-plain" :title="L('In the plan, nothing sold / not open in Jelaf yet', 'En el plan, sin ventas / aún no abierta en Jelaf')"><b>{{ s.plan_only }}</b> {{ L('plan only', 'solo plan') }}</span>
         <span class="pg-chip c-plain" :title="L('Open in Jelaf, not in the plan', 'Abierta en Jelaf, no está en el plan')"><b>{{ s.jelaf_only }}</b> {{ L('Jelaf only', 'fuera de plan') }}</span>
@@ -213,24 +213,27 @@
           </a-form>
         </div>
 
-        <!-- A departure that already ran: income vs costs (TransportProfit), why it gained or lost money. -->
+        <!-- A departure that already ran: income and expenses (TransportProfit). The user's words, 2026-11-26: "ingresos" and
+             "egresos" (never "gastos"), each block with its lines indented and its total, the result on its colour. -->
         <template v-if="sel.gone && sel.money">
-          <div class="pg-h">{{ L('Income vs costs', 'Ingresos vs gastos') }}</div>
-          <table class="pg-stable">
+          <div class="pg-h">{{ L('Income and expenses', 'Ingresos y egresos') }}</div>
+          <table class="pg-stable pg-ie">
             <tbody>
-              <tr><td>{{ L('Tickets', 'Pasajes') }}</td><td class="r">S/ {{ money(sel.money.income.tickets) }}</td></tr>
-              <tr v-if="sel.money.income.parcels"><td>{{ L('Parcels and excess', 'Encomiendas y exceso') }}</td><td class="r">S/ {{ money(sel.money.income.parcels) }}</td></tr>
-              <tr class="pg-sub"><td><b>{{ L('Income', 'Ingresos') }}</b></td><td class="r"><b>S/ {{ money(sel.money.income.total) }}</b></td></tr>
-              <tr v-for="k in costKeys.filter(k => sel.money.costs[k])" :key="k">
+              <tr class="pg-ie-h"><td colspan="2">{{ L('Income', 'Ingresos') }}</td></tr>
+              <tr class="pg-ie-l"><td>{{ L('Tickets', 'Pasajes') }}</td><td class="r">S/ {{ money(sel.money.income.tickets) }}</td></tr>
+              <tr class="pg-ie-l"><td>{{ L('Parcels and excess', 'Encomiendas y exceso') }}</td><td class="r">S/ {{ money(sel.money.income.parcels) }}</td></tr>
+              <tr class="pg-ie-t"><td>{{ L('Total income', 'Total ingresos') }}</td><td class="r">S/ {{ money(sel.money.income.total) }}</td></tr>
+              <tr class="pg-ie-h"><td colspan="2">{{ L('Expenses', 'Egresos') }}</td></tr>
+              <tr v-for="k in costKeys.filter(k => sel.money.costs[k])" :key="k" class="pg-ie-l">
                 <td>{{ costName(k) }}<small v-if="sel.money.estimated?.includes(k)" class="pg-est"> {{ L('estimated', 'estimado') }}</small></td>
-                <td class="r">− S/ {{ money(sel.money.costs[k]) }}</td>
+                <td class="r">S/ {{ money(sel.money.costs[k]) }}</td>
               </tr>
-              <tr class="pg-sub"><td><b>{{ L('Costs', 'Gastos') }}</b></td><td class="r"><b>− S/ {{ money(sel.money.costs.total) }}</b></td></tr>
+              <tr class="pg-ie-t"><td>{{ L('Total expenses', 'Total egresos') }}</td><td class="r">S/ {{ money(sel.money.costs.total) }}</td></tr>
             </tbody>
             <tfoot><tr :class="sel.money.profit < 0 ? 'neg' : 'pos'"><td>{{ sel.money.profit < 0 ? L('Loss', 'Pérdida') : L('Profit', 'Ganancia') }}</td><td class="r">S/ {{ money(sel.money.profit) }}</td></tr></tfoot>
           </table>
-          <div v-if="sel.money.break_even_seats" class="pg-muted">
-            {{ L(`It needed ${sel.money.break_even_seats} passengers to cover its costs; it carried ${sel.sold}.`, `Necesitaba ${sel.money.break_even_seats} pasajeros para cubrir sus gastos; llevó ${sel.sold}.`) }}
+          <div v-if="sel.money.break_even_seats" class="pg-need">
+            {{ L(`It needed ${sel.money.break_even_seats} passengers to cover its expenses; it carried ${sel.sold}.`, `Necesitaba ${sel.money.break_even_seats} pasajeros para cubrir sus egresos; llevó ${sel.sold}.`) }}
             <template v-if="sel.money.km"> · {{ sel.money.km }} km</template>
           </div>
         </template>
@@ -609,7 +612,7 @@ async function exportWeek() {
 .pg-stable tr.pg-sub td { background: #f6f8fb; }
 .pg-stable tfoot tr.neg td { color: #b42318; }
 .pg-stable tfoot tr.pos td { color: #1f7a45; }
-.pg-est { color: #c46a06; font-size: 10.5px; }
+.pg-est { color: #c46a06; font-size: 10.5px; margin-left: 5px; }
 /* One line per departure (2026-11-26). */
 .pg-row-d { padding: 3px 4px 0 !important; }
 .pg-th { padding: 3px 4px 2px !important; }
@@ -641,6 +644,17 @@ async function exportWeek() {
 .pg-ht-tot td { border-top: 1px solid #c9d2de; font-weight: 700; padding-top: 4px; }
 .pg-ht-tot.neg td { color: #b42318; }
 .pg-ht-tot.pos td { color: #1f7a45; }
+/* Income and expenses (2026-11-26): block heads, indented lines, block totals, the result on its colour in white. */
+.pg-ie .pg-ie-h td { font-weight: 700; color: var(--navy); background: #f6f8fb; padding-top: 7px; }
+.pg-ie .pg-ie-l td:first-child { padding-left: 22px; color: #475467; }
+.pg-ie .pg-ie-l td.r { padding-right: 22px; color: #475467; }
+.pg-ie .pg-ie-t td { font-weight: 700; border-top: 1px solid #d0d9e6; }
+.pg-ie tfoot tr td { color: #fff !important; font-size: 14px; font-weight: 800; padding: 8px; }
+.pg-ie tfoot tr.neg td { background: #d92d20; }
+.pg-ie tfoot tr.pos td { background: #2e9e5b; }
+.pg-ie tfoot tr td:first-child { border-radius: 6px 0 0 6px; }
+.pg-ie tfoot tr td:last-child { border-radius: 0 6px 6px 0; }
+.pg-need { border: 1px solid #d0d9e6; border-radius: 8px; padding: 8px 12px; margin: 8px 0 12px; font-size: 13.5px; color: #344054; background: #fbfcfe; }
 .pg-sug { border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
 .pg-sug.reinforce { background: #fff1e0; color: #7a3e00; }
 .pg-sug.low { background: #eaf0f7; color: #233b57; }
