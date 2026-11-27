@@ -57,7 +57,8 @@
                 <span class="op-alert-when">{{ alertWhen(a.days) }}</span>
               </span>
             </PermLink>
-            <div v-if="!data.alerts.length" class="op-muted">{{ tf('Owner_No_Alerts', 'Nothing due in the next 30 days') }}</div>
+            <div v-if="!data.alerts.length && data.fleet_data === false" class="op-muted">{{ noDataHelp('due', isEs) }}</div>
+            <div v-else-if="!data.alerts.length" class="op-muted">{{ tf('Owner_No_Alerts', 'Nothing due in the next 30 days') }}</div>
           </div>
         </div>
       </div>
@@ -135,6 +136,7 @@
 </template>
 
 <script setup>
+import { noDataHelp } from '../lib/transportNoData';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import http from '../lib/http';
 import { t as tf } from '../i18n';
@@ -155,6 +157,7 @@ const trendHeight = computed(() => (fit.value ? Math.max(150, Math.min(230, Math
 const gridHeight = computed(() => (fit.value ? fit.value - 16 - 58 - (data.value.months?.length ? trendHeight.value + 40 : 0) : null));
 const ui = useUiStore();
 const L = (en, es) => (String(ui.locale || 'en').startsWith('es') ? es : en);
+const isEs = computed(() => String(ui.locale || 'en').startsWith('es'));
 const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], es: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'] };
 // A bucket is a month (YYYY-MM) or, with a filter of up to 62 days, a day (YYYY-MM-DD).
 const monthLabel = m => { if (m.length > 7) return dayMonth(m); const d = dayjs(m + '-01'); return `${MONTHS[L('en', 'es')][d.month()]} ${d.format('YY')}`; };
@@ -311,7 +314,7 @@ const cards = computed(() => {
     { label: tf('Owner_Trips_Today', 'Trips today'), value: trips.total ?? 0, help: `${trips.completed ?? 0} ${tf('Owner_Done', 'done')} · ${trips.in_progress ?? 0} ${tf('Owner_On_Road', 'on the road')} · ${trips.scheduled ?? 0} ${tf('Owner_To_Leave', 'to leave')}` },
     { label: filtered.value ? L('Fleet costs in the period', 'Costos de flota del período') : tf('Owner_Fleet_Costs', 'Fleet costs this month'), value: money(d.costs?.total ?? 0), help: `${tf('Owner_Fuel', 'Fuel')} ${money(d.costs?.fuel ?? 0)} · ${tf('Owner_Maintenance', 'Maintenance')} ${money(d.costs?.maintenance ?? 0)}`,
       spark: trend('costs'), sparkColor: ORANGE },
-    { label: tf('Owner_Fleet_Alerts', 'Falling due on the buses'), value: d.alerts_total ?? 0, help: tf('Owner_Next_30', 'overdue or within 30 days') },
+    { label: tf('Owner_Fleet_Alerts', 'Falling due on the buses'), value: d.alerts_total ?? 0, help: d.fleet_data === false ? noDataHelp('due', isEs.value) : tf('Owner_Next_30', 'overdue or within 30 days') },
   ];
 });
 const topRoute = computed(() => Math.max(1, ...data.value.routes.map(r => r.tickets)));

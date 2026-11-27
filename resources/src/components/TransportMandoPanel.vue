@@ -62,6 +62,8 @@
                 <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost" :class="{ 'md-hand': k.key === 'fuel' }">
                   <!-- Fuel is typed by hand (the user, 2026-11-27): AuraSoft has no fuel, only Mayte's own Excel. -->
                   <a-tooltip v-if="k.key === 'fuel'" :title="FUEL_HELP"><span>{{ L(k.en, k.es) }} <InfoCircleOutlined /></span></a-tooltip>
+                  <!-- No real data for this kind yet (2026-11-27): 0 with what is missing. -->
+                  <a-tooltip v-else-if="colEmpty(k)" :title="noDataHelp(k.key, es)"><span class="md-nodata">{{ L(k.en, k.es) }}</span></a-tooltip>
                   <template v-else>{{ L(k.en, k.es) }}</template>
                 </th>
                 <th class="r md-sub md-g-cost">Total</th>
@@ -121,6 +123,7 @@
 import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import { LeftOutlined, RightOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
+import { noDataHelp } from '../lib/transportNoData';
 import http from '../lib/http';
 import { useUiStore } from '../stores/ui';
 
@@ -184,8 +187,10 @@ const costCols = [
 ];
 const FUEL_HELP = computed(() => L('This figure is typed by hand: AuraSoft (Jelaf) brings no fuel. It is what Mayte notes per round trip in her Excel (October and 1-23 November), half on each leg; a departure without it uses its bus\'s cost per km × the route\'s km, and the coming days the route\'s average of the last 30 days.',
   'Esta información es ingresada a mano: AuraSoft (Jelaf) no trae combustible. Es lo que Mayte anota por vuelta en su Excel (octubre y del 1 al 23 de noviembre), mitad a cada tramo; una salida sin ese dato usa el costo por km de su bus × los km de la ruta, y los próximos días el promedio de la ruta en los últimos 30 días.'));
+// A cost column with nothing in any row = no data for it yet (shown 0 with its helper).
+const colEmpty = k => !rows.value.some(r => costRaw(r, k) > 0);
 const costRaw = (r, k) => k.keys.reduce((n, x) => n + Number(r.costs?.[x] || 0), 0);
-const costOf = (r, k) => (r.costs ? (costRaw(r, k) ? money0(costRaw(r, k)) : '—') : '—');
+const costOf = (r, k) => (r.costs ? money0(costRaw(r, k)) : '—');
 const colCount = computed(() => (data.value.past ? 6 : 7) + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
 // Per day, and inside each day per direction (Lima → Chiclayo first) with its subtotal.
 const groups = computed(() => {
@@ -263,4 +268,5 @@ const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigi
 .md-side small { color: #8a94a6; font-weight: 500; }
 .md-t .md-hand { color: #d64550 !important; font-weight: 600; }
 .md-t th.md-hand { cursor: help; }
+.md-nodata { cursor: help; color: #98a2b3; border-bottom: 1px dotted #98a2b3; }
 </style>

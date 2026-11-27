@@ -196,8 +196,8 @@
               <tr class="pg-ie-l"><td>{{ L('Parcels and excess', 'Encomiendas y exceso') }}</td><td class="r">S/ {{ money(sel.money.income.parcels) }}</td></tr>
               <tr class="pg-ie-t"><td>{{ L('Total income', 'Total ingresos') }}</td><td class="r">S/ {{ money(sel.money.income.total) }}</td></tr>
               <tr class="pg-ie-h"><td colspan="2">{{ L('Expenses', 'Egresos') }}</td></tr>
-              <tr v-for="k in costKeys.filter(k => sel.money.costs[k])" :key="k" class="pg-ie-l">
-                <td>{{ costName(k) }}<small v-if="sel.money.estimated?.includes(k)" class="pg-est"> {{ L('estimated', 'estimado') }}</small></td>
+              <tr v-for="k in costKeys.filter(k => sel.money.costs[k] || NO_DATA_ROWS.includes(k))" :key="k" class="pg-ie-l" :class="{ 'pg-nodata': !sel.money.costs[k] }">
+                <td>{{ costName(k) }}<small v-if="sel.money.estimated?.includes(k)" class="pg-est"> {{ L('estimated', 'estimado') }}</small><a-tooltip v-if="!sel.money.costs[k]" :title="noDataHelp(k, es)"><InfoCircleOutlined class="pg-ni" /></a-tooltip></td>
                 <td class="r">S/ {{ money(sel.money.costs[k]) }}</td>
               </tr>
               <tr class="pg-ie-t"><td>{{ L('Total expenses', 'Total egresos') }}</td><td class="r">S/ {{ money(sel.money.costs.total) }}</td></tr>
@@ -272,6 +272,7 @@ import { getActingCompanyId } from '../lib/actingCompany';
 import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
 import { sortByLabel } from '../lib/filterOptions';
+import { noDataHelp, COST_KINDS_ALWAYS } from '../lib/transportNoData';
 
 const ui = useUiStore();
 const es = computed(() => String(ui.locale || 'en').startsWith('es'));
@@ -359,6 +360,8 @@ const channelRows = computed(() => Object.entries(sel.value?.channels || {})
 // The bus shown in the panel: the one being picked, else the departure's.
 const photoBus = computed(() => (data.value.vehicles || []).find(v => v.id === (edit.vehicle_id || sel.value?.vehicle_id)) || null);
 
+// Kinds with no real data yet stay listed with 0 and their helper (2026-11-27).
+const NO_DATA_ROWS = COST_KINDS_ALWAYS;
 const costKeys = ['fuel', 'tolls', 'payroll', 'staff', 'depreciation', 'maintenance', 'agency', 'meals'];
 const COSTS = { fuel: ['Fuel', 'Combustible'], tolls: ['Tolls', 'Peajes'], payroll: ['Payroll (share of the day)', 'Planilla (parte del día)'], staff: ['Crew pay', 'Pago a tripulación'],
   depreciation: ['Bus depreciation', 'Depreciación del bus'], maintenance: ['Maintenance', 'Mantenimiento'], agency: ['Agency (share of the day)', 'Agencia (parte del día)'], meals: ['Meals', 'Alimentación'] };
@@ -637,6 +640,8 @@ async function exportWeek() {
 .pg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .pg-hint { margin-top: 8px; font-size: 12px; color: #667085; }
 @media (max-width: 900px) { .pg-grid { grid-template-columns: 1fr; } .pg-lists { max-height: none; } }
+.pg-nodata td { color: #98a2b3; }
+.pg-ni { margin-left: 4px; cursor: help; color: #98a2b3; }
 </style>
 
 <style>
@@ -645,4 +650,6 @@ async function exportWeek() {
 .pg-drawer .ant-drawer-title { color: #fff; font-weight: 700; }
 .pg-drawer .ant-drawer-close { color: rgba(255, 255, 255, 0.85); }
 .pg-drawer .ant-drawer-close:hover { color: #fff; }
+.pg-nodata td { color: #98a2b3; }
+.pg-ni { margin-left: 4px; cursor: help; color: #98a2b3; }
 </style>

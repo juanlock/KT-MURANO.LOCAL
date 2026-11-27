@@ -24,6 +24,12 @@
                       <td class="num">{{ k.share }}</td>
                       <td class="num" :class="k.change > 0 ? 'up' : k.change < 0 ? 'down' : ''">{{ k.change === null ? '—' : (k.change > 0 ? '+' : '') + k.change + ' %' }}</td>
                     </tr>
+                    <!-- Kinds without real data yet (2026-11-27): listed with 0 and what is missing. -->
+                    <tr v-for="k in missingKinds" :key="'no-' + k.key" class="te-nodata">
+                      <td><i class="te-dot" style="background: #d0d5dd" />{{ k.name }}
+                        <a-tooltip :title="noDataHelp(k.key, isEs)"><InfoCircleOutlined class="te-ni" /></a-tooltip></td>
+                      <td class="num">0</td><td class="num">0</td><td class="num">—</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -36,6 +42,8 @@
 </template>
 
 <script setup>
+import { InfoCircleOutlined } from '@ant-design/icons-vue';
+import { noDataHelp, COST_KINDS_ALWAYS } from '../lib/transportNoData';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import http from '../lib/http';
@@ -72,7 +80,11 @@ onMounted(load);
 watch(() => props.range, load);
 
 // One colour per kind, the same in the ring, the trend and the table.
-// Power BI's palette (2026-11-23); past 8 kinds the rest fold into "Otros" (gray), never a made-up hue.
+// Turismo's cost kinds with no real data yet (2026-11-27): always listed, with 0 and the helper.
+const KIND_NAMES = { payroll: ['Payroll', 'Planilla'], depreciation: ['Depreciation', 'Depreciación'], maintenance: ['Maintenance', 'Mantenimiento'], agency: ['Agencies (daily cost)', 'Agencias (costo diario)'] };
+const isEs = computed(() => tr('en', 'es') === 'es');
+const missingKinds = computed(() => (data.value.kinds ? COST_KINDS_ALWAYS.filter(k => !(data.value.kinds || []).some(x => x.key === k && Number(x.amount) > 0))
+  .map(k => ({ key: k, name: tr(...KIND_NAMES[k]) })) : []));// Power BI's palette (2026-11-23); past 8 kinds the rest fold into "Otros" (gray), never a made-up hue.
 const PALETTE = ['#118DFF', '#3A4FC4', '#E66C37', '#8E2C9E', '#E044A7', '#744EC2', '#B08F00', '#D64550'];
 // Never a repeated hue: past the 8th kind, gray (it is in "Otros" on the chart anyway).
 const colorOf = (key) => { const i = Math.max(0, (data.value.kinds || []).findIndex(k => k.key === key)); return i < PALETTE.length ? PALETTE[i] : '#9aa0a6'; };
@@ -162,4 +174,6 @@ const trendChart = computed(() => {
 @media (min-width: 900px) {
   .te-grid { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) minmax(0, 1fr); }
 }
+.te-nodata td { color: #98a2b3; }
+.te-ni { margin-left: 4px; cursor: help; }
 </style>

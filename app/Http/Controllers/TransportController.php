@@ -811,6 +811,9 @@ class TransportController extends Controller
                 'completed' => (int) ($trips['completed'] ?? 0), 'cancelled' => (int) ($trips['cancelled'] ?? 0)],
             'costs' => ['fuel' => round($fuel, 2), 'maintenance' => round($maintenance, 2), 'total' => round($fuel + $maintenance, 2)],
             'agencies' => $rows, 'routes' => $routes->take(5)->values(), 'alerts' => array_slice($alerts, 0, 6), 'alerts_total' => count($alerts),
+            // Whether the buses have any papers' date or maintenance plan at all (2026-11-27: without them "0" means "no data").
+            'fleet_data' => $buses && (DB::table('vehicles')->whereIn('id', $buses)->where(fn ($q) => $q->whereNotNull('insurance_expiry')->orWhereNotNull('inspection_expiry')->orWhereNotNull('registration_expiry'))->exists()
+                || DB::table('vehicle_maintenance_plans')->whereIn('vehicle_id', $buses)->exists()),
         ]);
     }
 
