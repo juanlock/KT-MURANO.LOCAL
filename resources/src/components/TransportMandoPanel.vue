@@ -59,7 +59,11 @@
               <th v-for="k in channelKeys" :key="k" class="c md-sub md-g-sold">{{ chName(k) }}</th>
               <th class="c md-sub md-g-sold">Total</th>
               <template v-if="data.money">
-                <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost">{{ L(k.en, k.es) }}</th>
+                <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost" :class="{ 'md-hand': k.key === 'fuel' }">
+                  <!-- Fuel is typed by hand (the user, 2026-11-27): AuraSoft has no fuel, only Mayte's own Excel. -->
+                  <a-tooltip v-if="k.key === 'fuel'" :title="FUEL_HELP"><span>{{ L(k.en, k.es) }} <InfoCircleOutlined /></span></a-tooltip>
+                  <template v-else>{{ L(k.en, k.es) }}</template>
+                </th>
                 <th class="r md-sub md-g-cost">Total</th>
               </template>
             </tr>
@@ -82,7 +86,7 @@
                 <td v-if="!data.past" class="c" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
                 <template v-if="data.money">
                   <td class="r">{{ r.income == null ? '—' : money0(r.income) }}</td>
-                  <td v-for="k in costCols" :key="k.key" class="r md-cost">{{ costOf(r, k) }}</td>
+                  <td v-for="k in costCols" :key="k.key" class="r md-cost" :class="{ 'md-hand': k.key === 'fuel' }">{{ costOf(r, k) }}</td>
                   <td class="r md-cost-t">{{ r.cost == null ? '—' : money0(r.cost) }}</td>
                   <td class="r"><b v-if="r.result != null" :class="r.result < 0 ? 'md-neg' : 'md-pos'">{{ r.result < 0 ? '−' : '+' }}{{ money0(Math.abs(r.result)) }}</b><span v-else>—</span></td>
                 </template>
@@ -101,7 +105,7 @@
               <td v-if="!data.past" class="c">{{ s.missing }}</td>
               <template v-if="data.money">
                 <td class="r">{{ money0(s.income) }}</td>
-                <td v-for="k in costCols" :key="k.key" class="r">{{ money0(rows.reduce((n, r) => n + costRaw(r, k), 0)) }}</td>
+                <td v-for="k in costCols" :key="k.key" class="r" :class="{ 'md-hand': k.key === 'fuel' }">{{ money0(rows.reduce((n, r) => n + costRaw(r, k), 0)) }}</td>
                 <td class="r">{{ money0(s.cost) }}</td>
                 <td class="r"><b :class="s.result < 0 ? 'md-neg' : 'md-pos'">{{ signed(s.result) }}</b></td>
               </template>
@@ -116,7 +120,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
-import { LeftOutlined, RightOutlined } from '@ant-design/icons-vue';
+import { LeftOutlined, RightOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import { useUiStore } from '../stores/ui';
 
@@ -178,6 +182,8 @@ const costCols = [
   { key: 'depreciation', en: 'Deprec.', es: 'Deprec.', keys: ['depreciation'] },
   { key: 'other', en: 'Other', es: 'Otros', keys: ['maintenance', 'agency', 'meals'] },
 ];
+const FUEL_HELP = computed(() => L('This figure is typed by hand: AuraSoft (Jelaf) brings no fuel. It is what Mayte notes per round trip in her Excel (October and 1-23 November), half on each leg; a departure without it uses its bus\'s cost per km × the route\'s km, and the coming days the route\'s average of the last 30 days.',
+  'Esta información es ingresada a mano: AuraSoft (Jelaf) no trae combustible. Es lo que Mayte anota por vuelta en su Excel (octubre y del 1 al 23 de noviembre), mitad a cada tramo; una salida sin ese dato usa el costo por km de su bus × los km de la ruta, y los próximos días el promedio de la ruta en los últimos 30 días.'));
 const costRaw = (r, k) => k.keys.reduce((n, x) => n + Number(r.costs?.[x] || 0), 0);
 const costOf = (r, k) => (r.costs ? (costRaw(r, k) ? money0(costRaw(r, k)) : '—') : '—');
 const colCount = computed(() => (data.value.past ? 6 : 7) + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
@@ -255,4 +261,6 @@ const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigi
 .md-week-s b { margin-left: auto; }
 .md-side td { background: #fafbfc !important; color: #252423; font-weight: 700; font-size: 11.5px; padding: 4px 8px 4px 16px; border-bottom: 1px solid #e1e4e8; }
 .md-side small { color: #8a94a6; font-weight: 500; }
+.md-t .md-hand { color: #d64550 !important; font-weight: 600; }
+.md-t th.md-hand { cursor: help; }
 </style>
