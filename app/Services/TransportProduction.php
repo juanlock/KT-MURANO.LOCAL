@@ -196,11 +196,23 @@ class TransportProduction
                 $timetable[$t->id] = true;
             }
         }
+        // Fuel nobody typed yet (the user, 2026-11-27: "llena la columna combustible si lo tenemos"): TransportProfit's estimate
+        // -- the bus's cost per km (its real fuel of the last year) x the route's km --, flagged so the screen tells it apart.
+        $fuelEst = [];
+        if ($trips->contains(fn ($t) => $t->fuel === null)) {
+            foreach (TransportProfit::compute($cid, $date, $date, null)['routes'] ?? [] as $rt) {
+                foreach ($rt['trips'] as $tr) {
+                    if (in_array('fuel', $tr['estimated'] ?? [], true) && ($tr['costs']['fuel'] ?? 0) > 0) {
+                        $fuelEst[$tr['id']] = round((float) $tr['costs']['fuel'], 2);
+                    }
+                }
+            }
+        }
         $half = fn ($origin) => $trips->where('origin_id', $origin)->map(fn ($t) => [
             'id' => $t->id, 'bus' => $t->bus, 'category' => $t->category, 'seats' => $t->seats, 'pax' => $t->pax, 'free' => $t->seats ? max(0, $t->seats - $t->pax) : null,
             'points' => $points[$t->id] ?? [['name' => '', 'at' => $t->at]], 'points_timetable' => isset($timetable[$t->id]),
             'amount' => $t->tickets, 'parcels' => $t->parcels, 'excess' => $t->excess, 'toll' => $t->toll, 'toll_est' => $t->toll_est,
-            'fuel' => $t->fuel, 'source' => $t->source,
+            'fuel' => $t->fuel ?? ($fuelEst[$t->id] ?? null), 'fuel_est' => $t->fuel === null && isset($fuelEst[$t->id]), 'source' => $t->source,
         ])->sortBy(fn ($r) => $r['points'][0]['at'])->values()->all();
         $channels = [];
         foreach (DB::table('transport_aurasoft_rows')->where('company_id', $cid)->where('is_current', 1)->whereIn('trip_id', $ids ?: [0])->get(['trip_id', 'channels']) as $r) {

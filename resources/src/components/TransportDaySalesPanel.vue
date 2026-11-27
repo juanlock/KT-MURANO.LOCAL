@@ -22,7 +22,13 @@
             <a-button size="small" :loading="exporting === 'pdf'" @click="exportFile('pdf')"><FilePdfOutlined /> PDF</a-button>
           </span>
         </div>
-        <TransportStrip :items="tiles" :toggle="false" />
+        <!-- The day's figures split by direction, side by side with a vertical line between them (the user, 2026-11-27). -->
+        <div class="ds-tiles">
+          <div v-for="h in halves" :key="h.key" class="ds-tside">
+            <div class="ds-tside-h">{{ h.key === 'lima' ? 'LIMA → CHICLAYO' : 'CHICLAYO → LIMA' }}</div>
+            <TransportStrip :items="halfTiles(h)" :toggle="false" />
+          </div>
+        </div>
         <div class="ds-grid">
           <div v-for="h in halves" :key="h.key" class="ds-half">
             <div class="ds-head" :class="'ds-' + h.key">{{ h.title }} <span>{{ h.rows.length }} {{ tr('departures', 'salidas') }}</span></div>
@@ -33,7 +39,7 @@
                 <tr>
                   <th>Bus</th><th>{{ tr('Boarding and time', 'Embarque y horario') }}</th><th class="r">Pax</th><th class="r" :title="tr('Free seats', 'Asientos libres')">{{ tr('Free', 'Lib.') }}</th>
                   <th class="r">{{ tr('Amount', 'Monto') }}</th><th class="r">{{ tr('Parcels', 'Encom.') }}</th><th class="r">{{ tr('Excess', 'Exc.') }}</th>
-                  <th v-if="h.costs" class="r">{{ tr('Toll', 'Peaje') }}</th><th v-if="h.costs" class="r">{{ tr('Fuel', 'Comb.') }}</th>
+                  <th v-if="h.costs" class="r">{{ tr('Toll', 'Peaje') }}</th><th v-if="h.costs" class="r"><a-tooltip :title="FUEL_EST_HELP"><span class="fuel-h">{{ tr('Fuel', 'Comb.') }}</span></a-tooltip></th>
                 </tr>
               </thead>
               <tbody>
@@ -48,7 +54,7 @@
                   <td class="r">{{ r.parcels ? plain(r.parcels) : '—' }}</td>
                   <td class="r">{{ r.excess ? plain(r.excess) : '—' }}</td>
                   <td v-if="h.costs" class="r" :class="{ est: r.toll_est }" :title="r.toll_est ? tr('The route\'s toll', 'El peaje de la ruta') : ''">{{ r.toll != null ? plain(r.toll) : '—' }}</td>
-                  <td v-if="h.costs" class="r">{{ r.fuel != null ? plain(r.fuel) : '—' }}</td>
+                  <td v-if="h.costs" class="r" :class="{ 'fuel-est': r.fuel_est }" :title="r.fuel_est ? FUEL_EST_HELP : ''">{{ r.fuel == null ? '—' : (r.fuel_est ? Math.round(r.fuel).toLocaleString('es-PE') : plain(r.fuel)) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -293,13 +299,32 @@ const longDate = d => `${dayjs(d).locale(String(ui.locale || 'en').startsWith('e
 const sourceLabel = s => ({ aurasoft: tr('Figures from AuraSoft', 'Cifras de AuraSoft'), report: tr("From the client's daily report", 'Del reporte del día del cliente') }[s] || s);
 
 // The same column widths for the rows and the totals table below them.
-const colWidths = h => (h.costs ? [10, 31, 8, 5, 11, 10, 9, 9, 7] : [11, 34, 10, 6, 14, 12, 13]);
+const colWidths = h => (h.costs ? [10, 28, 8, 5, 11, 10, 9, 9, 10] : [11, 34, 10, 6, 14, 12, 13]);
 const chans = k => Object.entries(data.value.channels?.[k] || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
 const halves = computed(() => [
   { key: 'lima', title: tr('Departures from Lima', 'Salidas de Lima'), rows: data.value.lima || [], channels: chans('lima') },
   { key: 'chiclayo', title: tr('Departures from Chiclayo', 'Salidas de Chiclayo'), rows: data.value.chiclayo || [], channels: chans('chiclayo') },
 ].map(h => ({ ...h, costs: h.rows.some(r => r.toll != null || r.fuel != null) })));
 
+// Fuel: typed by hand (Mayte's Excel / Completar); a red figure is the system's estimate until she types it (2026-11-27).
+const FUEL_EST_HELP = tr('Fuel is typed by hand (Mayte, per round trip). A red figure is an estimate until it is typed: the bus\'s cost per km (its real fuel of the last year) × the route\'s km.',
+  'El combustible se ingresa a mano (Mayte, por vuelta). Una cifra en rojo es un estimado hasta que se ingrese: el costo por km del bus (su combustible real del último año) × los km de la ruta.');// One set of cards per direction (2026-11-27).
+const soles = v => `S/ ${Math.round(Number(v || 0)).toLocaleString('es-PE')}`;
+const halfTiles = h => {
+  const r = h.rows;
+  const seats = sum(r, 'seats');
+  return [
+    { label: tr('Departures', 'Salidas'), value: r.length },
+    { label: tr('Passengers', 'Pasajeros'), value: sum(r, 'pax') },
+    { label: tr('Occupancy', 'Ocupación'), value: seats ? `${Math.round((sum(r, 'pax') / seats) * 100)} %` : '—' },
+    { label: tr('Tickets', 'Pasajes'), value: soles(sum(r, 'amount')) },
+    { label: tr('Parcels + excess', 'Encom. + exceso'), value: soles(sum(r, 'parcels') + sum(r, 'excess')) },
+    { label: tr("Day's income", 'Ingreso del día'), value: soles(sum(r, 'amount') + sum(r, 'parcels') + sum(r, 'excess')) },
+    { label: tr('Tolls', 'Peaje'), value: soles(sum(r, 'toll')) },
+    { label: r.some(x => x.fuel_est) ? tr('Fuel ≈', 'Combustible ≈') : tr('Fuel', 'Combustible'), value: soles(sum(r, 'fuel')),
+      help: r.some(x => x.fuel_est) ? FUEL_EST_HELP : null },
+  ];
+};
 const tiles = computed(() => {
   const all = [...(data.value.lima || []), ...(data.value.chiclayo || [])];
   const income = sum(all, 'amount') + sum(all, 'parcels') + sum(all, 'excess');
@@ -368,4 +393,13 @@ const tiles = computed(() => {
 .ds-table td.pts { font-size: 11.5px; }
 .ds-table .ini { cursor: help; border-bottom: 1px dotted #98a2b3; }
 .ds-foot td { font-size: 11.5px; padding-left: 2px !important; padding-right: 3px !important; white-space: nowrap; }
+.ds-table td.fuel-est { color: #d64550; font-style: italic; cursor: help; }
+.fuel-h { cursor: help; border-bottom: 1px dotted #98a2b3; }
+.ds-tiles { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 8px; }
+@media (min-width: 1100px) { .ds-tiles { grid-template-columns: 1fr 1fr; gap: 0; } .ds-tside + .ds-tside { border-left: 2px solid #c8d1dc; padding-left: 10px; margin-left: 10px; } }
+.ds-tside { min-width: 0; }
+.ds-tside-h { font-size: 12px; font-weight: 800; letter-spacing: .1em; color: #12239e; text-align: center; margin-bottom: 4px; }
+.ds-tside :deep(.ts) { margin-bottom: 0; gap: 6px; }
+.ds-tside :deep(.ts-item) { flex: 1 1 calc(25% - 6px); padding: 4px 6px; }
+.ds-tside :deep(.ts-value) { font-size: 17px; }
 </style>
