@@ -31,17 +31,17 @@
               <colgroup><col v-for="(w, k) in colWidths(h)" :key="k" :style="{ width: w + '%' }" /></colgroup>
               <thead>
                 <tr>
-                  <th>Bus</th><th>{{ tr('Boarding', 'Embarque') }}</th><th>{{ tr('Time', 'Horario') }}</th><th class="r">Pax</th><th class="r">{{ tr('Free', 'Libres') }}</th>
-                  <th class="r">{{ tr('Amount', 'Monto') }}</th><th class="r">{{ tr('Parcels', 'Encom.') }}</th><th class="r">{{ tr('Excess', 'Exceso') }}</th>
+                  <th>Bus</th><th>{{ tr('Boarding and time', 'Embarque y horario') }}</th><th class="r">Pax</th><th class="r" :title="tr('Free seats', 'Asientos libres')">{{ tr('Free', 'Lib.') }}</th>
+                  <th class="r">{{ tr('Amount', 'Monto') }}</th><th class="r">{{ tr('Parcels', 'Encom.') }}</th><th class="r">{{ tr('Excess', 'Exc.') }}</th>
                   <th v-if="h.costs" class="r">{{ tr('Toll', 'Peaje') }}</th><th v-if="h.costs" class="r">{{ tr('Fuel', 'Comb.') }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(r, i) in h.rows" :key="r.id" :class="{ tint: i % 2 === 0 }">
-                  <td><b>{{ busName(r.bus) }}</b><div v-if="r.category" class="svc">{{ r.category }}</div><a-tooltip v-if="r.source" :title="sourceLabel(r.source)"><span class="ds-src">{{ r.source === 'aurasoft' ? 'A' : r.source === 'report' ? 'R' : '' }}</span></a-tooltip></td>
-                  <td :class="{ est: r.points_timetable }" :title="r.points_timetable ? tr('From the timetable (the last same departure)', 'Del horario (la última salida igual)') : ''">
-                    <div v-for="(p, k) in r.points" :key="k" class="ln">{{ p.name || '—' }}</div></td>
-                  <td :class="{ est: r.points_timetable }"><div v-for="(p, k) in r.points" :key="k" class="ln">{{ hm(p.at) }}</div></td>
+                  <td class="nw" :title="r.category || ''"><b>{{ busName(r.bus) }}</b> <span v-if="r.category" class="svc">{{ String(r.category).slice(0, 3).toUpperCase() }}</span></td>
+                  <!-- One line per bus (the user, 2026-11-27: the figures are the bus's total, so its boarding points go side by side). -->
+                  <td class="nw pts" :class="{ est: r.points_timetable }" :title="r.points_timetable ? tr('From the timetable (the last same departure)', 'Del horario (la última salida igual)') : ''">
+                    <span v-for="(p, k) in r.points" :key="k"><span v-if="k" class="mut"> › </span><a-tooltip :title="pointName(p.name)"><span class="ini">{{ pointShort(p.name) }}</span></a-tooltip> <span class="mut">{{ hm(p.at) }}</span></span></td>
                   <td class="r">{{ r.pax }}<span v-if="r.seats" class="mut">/{{ r.seats }}</span></td>
                   <td class="r">{{ r.free ?? '—' }}</td>
                   <td class="r"><b :class="{ low: r.amount < lowAmount }">{{ plain(r.amount) }}</b></td>
@@ -53,7 +53,7 @@
               </tbody>
             </table>
             <div v-if="h.channels.length" class="ds-chips">
-              <span class="mut">{{ tr('Seats by seller (AuraSoft)', 'Pasajes por vendedor (AuraSoft)') }}:</span>
+              <span class="mut">{{ tr('Seats by seller', 'Pasajes por vendedor') }}:</span>
               <span v-for="c in h.channels" :key="c[0]" class="chip">{{ c[0] }} <b>{{ c[1] }}</b></span>
             </div>
             <!-- The totals at the bottom of both halves, on the same line (user, 2026-11-23). -->
@@ -62,7 +62,7 @@
               <colgroup><col v-for="(w, k) in colWidths(h)" :key="k" :style="{ width: w + '%' }" /></colgroup>
               <tfoot>
                 <tr>
-                  <td colspan="3"><b>{{ tr('Total', 'Total') }}</b></td>
+                  <td colspan="2"><b>{{ tr('Total', 'Total') }}</b></td>
                   <td class="r"><b>{{ sum(h.rows, 'pax') }}</b></td><td class="r"><b>{{ sum(h.rows, 'free') }}</b></td>
                   <td class="r"><b>{{ plain(sum(h.rows, 'amount')) }}</b></td><td class="r"><b>{{ plain(sum(h.rows, 'parcels')) }}</b></td>
                   <td class="r"><b>{{ plain(sum(h.rows, 'excess')) }}</b></td>
@@ -278,15 +278,22 @@ async function exportFile(format) {
 }
 onMounted(load);
 watch(() => props.range?.[1], () => { day.value = null; load(); });
-const plain = v => money(Number(v || 0)).replace(/^[^\d-]+/, '');
+// Each boarding code with its full name on hover (the user, 2026-11-27); codes as in the client's report.
+const POINT_NAMES = { CV: 'Terminal Cavassa (La Victoria, Lima)', PN: 'Terminal Plaza Lima Norte (Independencia, Lima)', TOLIVOS: 'Terminal Los Olivos (Lima)',
+  OLIVOS: 'Terminal Los Olivos (Lima)', CIX: 'Terminal Chiclayo', TCIX: 'Terminal Chiclayo', CHEPEN: 'Agencia Chepén', TRUX: 'Agencia Trujillo',
+  TRUJILLO: 'Agencia Trujillo', LAMBAYEQUE: 'Agencia Lambayeque', LAMB: 'Agencia Lambayeque', SERVCIXTRUX: 'Servicio Chiclayo – Trujillo' };
+// Long names shortened on the row (the full one in the helper).
+const SHORT_POINTS = { LAMBAYEQUE: 'LAMB', CHEPEN: 'CHEP', TOLIVOS: 'T.OLI', OLIVOS: 'T.OLI', TRUJILLO: 'TRUX', SERVCIXTRUX: 'CIX-TRUX' };
+const pointShort = n => SHORT_POINTS[String(n || '').toUpperCase().replace(/[^A-Z]/g, '')] || n || '—';
+const pointName = n => POINT_NAMES[String(n || '').toUpperCase().replace(/[^A-Z]/g, '')] || n || '';const plain = v => money(Number(v || 0)).replace(/^[^\d-]+/, '');
 const busName = n => String(n).replace(/^Bus\s+/i, '');
-const hm = d => (d ? dayjs(d).format('hh:mm A') : '');
+const hm = d => (d ? dayjs(d).format('h:mm') + (dayjs(d).hour() < 12 ? 'a' : 'p') : '');
 const sum = (rows, k) => rows.reduce((s, r) => s + Number(r[k] || 0), 0);
 const longDate = d => `${dayjs(d).locale(String(ui.locale || 'en').startsWith('es') ? 'es' : 'en').format('dddd')} ${fmtDate(d)}`;
 const sourceLabel = s => ({ aurasoft: tr('Figures from AuraSoft', 'Cifras de AuraSoft'), report: tr("From the client's daily report", 'Del reporte del día del cliente') }[s] || s);
 
 // The same column widths for the rows and the totals table below them.
-const colWidths = h => (h.costs ? [9, 14, 12, 8, 6, 12, 8, 8, 11, 12] : [10, 18, 15, 11, 8, 14, 12, 12]);
+const colWidths = h => (h.costs ? [10, 31, 8, 5, 11, 10, 9, 9, 7] : [11, 34, 10, 6, 14, 12, 13]);
 const chans = k => Object.entries(data.value.channels?.[k] || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
 const halves = computed(() => [
   { key: 'lima', title: tr('Departures from Lima', 'Salidas de Lima'), rows: data.value.lima || [], channels: chans('lima') },
@@ -357,4 +364,8 @@ const tiles = computed(() => {
 .ds-src { font-size: 9px; margin-left: 3px; padding: 0 3px; border-radius: 3px; background: rgba(128, 128, 128, 0.15); vertical-align: super; cursor: help; }
 .ds-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; padding: 6px 8px; font-size: 12px; }
 .chip { padding: 1px 7px; border-radius: 10px; background: rgba(128, 128, 128, 0.12); }
+.ds-table td.nw { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-table td.pts { font-size: 11.5px; }
+.ds-table .ini { cursor: help; border-bottom: 1px dotted #98a2b3; }
+.ds-foot td { font-size: 11.5px; padding-left: 2px !important; padding-right: 3px !important; white-space: nowrap; }
 </style>
