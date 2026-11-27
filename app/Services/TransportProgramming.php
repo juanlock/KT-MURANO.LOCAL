@@ -568,7 +568,10 @@ class TransportProgramming
                     $income = round($m ? (float) ($m['income']['total'] ?? 0) : (float) $x['amount'], 2);
                     $costs = $m && ! empty($m['costs']['total']) ? $m['costs'] : $avgCosts;
                     $cost = isset($costs['total']) ? round((float) $costs['total'], 2) : null;
-                    $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'],
+                    // The standard income parts (2026-11-27): tickets, parcels, excess.
+                    $parts = $m ? ['tickets' => (float) ($m['income']['tickets'] ?? 0), 'parcels' => (float) ($m['income']['parcels'] ?? 0), 'excess' => (float) ($m['income']['excess'] ?? 0)]
+                        : ['tickets' => (float) $x['amount'], 'parcels' => 0.0, 'excess' => 0.0];
+                    $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'], 'income_parts' => $parts,
                         'bus_from' => $x['bus_from'], 'seats' => $x['seats'], 'sold' => $x['sold'], 'channels' => $x['channels'], 'forecast' => $x['sold'],
                         'over' => 0, 'costs' => $costs, 'price' => $x['sold'] ? round($income / $x['sold'], 2) : null, 'income' => $income, 'cost' => $cost,
                         'result' => $cost !== null ? round($income - $cost, 2) : null, 'break_even' => null, 'missing' => null, 'source' => $x['source'],
@@ -581,7 +584,9 @@ class TransportProgramming
                 $expected = $x['seats'] ? min($x['forecast'], (int) $x['seats']) : $x['forecast'];
                 $income = $price !== null ? round($expected * $price, 2) : null;
                 $breakEven = $cost && $price ? (int) ceil($cost / $price) : null;
+                // Projected: only tickets (parcels and excess are not projected).
                 $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'],
+                    'income_parts' => ['tickets' => $income ?? 0.0, 'parcels' => 0.0, 'excess' => 0.0],
                     'bus_from' => $x['bus_from'], 'seats' => $x['seats'], 'sold' => $x['sold'], 'channels' => $x['channels'], 'forecast' => $expected,
                     'over' => max(0, $x['forecast'] - $expected), 'costs' => $avgCosts,
                     'price' => $price !== null ? round($price, 2) : null, 'income' => $income, 'cost' => $cost, 'result' => $income !== null && $cost !== null ? round($income - $cost, 2) : null,

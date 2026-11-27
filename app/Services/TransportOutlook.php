@@ -110,7 +110,7 @@ class TransportOutlook
             $commRate = $ticketIncome > 0 ? $comm / $ticketIncome : $history['commissionRate'];
             $mealPer = $mealCost > 0 ? ($sold > 0 ? (int) $t['vip'] / $sold : $history['vipShare']) * $mealCost : 0.0;
             $projTickets = $projected * (float) $fare;
-            $income = $projTickets + (float) $t['income']['parcels'];
+            $income = $projTickets + (float) $t['income']['parcels'] + (float) ($t['income']['excess'] ?? 0);
 
             $c = $t['costs'];
             $variable = [
@@ -132,7 +132,7 @@ class TransportOutlook
                 'occupancy' => $t['occupancy'], 'projected' => $projected, 'projected_occupancy' => $projOcc, 'method' => $method,
                 'curve' => $curve !== null ? round($curve, 3) : null, 'usual' => $usual !== null ? round($usual, 1) : null, 'hours_left' => $hours,
                 'fare' => $fare !== null ? round((float) $fare, 2) : null,
-                'income' => ['sold' => round($ticketIncome, 2), 'projected' => round($income, 2), 'parcels' => round((float) $t['income']['parcels'], 2)],
+                'income' => ['sold' => round($ticketIncome, 2), 'projected' => round($income, 2), 'parcels' => round((float) $t['income']['parcels'] + (float) ($t['income']['excess'] ?? 0), 2)],
                 'costs' => [
                     'variable' => array_map(fn ($v) => round($v, 2), $variable) + ['total' => round($var, 2)],
                     'fixed' => array_map(fn ($v) => round($v, 2), $fixed) + ['total' => round($all - $var, 2)],

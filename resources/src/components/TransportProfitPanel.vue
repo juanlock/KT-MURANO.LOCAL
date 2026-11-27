@@ -7,45 +7,60 @@
       <TransportStrip :items="tiles" :toggle="false" />
       <div class="pp-grid">
       <div class="pp-main">
-      <a-table :columns="columns" :data-source="data.routes" row-key="route_id" size="small" :pagination="false" :scroll="tableScroll">
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'route'"><b class="pp-nowrap">{{ record.route }}</b></template>
-          <template v-else-if="column.key === 'trips'">
-            <span class="pos">{{ record.gain_trips }}</span> / <span class="neg">{{ record.loss_trips }}</span>
-            <span v-if="record.trips_pending" class="pp-muted"> · {{ record.trips_pending }} {{ es ? 'por salir' : 'to leave' }}</span>
-          </template>
-          <template v-else-if="column.key === 'occupancy'">{{ record.occupancy != null ? record.occupancy + ' %' : '—' }}</template>
-          <template v-else-if="column.key === 'income'">{{ money(record.income) }}</template>
-          <template v-else-if="column.key === 'costs'">{{ money(record.costs) }}</template>
-          <template v-else-if="column.key === 'profit'"><b :class="record.profit >= 0 ? 'pos' : 'neg'">{{ record.trips_run ? money(record.profit) : '—' }}</b></template>
-        </template>
-        <!-- One line per trip, no side scroll (the user, 2026-11-27): the small costs together in "Otros", the detail on hover. -->
-        <template #expandedRowRender="{ record }">
-          <table class="pp-trips">
-            <colgroup><col style="width: 21%" /><col style="width: 14%" /><col style="width: 13%" /><col style="width: 12%" /><col style="width: 11%" /><col style="width: 11%" /><col style="width: 13%" /><col style="width: 5%" /></colgroup>
-            <thead>
-              <tr>
-                <th>{{ es ? 'Salida · bus' : 'Departure · bus' }}</th><th class="r">{{ es ? 'Pasajes' : 'Tickets' }}</th><th class="r">{{ es ? 'Ingresos' : 'Income' }}</th>
-                <th class="r">{{ es ? 'Comb.' : 'Fuel' }}</th><th class="r">{{ es ? 'Peajes' : 'Tolls' }}</th>
-                <th class="r"><a-tooltip :title="otherHelp"><span class="pp-dot">{{ es ? 'Otros' : 'Other' }}</span></a-tooltip></th>
-                <th class="r">{{ es ? 'Ganancia' : 'Profit' }}</th><th></th>
+      <!-- The standard money table (the user, 2026-11-27; lib/moneyColumns.js): Ingresos (Pasajes, Encomiendas, Excesos, Total),
+           Egresos (Combustible, Peajes, Personal, Depreciación, Otros, Total), Ganancia. A route is one line; a click opens its
+           departures below, one line each, same columns. No side scroll. -->
+      <div class="pp-wrap" :style="tableScroll ? { maxHeight: tableScroll.y + 40 + 'px' } : null">
+        <table class="pp-std">
+          <thead>
+            <tr>
+              <th rowspan="2" class="pp-first">{{ es ? 'Ruta / salida · bus' : 'Route / departure · bus' }}</th>
+              <th rowspan="2" class="r">{{ es ? 'Pasajes' : 'Tickets' }}<br><small>{{ es ? 'ocup.' : 'occ.' }}</small></th>
+              <th :colspan="INCOME_COLS.length + 1" class="c pp-gi">{{ es ? 'Ingresos' : 'Income' }}</th>
+              <th :colspan="EXPENSE_COLS.length + 1" class="c pp-ge">{{ es ? 'Egresos' : 'Expenses' }}</th>
+              <th rowspan="2" class="r">{{ es ? 'Ganancia' : 'Profit' }}</th>
+              <th rowspan="2"></th>
+            </tr>
+            <tr>
+              <th v-for="c in INCOME_COLS" :key="c.key" class="r pp-gi pp-sub">{{ es ? c.es : c.en }}</th>
+              <th class="r pp-gi pp-sub">Total</th>
+              <th v-for="c in EXPENSE_COLS" :key="c.key" class="r pp-ge pp-sub">
+                <a-tooltip v-if="noDataCol(c)" :title="noDataHelp(c.key === 'other' ? 'other' : c.key === 'staff' ? 'payroll' : c.key, es)"><span class="pp-dot">{{ es ? c.es : c.en }}</span></a-tooltip>
+                <a-tooltip v-else-if="c.key === 'fuel'" :title="es ? 'El combustible se ingresa a mano; en rojo, estimado.' : 'Fuel is typed by hand; in red, estimated.'"><span class="pp-dot">{{ es ? c.es : c.en }}</span></a-tooltip>
+                <template v-else>{{ es ? c.es : c.en }}</template>
+              </th>
+              <th class="r pp-ge pp-sub">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="r in routeRows" :key="r.route_id">
+              <tr class="pp-route" @click="toggle(r.route_id)">
+                <td class="pp-first"><span class="pp-tg">{{ open[r.route_id] ? '−' : '+' }}</span> <b>{{ r.route }}</b>
+                  <span class="pp-muted"> · <span class="pos">{{ r.gain_trips }}</span>/<span class="neg">{{ r.loss_trips }}</span><template v-if="r.trips_pending"> · {{ r.trips_pending }} {{ es ? 'por salir' : 'to leave' }}</template></span></td>
+                <td class="r">{{ r.sold.toLocaleString() }} <span class="pp-muted">{{ r.occupancy != null ? r.occupancy + ' %' : '' }}</span></td>
+                <td v-for="c in INCOME_COLS" :key="c.key" class="r">{{ whole(incomeOf(r.m.income, c.key)) }}</td>
+                <td class="r pp-tot">{{ whole(r.m.income.total) }}</td>
+                <td v-for="c in EXPENSE_COLS" :key="c.key" class="r" :class="{ 'pp-est': c.key === 'fuel' }">{{ whole(expenseOf(r.m.costs, c)) }}</td>
+                <td class="r pp-tot">{{ whole(r.costs) }}</td>
+                <td class="r"><b :class="r.profit >= 0 ? 'pos' : 'neg'">{{ r.trips_run ? whole(r.profit) : '—' }}</b></td>
+                <td></td>
               </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in record.trips" :key="t.id">
-                <td class="ell">{{ fmt(t.departure_at) }} <span class="pp-muted">· {{ String(t.vehicle || '').replace(/^Bus\s+/i, '') }}</span></td>
-                <td class="r" :title="t.break_even_seats != null ? (es ? `Se paga con ${t.break_even_seats} pasajes` : `Covered at ${t.break_even_seats} tickets`) : ''">{{ t.sold }} <span class="pp-muted">{{ t.occupancy != null ? t.occupancy + ' %' : '' }}</span></td>
-                <td class="r" :title="`${es ? 'Pasajes' : 'Tickets'} ${money(t.income.tickets)} · ${es ? 'Encomiendas' : 'Parcels'} ${money(t.income.parcels)}`">{{ whole(t.income.total) }}</td>
-                <td class="r" :class="{ 'pp-est': t.estimated.includes('fuel') }" :title="t.estimated.includes('fuel') ? (es ? 'Estimado: el combustible se ingresa a mano' : 'Estimated: fuel is typed by hand') : ''">{{ whole(t.costs.fuel) }}</td>
-                <td class="r" :class="{ 'pp-muted': t.estimated.includes('tolls') }">{{ whole(t.costs.tolls) }}</td>
-                <td class="r">{{ whole(otherOf(t)) }}</td>
-                <td class="r"><b :class="t.result === 'pending' ? '' : (t.profit >= 0 ? 'pos' : 'neg')">{{ t.result === 'pending' ? '—' : whole(t.profit) }}</b></td>
-                <td class="c"><a-tooltip :title="es ? RESULT[t.result].es : RESULT[t.result].en"><i class="pp-res" :class="t.result" /></a-tooltip></td>
-              </tr>
-            </tbody>
-          </table>
-        </template>
-      </a-table>
+              <template v-if="open[r.route_id]">
+                <tr v-for="t in r.trips" :key="t.id" class="pp-trip">
+                  <td class="pp-first ell">{{ fmt(t.departure_at) }} <span class="pp-muted">· {{ String(t.vehicle || '').replace(/^Bus\s+/i, '') }}</span></td>
+                  <td class="r" :title="t.break_even_seats != null ? (es ? `Se paga con ${t.break_even_seats} pasajes` : `Covered at ${t.break_even_seats} tickets`) : ''">{{ t.sold }} <span class="pp-muted">{{ t.occupancy != null ? t.occupancy + ' %' : '' }}</span></td>
+                  <td v-for="c in INCOME_COLS" :key="c.key" class="r">{{ whole(incomeOf(t.income, c.key)) }}</td>
+                  <td class="r pp-tot">{{ whole(t.income.total) }}</td>
+                  <td v-for="c in EXPENSE_COLS" :key="c.key" class="r" :class="{ 'pp-est': c.key === 'fuel' && t.estimated.includes('fuel'), 'pp-muted': c.key === 'tolls' && t.estimated.includes('tolls') }">{{ whole(expenseOf(t.costs, c)) }}</td>
+                  <td class="r pp-tot">{{ whole(t.costs.total) }}</td>
+                  <td class="r"><b :class="t.result === 'pending' ? '' : (t.profit >= 0 ? 'pos' : 'neg')">{{ t.result === 'pending' ? '—' : whole(t.profit) }}</b></td>
+                  <td class="c"><a-tooltip :title="es ? RESULT[t.result].es : RESULT[t.result].en"><i class="pp-res" :class="t.result" /></a-tooltip></td>
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
+      </div>
 
       </div>
       <!-- The period at a glance, Power BI style (2026-11-23): how the income turns into profit (waterfall), where each route
@@ -58,8 +73,22 @@
         <div class="pp-hint">{{ view === 'waterfall'
           ? (es ? 'De lo que entra, cuánto se va en cada egreso y cuánto queda (el % es sobre los ingresos).' : 'Of what comes in, how much each cost takes and what is left (% of income).')
           : view === 'bubbles' ? (es ? 'Cada ruta: lo que ingresó, lo que gastó y lo que ganó.' : 'Each route: income, costs and profit.') : '' }}</div>
-        <apexchart v-if="view === 'waterfall'" :key="`w${chartH}`" type="bar" :height="chartH" :options="waterfall.options" :series="waterfall.series" />
-        <apexchart v-else-if="view === 'bubbles'" :key="`b${chartH}`" type="bar" :height="chartH" :options="bubbles.options" :series="bubbles.series" />
+        <!-- Plain bars (2026-11-27): readable in a narrow column. -->
+        <div v-if="view === 'waterfall'" class="pp-bars">
+          <div v-for="b in flowBars" :key="b.label" class="pp-bar-row">
+            <div class="pp-bar-l"><span>{{ b.label }}</span><b :class="b.cls">{{ b.sign }}{{ short(b.value) }}</b> <small>{{ b.pct }} %</small></div>
+            <div class="pp-bar-t"><i :style="{ width: Math.min(100, b.pct) + '%', background: b.color }" /></div>
+          </div>
+        </div>
+        <div v-else-if="view === 'bubbles'" class="pp-bars">
+          <div v-for="r in routeBars" :key="r.route" class="pp-rb">
+            <div class="pp-rb-h">{{ r.route }}</div>
+            <div v-for="b in r.bars" :key="b.label" class="pp-bar-row">
+              <div class="pp-bar-l"><span>{{ b.label }}</span><b :class="b.cls">{{ short(b.value) }}</b></div>
+              <div class="pp-bar-t"><i :style="{ width: b.w + '%', background: b.color }" /></div>
+            </div>
+          </div>
+        </div>
         <apexchart v-else-if="data.legs?.length" :key="`l${chartH}`" type="treemap" :height="chartH" :options="legsMap.options" :series="legsMap.series" />
       </div>
       </div>
@@ -76,6 +105,8 @@ import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
 import { useFitHeight, useTransportCharts, BLUE, ORANGE, GOOD, BAD, GRAY, POWERBI } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
+import { INCOME_COLS, EXPENSE_COLS, incomeOf, expenseOf, sumMoney } from '../lib/moneyColumns';
+import { noDataHelp } from '../lib/transportNoData';
 
 // The dashboard's own date filter (2026-11-04): [from, to], null = its "All" before it has dates.
 const props = defineProps({ range: { type: Array, default: null } });
@@ -129,7 +160,7 @@ const tiles = computed(() => {
   const out = [
     { label: es.value ? 'Ganancia' : 'Profit', value: money(t.profit), level: t.profit < 0 ? 'bad' : 'ok', help: `${t.trips_run || 0} ${es.value ? 'viajes realizados' : 'trips run'}${t.trips_pending ? ` · ${t.trips_pending} ${es.value ? 'por salir' : 'to leave'}` : ''}` },
     { label: es.value ? 'Ingresos' : 'Income', value: money(t.income), help: `${es.value ? 'Pasajes' : 'Tickets'} ${money(t.tickets_income)} · ${es.value ? 'Encomiendas' : 'Parcels'} ${money(t.parcels_income)}` },
-    { label: es.value ? 'Gastos' : 'Costs', value: money(t.costs), help: `${es.value ? 'Por viaje' : 'Per trip'} ${money(t.staff)} · ${es.value ? 'Planilla' : 'Payroll'} ${money(t.payroll)} · ${es.value ? 'Combustible' : 'Fuel'} ${money(t.fuel)} · ${es.value ? 'Mant.' : 'Maint.'} ${money(t.maintenance)} · Deprec. ${money(t.depreciation)} · ${es.value ? 'Peajes' : 'Tolls'} ${money(t.tolls)} · ${es.value ? 'Agencias' : 'Agencies'} ${money(t.agency)} · ${es.value ? 'Snack y bebida' : 'Snack and drink'} ${money(t.meals)}` },
+    { label: es.value ? 'Egresos' : 'Expenses', value: money(t.costs), help: `${es.value ? 'Por viaje' : 'Per trip'} ${money(t.staff)} · ${es.value ? 'Planilla' : 'Payroll'} ${money(t.payroll)} · ${es.value ? 'Combustible' : 'Fuel'} ${money(t.fuel)} · ${es.value ? 'Mant.' : 'Maint.'} ${money(t.maintenance)} · Deprec. ${money(t.depreciation)} · ${es.value ? 'Peajes' : 'Tolls'} ${money(t.tolls)} · ${es.value ? 'Agencias' : 'Agencies'} ${money(t.agency)} · ${es.value ? 'Snack y bebida' : 'Snack and drink'} ${money(t.meals)}` },
     { label: es.value ? 'Viajes +/-' : 'Trips +/-', value: `${t.gain_trips || 0} / ${t.loss_trips || 0}`, help: es.value ? 'Con ganancia / con pérdida.' : 'With profit / with loss.' },
     { label: es.value ? 'Ocupación' : 'Occupancy', value: t.occupancy != null ? `${t.occupancy} %` : '—', help: `${t.tickets || 0} ${es.value ? 'boletos' : 'tickets'} · ${t.vip || 0} VIP` },
   ];
@@ -144,7 +175,7 @@ const { base, short } = useTransportCharts();
 const ui = useUiStore();
 const view = ref('waterfall');
 const viewOptions = computed(() => [
-  { value: 'waterfall', label: es.value ? 'De ingresos a ganancia' : 'Income to profit' },
+  { value: 'waterfall', label: es.value ? 'Resultado' : 'Result' },
   { value: 'bubbles', label: es.value ? 'Por ruta' : 'By route' },
   ...(data.value.legs?.length ? [{ value: 'legs', label: es.value ? 'Tramos' : 'Stretches' }] : []),
 ]);
@@ -169,7 +200,7 @@ const waterfall = computed(() => {
     series: [{ name: 'S/', data: rows }],
     options: { ...o, colors: rows.map(r => r.fillColor), plotOptions: { bar: { horizontal: true, barHeight: '62%', borderRadius: 3, distributed: true, dataLabels: { position: 'top' } } },
       xaxis: { labels: { formatter: v => short(v), style: { fontSize: '10px' } } },
-      yaxis: { labels: { style: { fontSize: '11.5px', fontWeight: 600 }, maxWidth: 140 } },
+      yaxis: { labels: { style: { fontSize: '10.5px', fontWeight: 600 }, maxWidth: 82 } },
       grid: { ...(o.grid || {}), padding: { right: 70 } },
       dataLabels: { enabled: true, offsetX: 60, textAnchor: 'end', style: { fontSize: '11px', fontWeight: 600, colors: [ui.dark ? '#f0efec' : '#252423'] },
         formatter: (v, op) => { const r = rows[op.dataPointIndex]; return `${r.neg ? '−' : ''}${short(v)}${inc ? ` · ${Math.round((v / inc) * 100)} %` : ''}`; } },
@@ -184,7 +215,7 @@ const bubbles = computed(() => {
   return {
     series: [
       { name: es.value ? 'Ingresos' : 'Income', data: rows.map(r => Math.round(r.income || 0)) },
-      { name: es.value ? 'Gastos' : 'Costs', data: rows.map(r => Math.round(r.costs || 0)) },
+      { name: es.value ? 'Egresos' : 'Expenses', data: rows.map(r => Math.round(r.costs || 0)) },
       { name: es.value ? 'Ganancia' : 'Profit', data: rows.map(r => Math.round(r.profit || 0)) },
     ],
     options: { ...o, colors: [BLUE, ORANGE, GOOD], plotOptions: { bar: { horizontal: true, barHeight: '70%', borderRadius: 2 } },
@@ -195,7 +226,37 @@ const bubbles = computed(() => {
       legend: { show: true, position: 'top', fontSize: '11px' } },
   };
 });
-// The trips' small costs together (2026-11-27): payroll, crew, maintenance, depreciation, agency, meals.
+// The side bars (2026-11-27): from income to profit, each line its share of the income; and each route.
+const flowBars = computed(() => {
+  const t = totals.value;
+  const inc = Number(t.income || 0);
+  const pct = v => (inc ? Math.round((v / inc) * 100) : 0);
+  const out = [{ label: es.value ? 'Ingresos' : 'Income', value: inc, pct: 100, color: BLUE, sign: '' }];
+  EXPENSE_COLS.forEach(c => {
+    const v = expenseOf(t, c);
+    if (v > 0) out.push({ label: `− ${es.value ? c.es : c.en}`, value: v, pct: pct(v), color: ORANGE, sign: '' });
+  });
+  const p = Number(t.profit || 0);
+  out.push({ label: `= ${es.value ? 'Ganancia' : 'Profit'}`, value: Math.abs(p), pct: pct(Math.abs(p)), color: p >= 0 ? GOOD : BAD, sign: p < 0 ? '−' : '', cls: p >= 0 ? 'pos' : 'neg' });
+  return out;
+});
+const routeBars = computed(() => {
+  const rows = (data.value.routes || []).filter(r => r.trips_run);
+  const max = Math.max(1, ...rows.map(r => Number(r.income || 0)));
+  return rows.map(r => ({ route: r.route, bars: [
+    { label: es.value ? 'Ingresos' : 'Income', value: r.income, w: (r.income / max) * 100, color: BLUE },
+    { label: es.value ? 'Egresos' : 'Expenses', value: r.costs, w: (r.costs / max) * 100, color: ORANGE },
+    { label: es.value ? 'Ganancia' : 'Profit', value: r.profit, w: (Math.abs(r.profit) / max) * 100, color: r.profit >= 0 ? GOOD : BAD, cls: r.profit >= 0 ? 'pos' : 'neg' },
+  ] }));
+});// The standard money table (2026-11-27).
+const open = ref({});
+const toggle = id => { open.value = { ...open.value, [id]: !open.value[id] }; };
+const routeRows = computed(() => (data.value.routes || []).map(r => {
+  const run = (r.trips || []).filter(t => t.result !== 'pending');
+  return { ...r, m: sumMoney(run), sold: run.reduce((n, t) => n + Number(t.sold || 0), 0) };
+}));
+// A cost column empty on every route = no data for it yet: its helper says what is missing.
+const noDataCol = c => c.key !== 'fuel' && c.key !== 'tolls' && !routeRows.value.some(r => expenseOf(r.m.costs, c) > 0);// The trips' small costs together (2026-11-27): payroll, crew, maintenance, depreciation, agency, meals.
 const OTHER_KEYS = ['staff', 'payroll', 'maintenance', 'depreciation', 'agency', 'meals'];
 const otherOf = t => OTHER_KEYS.reduce((n, k) => n + Number(t.costs?.[k] || 0), 0);
 const otherHelp = computed(() => (es.value ? 'Planilla, pago por viaje, mantenimiento, depreciación, agencia y refrigerios. Hoy sin datos: se muestran en 0.' : 'Payroll, crew pay, maintenance, depreciation, agency and meals. No data yet: shown as 0.'));
@@ -272,6 +333,32 @@ const tripColumns = computed(() => [
 .pp-res.loss { background: #d64550; }
 .pp-res.pending { background: #118dff; }
 @media (min-width: 900px) {
-  .pp-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .pp-grid { grid-template-columns: minmax(0, 3.6fr) minmax(0, 1fr); }
 }
+.pp-wrap { overflow-y: auto; overflow-x: hidden; border: 1px solid #e1e4e8; border-radius: 8px; }
+.pp-std { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; color: #252423; }
+.pp-std th { position: sticky; top: 0; background: #f3f4f6; font-weight: 700; font-size: 12px; padding: 4px 4px; white-space: nowrap; border-bottom: 1px solid #e1e4e8; z-index: 1; }
+.pp-std thead tr:nth-child(2) th { top: 26px; font-weight: 500; font-size: 10px; }
+.pp-std th small { font-weight: 400; color: #8a94a6; }
+.pp-std th.pp-gi { background: #eaf7ee; color: #1f7a45; }
+.pp-std th.pp-ge { background: #fdeee8; color: #a5401a; }
+.pp-std td { padding: 3px 4px; border-bottom: 1px solid #f0f1f3; white-space: nowrap; }
+.pp-std .r { text-align: right; }
+.pp-std .c { text-align: center; }
+.pp-std .pp-first { text-align: left; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.pp-std .pp-tot { font-weight: 600; }
+.pp-route { cursor: pointer; background: #fafbfc; }
+.pp-route:hover td { background: #f0f5fc; }
+.pp-tg { display: inline-block; width: 14px; text-align: center; color: #118dff; font-weight: 700; }
+.pp-trip td.pp-first { padding-left: 22px; }
+.pp-bars { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+.pp-bar-l { display: flex; align-items: baseline; gap: 6px; font-size: 11.5px; }
+.pp-bar-l span { flex: 1; color: #475467; font-weight: 600; }
+.pp-bar-l b { font-variant-numeric: tabular-nums; }
+.pp-bar-l small { color: #8a94a6; min-width: 34px; text-align: right; }
+.pp-bar-t { height: 8px; background: #eef1f5; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+.pp-bar-t i { display: block; height: 100%; border-radius: 4px; }
+.pp-rb { border-top: 1px solid #eef1f5; padding-top: 6px; }
+.pp-rb:first-child { border-top: none; padding-top: 0; }
+.pp-rb-h { font-size: 12px; font-weight: 700; color: #12239e; margin-bottom: 4px; }
 </style>

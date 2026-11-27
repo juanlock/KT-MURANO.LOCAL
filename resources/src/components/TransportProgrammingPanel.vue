@@ -90,7 +90,8 @@
                         <tr v-if="Object.keys(x.channels || {}).length" class="pg-ht-sub"><td colspan="2">({{ Object.entries(x.channels).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${chName(k)} ${v.n}`).join(' · ') }})</td></tr>
                         <tr v-if="!x.gone"><td>{{ L('Forecast', 'Pronóstico') }}</td><td class="r">{{ x.forecast }}<template v-if="x.seats"> ({{ pct(x.forecast, x.seats) }})</template></td></tr>
                         <tr v-if="!x.gone && x.fc_usual !== null" class="pg-ht-sub"><td colspan="2">({{ L(`${x.sold} sold + ${Math.round(x.fc_usual)} usual × ${Math.round((1 - x.fc_r) * 100)} % still to come`, `${x.sold} vendidos + ${Math.round(x.fc_usual)} habituales × ${Math.round((1 - x.fc_r) * 100)} % que aún falta`) }})</td></tr>
-                        <tr><td>{{ L('Excess and parcels', 'Exceso y encomienda') }}</td><td class="r">{{ x.money ? 'S/ ' + money0(x.money.income.parcels) : '—' }}</td></tr>
+                        <tr><td>{{ L('Parcels', 'Encomiendas') }}</td><td class="r">{{ x.money ? 'S/ ' + money0(x.money.income.parcels) : '—' }}</td></tr>
+                        <tr><td>{{ L('Excess', 'Excesos') }}</td><td class="r">{{ x.money ? 'S/ ' + money0(x.money.income.excess || 0) : '—' }}</td></tr>
                         <tr class="pg-ht-sep"><td>{{ L('Income', 'Ingresos') }}</td><td class="r">S/ {{ money0(x.money ? x.money.income.total : x.amount) }}</td></tr>
                         <tr><td>{{ L('Costs', 'Egresos') }}</td><td class="r">{{ x.money ? '− S/ ' + money0(x.money.costs.total) : '—' }}</td></tr>
                         <tr class="pg-ht-tot" :class="x.money ? (x.money.profit < 0 ? 'neg' : 'pos') : ''"><td>Total</td><td class="r">{{ x.money ? (x.money.profit < 0 ? '− ' : '') + 'S/ ' + money0(Math.abs(x.money.profit)) : '—' }}</td></tr>
@@ -192,13 +193,13 @@
           <table class="pg-stable pg-ie">
             <tbody>
               <tr class="pg-ie-h"><td colspan="2">{{ L('Income', 'Ingresos') }}</td></tr>
-              <tr class="pg-ie-l"><td>{{ L('Tickets', 'Pasajes') }}</td><td class="r">S/ {{ money(sel.money.income.tickets) }}</td></tr>
-              <tr class="pg-ie-l"><td>{{ L('Parcels and excess', 'Encomiendas y exceso') }}</td><td class="r">S/ {{ money(sel.money.income.parcels) }}</td></tr>
+              <!-- The standard lines (2026-11-27, lib/moneyColumns.js). -->
+              <tr v-for="c in INCOME_COLS" :key="c.key" class="pg-ie-l"><td>{{ L(c.en, c.es) }}</td><td class="r">S/ {{ money(sel.money.income[c.key] || 0) }}</td></tr>
               <tr class="pg-ie-t"><td>{{ L('Total income', 'Total ingresos') }}</td><td class="r">S/ {{ money(sel.money.income.total) }}</td></tr>
               <tr class="pg-ie-h"><td colspan="2">{{ L('Expenses', 'Egresos') }}</td></tr>
-              <tr v-for="k in costKeys.filter(k => sel.money.costs[k] || NO_DATA_ROWS.includes(k))" :key="k" class="pg-ie-l" :class="{ 'pg-nodata': !sel.money.costs[k] }">
-                <td>{{ costName(k) }}<small v-if="sel.money.estimated?.includes(k)" class="pg-est"> {{ L('estimated', 'estimado') }}</small><a-tooltip v-if="!sel.money.costs[k]" :title="noDataHelp(k, es)"><InfoCircleOutlined class="pg-ni" /></a-tooltip></td>
-                <td class="r">S/ {{ money(sel.money.costs[k]) }}</td>
+              <tr v-for="c in EXPENSE_COLS" :key="c.key" class="pg-ie-l" :class="{ 'pg-nodata': !expenseOf(sel.money.costs, c) }">
+                <td>{{ L(c.en, c.es) }}<small v-if="sel.money.estimated?.includes(c.key)" class="pg-est"> {{ L('estimated', 'estimado') }}</small><a-tooltip v-if="!expenseOf(sel.money.costs, c)" :title="noDataHelp(c.key === 'staff' ? 'payroll' : c.key, es)"><InfoCircleOutlined class="pg-ni" /></a-tooltip></td>
+                <td class="r">S/ {{ money(expenseOf(sel.money.costs, c)) }}</td>
               </tr>
               <tr class="pg-ie-t"><td>{{ L('Total expenses', 'Total egresos') }}</td><td class="r">S/ {{ money(sel.money.costs.total) }}</td></tr>
             </tbody>
@@ -273,6 +274,7 @@ import { useFormat } from '../composables/useFormat';
 import { useUiStore } from '../stores/ui';
 import { sortByLabel } from '../lib/filterOptions';
 import { noDataHelp, COST_KINDS_ALWAYS } from '../lib/transportNoData';
+import { INCOME_COLS, EXPENSE_COLS, expenseOf } from '../lib/moneyColumns';
 
 const ui = useUiStore();
 const es = computed(() => String(ui.locale || 'en').startsWith('es'));

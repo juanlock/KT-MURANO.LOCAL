@@ -63,7 +63,7 @@ class TransportIndicators
             ])->map(fn ($v, $k) => ['key' => $k, 'amount' => $v])->where('amount', '>', 0)->sortByDesc('amount')->values()->all(),
             'sensitivity' => collect([
                 'tickets' => ($t['tickets_income'] - $t['meals']) * self::CHANGE,
-                'parcels' => $t['parcels_income'] * self::CHANGE,
+                'parcels' => ($t['parcels_income'] + ($t['excess_income'] ?? 0)) * self::CHANGE,
                 'fuel' => $t['fuel'] * self::CHANGE,
                 'payroll' => ($t['payroll'] + $t['staff']) * self::CHANGE,
                 'maintenance' => $t['maintenance'] * self::CHANGE,

@@ -43,14 +43,14 @@
           <thead>
             <tr>
               <th rowspan="2">{{ L('Time', 'Hora') }}</th>
-              <th rowspan="2">{{ L('Route', 'Ruta') }}</th>
               <th rowspan="2">Bus</th>
-              <th rowspan="2" class="c">{{ L('Seats', 'Asient.') }}</th>
+              <th rowspan="2" class="c">{{ L('Seats', 'Asien.') }}</th>
               <th :colspan="channelKeys.length + 1" class="c md-g-sold">{{ L('Tickets sold by channel', 'Pasajes vendidos por medio') }}</th>
-              <th rowspan="2" class="c" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ data.past ? L('Travelled', 'Viajaron') : L('Expected', 'Esperados') }}</th>
+              <th rowspan="2" class="c" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ data.past ? L('Travelled', 'Viajaron') : L('Expected', 'Esper.') }}</th>
               <th v-if="!data.past" rowspan="2" class="c" :title="L('Tickets still to sell to cover its expenses', 'Pasajes que faltan vender para cubrir sus egresos')">{{ L('To cover', 'Faltan') }}</th>
               <template v-if="data.money">
-                <th rowspan="2" class="r" :title="L('Expected passengers × its ticket price', 'Esperados × el precio de su pasaje')">{{ L('Income', 'Ingresos') }}</th>
+                <!-- The standard money groups (2026-11-27, lib/moneyColumns.js): Ingresos then Egresos. -->
+                <th :colspan="INCOME_COLS.length + 1" class="c md-g-inc" :title="data.past ? '' : L('Projected: expected passengers × its ticket price; parcels and excess are not projected', 'Proyectado: esperados × el precio de su pasaje; encomiendas y excesos no se proyectan')">{{ L('Income', 'Ingresos') }}</th>
                 <th :colspan="costCols.length + 1" class="c md-g-cost" :title="L('What this trip will spend: the average of its route over the last 30 days', 'Lo que gastará este viaje: el promedio de su ruta en los últimos 30 días')">{{ L('Expenses', 'Egresos') }}</th>
                 <th rowspan="2" class="r md-res" :title="L('Estimated: income − expenses', 'Estimada: ingresos − egresos')">{{ L('Profit /', 'Ganancia /') }}<br>{{ L('Loss', 'Pérdida') }}</th>
               </template>
@@ -59,6 +59,8 @@
               <th v-for="k in channelKeys" :key="k" class="c md-sub md-g-sold">{{ chName(k) }}</th>
               <th class="c md-sub md-g-sold">Total</th>
               <template v-if="data.money">
+                <th v-for="c in INCOME_COLS" :key="c.key" class="r md-sub md-g-inc">{{ L(c.en, c.es) }}</th>
+                <th class="r md-sub md-g-inc">Total</th>
                 <th v-for="k in costCols" :key="k.key" class="r md-sub md-g-cost" :class="{ 'md-hand': k.key === 'fuel' }">
                   <!-- Fuel is typed by hand (the user, 2026-11-27): AuraSoft has no fuel, only Mayte's own Excel. -->
                   <a-tooltip v-if="k.key === 'fuel'" :title="FUEL_HELP"><span>{{ L(k.en, k.es) }} <InfoCircleOutlined /></span></a-tooltip>
@@ -79,7 +81,6 @@
                 <td v-if="data.money" class="r"><b :class="sg.result < 0 ? 'md-neg' : 'md-pos'">{{ signed(sg.result, false) }}</b></td></tr>
               <tr v-for="r in sg.rows" :key="g.date + r.time + r.side + r.route" :class="{ 'md-loss': r.result != null && r.result < 0 }">
                 <td class="md-time">{{ ampm(r.time) }}</td>
-                <td class="md-route" :title="r.route">{{ shortRoute(r.route) }}</td>
                 <td><span :class="{ 'md-tent': r.bus_from === 'base' }">{{ r.bus || '—' }}</span> <small v-if="r.tag" class="md-tag">{{ r.tag }}</small></td>
                 <td class="c">{{ r.seats || '—' }}</td>
                 <td v-for="k in channelKeys" :key="k" class="c md-ch">{{ r.channels?.[k]?.n || '' }}</td>
@@ -87,7 +88,8 @@
                 <td class="c">{{ r.forecast }}<small v-if="r.seats" class="md-pct">{{ pct(r.forecast, r.seats) }}</small><span v-if="r.over" class="md-over" :title="L(`About ${r.over} more passengers than seats: reinforce`, `Unos ${r.over} pasajeros más que asientos: reforzar`)">↑{{ r.over }}</span></td>
                 <td v-if="!data.past" class="c" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
                 <template v-if="data.money">
-                  <td class="r">{{ r.income == null ? '—' : money0(r.income) }}</td>
+                  <td v-for="c in INCOME_COLS" :key="c.key" class="r md-cost">{{ r.income == null ? '—' : money0(r.income_parts?.[c.key]) }}</td>
+                  <td class="r md-cost-t">{{ r.income == null ? '—' : money0(r.income) }}</td>
                   <td v-for="k in costCols" :key="k.key" class="r md-cost" :class="{ 'md-hand': k.key === 'fuel' }">{{ costOf(r, k) }}</td>
                   <td class="r md-cost-t">{{ r.cost == null ? '—' : money0(r.cost) }}</td>
                   <td class="r"><b v-if="r.result != null" :class="r.result < 0 ? 'md-neg' : 'md-pos'">{{ r.result < 0 ? '−' : '+' }}{{ money0(Math.abs(r.result)) }}</b><span v-else>—</span></td>
@@ -99,13 +101,14 @@
           </tbody>
           <tfoot v-if="rows.length">
             <tr>
-              <td colspan="3">Total</td>
+              <td colspan="2">Total</td>
               <td class="c">{{ s.seats }}</td>
               <td v-for="k in channelKeys" :key="k" class="c">{{ s.channels?.[k] || 0 }}</td>
               <td class="c">{{ s.sold }}</td>
               <td class="c">{{ s.forecast }}</td>
               <td v-if="!data.past" class="c">{{ s.missing }}</td>
               <template v-if="data.money">
+                <td v-for="c in INCOME_COLS" :key="c.key" class="r">{{ money0(rows.reduce((n, r) => n + Number(r.income_parts?.[c.key] || 0), 0)) }}</td>
                 <td class="r">{{ money0(s.income) }}</td>
                 <td v-for="k in costCols" :key="k.key" class="r" :class="{ 'md-hand': k.key === 'fuel' }">{{ money0(rows.reduce((n, r) => n + costRaw(r, k), 0)) }}</td>
                 <td class="r">{{ money0(s.cost) }}</td>
@@ -124,6 +127,7 @@ import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import { LeftOutlined, RightOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
 import { noDataHelp } from '../lib/transportNoData';
+import { INCOME_COLS } from '../lib/moneyColumns';
 import http from '../lib/http';
 import { useUiStore } from '../stores/ui';
 
@@ -181,7 +185,7 @@ const channelKeys = computed(() => {
 const costCols = [
   { key: 'fuel', en: 'Fuel', es: 'Comb.', keys: ['fuel'] },
   { key: 'tolls', en: 'Tolls', es: 'Peajes', keys: ['tolls'] },
-  { key: 'payroll', en: 'Payroll', es: 'Planilla', keys: ['payroll', 'staff'] },
+  { key: 'payroll', en: 'Staff', es: 'Personal', keys: ['payroll', 'staff'] },
   { key: 'depreciation', en: 'Deprec.', es: 'Deprec.', keys: ['depreciation'] },
   { key: 'other', en: 'Other', es: 'Otros', keys: ['maintenance', 'agency', 'meals'] },
 ];
@@ -191,7 +195,7 @@ const FUEL_HELP = computed(() => L('This figure is typed by hand: AuraSoft (Jela
 const colEmpty = k => !rows.value.some(r => costRaw(r, k) > 0);
 const costRaw = (r, k) => k.keys.reduce((n, x) => n + Number(r.costs?.[x] || 0), 0);
 const costOf = (r, k) => (r.costs ? money0(costRaw(r, k)) : '—');
-const colCount = computed(() => (data.value.past ? 6 : 7) + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
+const colCount = computed(() => (data.value.past ? 5 : 6) + channelKeys.value.length + (data.value.money ? 3 + INCOME_COLS.length + costCols.length : 0));
 // Per day, and inside each day per direction (Lima → Chiclayo first) with its subtotal.
 const groups = computed(() => {
   const out = [];
@@ -218,14 +222,15 @@ const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigi
 <style scoped>
 /* Power BI-like soft colours (2026-11-27: navy and orange only on the tabs). */
 .md-wrap { overflow: auto; max-height: calc(100vh - 330px); border: 1px solid #e1e4e8; border-radius: 8px; }
-.md-t { width: 100%; border-collapse: collapse; font-size: 12px; color: #252423; }
-.md-t thead th { position: sticky; top: 0; background: #f3f4f6; color: #252423; font-weight: 600; font-size: 11px; padding: 5px 6px; text-align: left; white-space: nowrap; z-index: 1; border-bottom: 1px solid #e1e4e8; }
-.md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 11px; }
+.md-t { width: 100%; border-collapse: collapse; font-size: 11px; color: #252423; }
+.md-t thead th { position: sticky; top: 0; background: #f3f4f6; color: #252423; font-weight: 600; font-size: 12px; font-weight: 700; padding: 5px 3px; text-align: left; white-space: nowrap; z-index: 1; border-bottom: 1px solid #e1e4e8; }
+.md-t thead tr:nth-child(2) th { top: 29px; font-weight: 500; font-size: 10px; }
 .md-t th.r, .md-t td.r { text-align: right; }
 .md-t th.c, .md-t td.c { text-align: center; }
 .md-t th.md-g-sold { background: #e8f2fe; color: #0b5cad; }
 .md-t th.md-g-cost { background: #fdeee8; color: #a5401a; }
-.md-t td { padding: 3px 5px; border-bottom: 1px solid #f0f1f3; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.md-t th.md-g-inc { background: #eaf7ee; color: #1f7a45; }
+.md-t td { padding: 3px 3px; border-bottom: 1px solid #f0f1f3; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .md-t tbody tr:hover td { background: #f5f8fc; }
 .md-t tbody tr.md-loss td { background: rgba(214, 69, 80, 0.1); }
 .md-t tbody tr.md-loss:hover td { background: rgba(214, 69, 80, 0.16); }

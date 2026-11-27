@@ -1076,6 +1076,12 @@ the start of each session).
   have their own soft colour (navy, orange, teal, purple, green, blue, magenta), the label and the figure centred in that
   colour, no vertical line on the left. Every board shows its objective at its foot on a tinted box (`ReportSourceBar` GOALS),
   and a board that does not follow the date filter hides it (`Dashboard.vue` NO_DATE_TABS).
+- **Money is always shown the same way (user's rule, 2026-11-27, `lib/moneyColumns.js`):** every table or detail with money
+  has a group **Ingresos** (Pasajes, Encomiendas, Excesos, Total) and a group **Egresos** (Combustible, Peajes, Personal =
+  planilla + pago por viaje, Depreciación, Otros = mantenimiento + agencia + refrigerios, Total), then **Ganancia / Pérdida**;
+  "Egresos", never "Gastos"; Ingresos header green, Egresos orange. Headers: the first column and every header that stands
+  alone or groups others (Ruta, Pasajes, Ingresos, Egresos, Ganancia) bigger and bold; the sub-headers under a group smaller. A cost without real data shows 0 with the
+  `lib/transportNoData.js` helper. `TransportProfit` gives each trip `income.tickets / parcels / excess` apart.
 - **A dashboard fits one screen (user's rule, 2026-11-05).** Almost never a vertical or horizontal
   scroll: compact it, or move the rest to another tab. The critical information holds the center. No
   explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical

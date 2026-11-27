@@ -51,7 +51,7 @@ class TransportProgrammingController extends Controller
         $out = TransportProgramming::outlook($cid, max(1, min(7, (int) $request->input('days', 3))), 14, $start);
         $money = HelpdeskAccess::can($request->user('api'), 'transport_profit');
         if (! $money) {
-            $noMoney = array_flip(['price', 'income', 'cost', 'result', 'costs']);
+            $noMoney = array_flip(['price', 'income', 'cost', 'result', 'costs', 'income_parts']);
             $out['rows'] = array_map(fn ($r) => array_diff_key($r, $noMoney), $out['rows']);
             $out['summary'] = array_diff_key($out['summary'], $noMoney);
             foreach ($out['summary']['sides'] ?? [] as $k => $sd) {
