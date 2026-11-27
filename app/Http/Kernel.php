@@ -95,6 +95,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'Is_Active' => \App\Http\Middleware\Is_Active::class,
+        'dashtab' => \App\Http\Middleware\DashboardTab::class,
         'setlocale' => \App\Http\Middleware\SetLocale::class,
         'store.locale' => \App\Http\Middleware\SetStoreLocale::class,
         'XSS' => \App\Http\Middleware\XSS::class,

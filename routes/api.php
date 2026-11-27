@@ -822,27 +822,27 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
         Route::get('/tolls', 'tolls');
         Route::post('/tolls', 'saveToll');
         Route::delete('/tolls/{id}', 'deleteToll')->whereNumber('id');
-        Route::get('/profit', 'profit');
-        Route::get('/indicators', 'indicators');
-        Route::get('/claims', 'claims');
+        Route::get('/profit', 'profit')->middleware('dashtab:transport_profit');
+        Route::get('/indicators', 'indicators')->middleware('dashtab:transport_indicators,transport_risks');
+        Route::get('/claims', 'claims')->middleware('dashtab:transport_claims');
         Route::get('/parcels/board', 'parcelsBoard');
-        Route::get('/expenses', 'expenses');
+        Route::get('/expenses', 'expenses')->middleware('dashtab:transport_expenses');
         Route::get('/departures', 'departures');
-        Route::get('/production', 'production');
+        Route::get('/production', 'production')->middleware('dashtab:transport_production');
         Route::post('/production/fuel', 'productionFuel');
         Route::get('/production/pending', 'productionPending');
         Route::get('/production/export', 'productionExport');
-        Route::get('/day-sales', 'daySales');
-        Route::get('/point-sales', 'pointSales');
-        Route::get('/cashbook', 'cashbook');
-        Route::get('/aura-parcels', 'auraParcels');
+        Route::get('/day-sales', 'daySales')->middleware('dashtab:transport_daysales');
+        Route::get('/point-sales', 'pointSales')->middleware('dashtab:transport_pointsales');
+        Route::get('/cashbook', 'cashbook')->middleware('dashtab:transport_cashbook');
+        Route::get('/aura-parcels', 'auraParcels')->middleware('dashtab:transport_aura_parcels');
         Route::get('/report-sources', 'reportSources');
-        Route::get('/customers-board', 'customers');
+        Route::get('/customers-board', 'customers')->middleware('dashtab:transport_customers');
         Route::get('/passengers', 'passengers');
         Route::get('/passengers/verify', 'passengersVerify');
     });
     // "Mando operativo" (2026-11-18): the coming departures, projected sales and whether they cover their costs.
-    Route::get('transport/outlook', [\App\Http\Controllers\TransportOutlookController::class, 'index']);
+    Route::get('transport/outlook', [\App\Http\Controllers\TransportOutlookController::class, 'index'])->middleware('dashtab:transport_outlook');
     // Daily departures (2026-11-10): the agency's day planned, completed and closed (PDF + email + history).
     Route::prefix('transport/daily')->controller(\App\Http\Controllers\TransportDailyController::class)->group(function () {
         Route::get('/', 'show');
@@ -859,9 +859,9 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     });
     // Dashboard board "Programación" (2026-11-26): the week with the seats sold, forecast and the date's changes.
     Route::prefix('transport/programming')->controller(\App\Http\Controllers\TransportProgrammingController::class)->group(function () {
-        Route::get('/', 'week');
+        Route::get('/', 'week')->middleware('dashtab:transport_programming,transport_fleet');
         Route::get('/export', 'export');
-        Route::get('/outlook', 'outlook');
+        Route::get('/outlook', 'outlook')->middleware('dashtab:transport_outlook');
         Route::post('/changes', 'change');
         Route::delete('/changes/{id}', 'undo')->whereNumber('id');
     });
@@ -1016,7 +1016,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     // "Mi agencia" (2026-11-11): the supervisor's agency -- summary, complaints, incidents (parcels: transport/parcels/board).
     Route::prefix('transport/agency')->controller(\App\Http\Controllers\TransportAgencyController::class)->group(function () {
         Route::get('/summary', 'summary');
-        Route::get('/claims', 'claims');
+        Route::get('/claims', 'claims')->middleware('dashtab:transport_claims');
         Route::get('/incidents', 'incidents');
         Route::get('/incident-trips', 'incidentTrips');
     });
