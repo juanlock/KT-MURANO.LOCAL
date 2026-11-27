@@ -112,25 +112,30 @@
         <div class="bt-body" :class="{ alone: transportTabs.length < 2 }">
           <a-tabs v-model:active-key="transportTab" class="transport-tabs" :tab-bar-style="{ display: 'none' }">
             <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales" :tab="tabLabel('transport_daysales')">
-              <TransportDaySalesPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_daysales')" class="lag-note">{{ lagNote('transport_daysales') }}</div>
+              <TransportDaySalesPanel :range="effRange('transport_daysales')" />
               <ReportSourceBar board="transport_daysales" :range="rangeFields" no-line class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production" :tab="tabLabel('transport_production')">
-              <TransportProductionPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_production')" class="lag-note">{{ lagNote('transport_production') }}</div>
+              <TransportProductionPanel :range="effRange('transport_production')" />
               <ReportSourceBar board="transport_production" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <!-- AuraSoft's Liquidación General (2026-11-24): by point of sale and cashier, with the cash each one hands in. -->
             <a-tab-pane v-if="transportTabs.includes('transport_pointsales')" key="transport_pointsales" :tab="tabLabel('transport_pointsales')">
-              <TransportPointSalesPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_pointsales')" class="lag-note">{{ lagNote('transport_pointsales') }}</div>
+              <TransportPointSalesPanel :range="effRange('transport_pointsales')" />
               <ReportSourceBar board="transport_pointsales" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <!-- AuraSoft's Liquidación Detallada and parcels kardex (2026-11-24). -->
             <a-tab-pane v-if="transportTabs.includes('transport_cashbook')" key="transport_cashbook" :tab="tabLabel('transport_cashbook')">
-              <TransportCashbookPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_cashbook')" class="lag-note">{{ lagNote('transport_cashbook') }}</div>
+              <TransportCashbookPanel :range="effRange('transport_cashbook')" />
               <ReportSourceBar board="transport_cashbook" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_customers')" key="transport_customers" :tab="tabLabel('transport_customers')">
-              <TransportCustomersPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_customers')" class="lag-note">{{ lagNote('transport_customers') }}</div>
+              <TransportCustomersPanel :range="effRange('transport_customers')" />
               <ReportSourceBar board="transport_customers" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_aura_parcels')" key="transport_aura_parcels" :tab="tabLabel('transport_aura_parcels')">
@@ -159,20 +164,24 @@
               <ReportSourceBar board="transport_owner" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_profit')" key="transport_profit" :tab="tabLabel('transport_profit')">
-              <TransportProfitPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_profit')" class="lag-note">{{ lagNote('transport_profit') }}</div>
+              <TransportProfitPanel :range="effRange('transport_profit')" />
               <ReportSourceBar board="transport_profit" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <!-- What the business spends, by kind (2026-11-11): goes with "Profit by route", same permission. -->
             <a-tab-pane v-if="transportTabs.includes('transport_expenses')" key="transport_expenses" :tab="tabLabel('transport_expenses')">
-              <TransportExpensesPanel :range="rangeFields" />
+              <div v-if="lagNote('transport_expenses')" class="lag-note">{{ lagNote('transport_expenses') }}</div>
+              <TransportExpensesPanel :range="effRange('transport_expenses')" />
               <ReportSourceBar board="transport_expenses" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_indicators')" key="transport_indicators" :tab="tabLabel('transport_indicators')">
-              <TransportIndicatorsPanel :range="rangeFields" view="profit" />
+              <div v-if="lagNote('transport_indicators')" class="lag-note">{{ lagNote('transport_indicators') }}</div>
+              <TransportIndicatorsPanel :range="effRange('transport_indicators')" view="profit" />
               <ReportSourceBar board="transport_indicators" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_risks')" key="transport_risks" :tab="tabLabel('transport_risks')">
-              <TransportIndicatorsPanel :range="rangeFields" view="risks" />
+              <div v-if="lagNote('transport_risks')" class="lag-note">{{ lagNote('transport_risks') }}</div>
+              <TransportIndicatorsPanel :range="effRange('transport_risks')" view="risks" />
               <ReportSourceBar board="transport_risks" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_parcels')" key="transport_parcels" :tab="tabLabel('transport_parcels')">
@@ -554,6 +563,42 @@ const tabStyle = 'bt-style-d';
 const tabTitle = k => (es.value ? TAB_TITLES[k] : null) || null;
 // Boards with their own period or none (Mando: next 21 days; Programación: its week; BusTrack: live; AuraSoft: latest kardex).
 const NO_DATE_TABS = ['transport_outlook', 'transport_programming', 'transport_fleet', 'transport_monitor', 'transport_aura_parcels'];
+// A board whose source stops before the filter's end (the user, 2026-11-27: Pto. venta, Caja, Clientes, Gastos, Producción
+// empty on "Hoy"): it shows up to the source's last date and says so in one line, instead of an empty board.
+// AuraSoft's production comes every night at 22:00; the Liquidación General / Detallada are uploaded by hand.
+const TAB_SOURCE = {
+  transport_daysales: 'production', transport_production: 'production', transport_profit: 'production', transport_expenses: 'production',
+  transport_indicators: 'production', transport_risks: 'production',
+  transport_pointsales: 'liquidation', transport_cashbook: 'detail', transport_customers: 'detail',
+};
+const SOURCE_NAME = { production: ['AuraSoft production (every night at 22:00)', 'la producción de AuraSoft (llega cada noche a las 22:00)'],
+  liquidation: ['AuraSoft «Liquidación General» (uploaded by hand)', 'la «Liquidación General» de AuraSoft (se sube a mano)'],
+  detail: ['AuraSoft «Liquidación Detallada» (uploaded by hand)', 'la «Liquidación Detallada» de AuraSoft (se sube a mano)'] };
+const sourceEnds = ref({});
+async function loadSourceEnds() {
+  try {
+    const r = await http.get('transport/report-sources');
+    sourceEnds.value = Object.fromEntries(Object.entries(r?.sources || {}).map(([k, v]) => [k, v.to]));
+  } catch (e) { sourceEnds.value = {}; }
+}
+// Loaded with the board (onMounted below).
+function effRange(k) {
+  const r = rangeFields.value;
+  const end = sourceEnds.value[TAB_SOURCE[k]];
+  if (!r || !end || r[1] <= end) return r;
+  return r[0] > end ? [end, end] : [r[0], end];
+}
+const dm = d => dayjs(d).format('DD-MM');
+function lagNote(k) {
+  const r = rangeFields.value;
+  const e = effRange(k);
+  if (!r || !e || e === r || e[1] === r[1]) return '';
+  const src = SOURCE_NAME[TAB_SOURCE[k]] || ['', ''];
+  const shown = e[0] === e[1] ? dm(e[0]) : `${dm(e[0])} – ${dm(e[1])}`;
+  return es.value
+    ? `Sin datos después del ${dm(e[1])}: ${src[1]} llega hasta esa fecha. Mostrando ${shown}.`
+    : `No data after ${dm(e[1])}: ${src[0]} reaches that date. Showing ${shown}.`;
+}
 const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
@@ -1037,10 +1082,11 @@ async function load() {
 }
 
 // A one-day board opening first (Ventas) starts on one day.
-onMounted(() => { if (dayOnly.value && period.value !== 'day' && period.value !== 'today') toOneDay(); else { toOneDay(); load(); } });
+onMounted(() => { if (boardMode.value) loadSourceEnds(); if (dayOnly.value && period.value !== 'day' && period.value !== 'today') toOneDay(); else { toOneDay(); load(); } });
 </script>
 
 <style scoped>
+.lag-note { margin: 0 0 8px; padding: 5px 12px; border-radius: 6px; background: #fff7e6; border: 1px solid #ffd591; color: #874d00; font-size: 12.5px; text-align: center; }
 /* The blocks in the company's order (CSS order), 16px apart. */
 /* The tab names the panel: little chrome, the content in front. */
 .transport-tabs :deep(.ant-tabs-nav) { margin-bottom: 8px; }
