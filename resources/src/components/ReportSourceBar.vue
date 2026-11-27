@@ -4,7 +4,7 @@
        detail in the (i) popup, so the board still fits one screen. -->
   <!-- Each board's purpose at its foot, on a tinted background (the user, 2026-11-26). -->
   <div v-if="goal" class="rsb-goal"><b>{{ info.title }}:</b> {{ goal }}</div>
-  <div class="rsb">
+  <div v-if="!noLine" class="rsb">
     <span class="rsb-title">{{ info.title }}</span>
     <span class="rsb-sep">·</span>
     <span class="rsb-lbl">{{ es ? 'Fuente:' : 'Source:' }}</span>
@@ -52,6 +52,8 @@ import { useUiStore } from '../stores/ui';
 const props = defineProps({
   board: { type: String, required: true }, // the dashboard tab key
   range: { type: Array, default: null }, // [from, to] YYYY-MM-DD; null = all dates
+  // Only the goal, without the "Fuente / Filtro" line (2026-11-27, Ventas: "esa línea no ayuda").
+  noLine: { type: Boolean, default: false },
 });
 
 const fmt = useFormat();

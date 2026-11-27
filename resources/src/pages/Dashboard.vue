@@ -113,7 +113,7 @@
           <a-tabs v-model:active-key="transportTab" class="transport-tabs" :tab-bar-style="{ display: 'none' }">
             <a-tab-pane v-if="transportTabs.includes('transport_daysales')" key="transport_daysales" :tab="tabLabel('transport_daysales')">
               <TransportDaySalesPanel :range="rangeFields" />
-              <ReportSourceBar board="transport_daysales" :range="rangeFields" class="bt-source" />
+              <ReportSourceBar board="transport_daysales" :range="rangeFields" no-line class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_production')" key="transport_production" :tab="tabLabel('transport_production')">
               <TransportProductionPanel :range="rangeFields" />
