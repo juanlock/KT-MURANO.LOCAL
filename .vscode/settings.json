@@ -1,0 +1,7 @@
+{
+    // Bigger text on every PC that opens this project (the user, 2026-11-26). Travels with git.
+    "window.zoomLevel": 1,
+    "editor.fontSize": 16,
+    "terminal.integrated.fontSize": 15,
+    "debug.console.fontSize": 15
+}
