@@ -38,10 +38,10 @@ import { BarChartOutlined, CheckCircleFilled, CloseCircleFilled, ExclamationCirc
 import { useUiStore } from '../stores/ui';
 import { BLUE, GOOD, BAD } from '../lib/transportCharts';
 
-defineProps({ items: { type: Array, required: true }, asTable: Boolean, toggle: { type: Boolean, default: true }, colored: Boolean });
-// Coloured cards (2026-11-26, the Agencias board): each card its own soft colour, the figures centred.
+defineProps({ items: { type: Array, required: true }, asTable: Boolean, toggle: { type: Boolean, default: true }, colored: { type: Boolean, default: true } });
+// Coloured cards are the standard (the user, 2026-11-26): each card its own soft colour, the figures centred, no left line.
 const PALETTE = ['#152d4a', '#f28c13', '#0e9384', '#7a5af8', '#2e9e5b', '#2f6fd6', '#c11574'];
-const tint = n => { const c = PALETTE[n % PALETTE.length]; return { '--ts-c': c, background: c + '14', borderColor: c + '33', borderLeftColor: c }; };
+const tint = n => { const c = PALETTE[n % PALETTE.length]; return { '--ts-c': c, background: c + '14', borderColor: c + '33' }; };
 defineEmits(['update:asTable']);
 
 const ui = useUiStore();
@@ -80,7 +80,7 @@ const sparkArea = v => `${sparkLine(v)} L80,28 L0,28 Z`;
 .ts-delta-lbl { font-weight: 400; opacity: 0.75; margin-left: 2px; color: var(--ant-color-text, inherit); }
 .ts-spark { width: 72px; height: 28px; flex: none; overflow: visible; }
 .ts-toggle { align-self: center; }
-.ts-colored .ts-item { justify-content: center; text-align: center; border-left-width: 4px; padding: 7px 10px; }
+.ts-colored .ts-item { justify-content: center; text-align: center; border-left-width: 1px; border-radius: 8px; padding: 7px 10px; }
 .ts-colored .ts-label { justify-content: center; }
 .ts-colored .ts-name { opacity: 0.85; font-weight: 600; color: var(--ts-c); }
 .ts-colored .ts-value { font-size: 20px; color: var(--ts-c); }

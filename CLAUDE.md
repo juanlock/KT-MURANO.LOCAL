@@ -1072,6 +1072,10 @@ the start of each session).
   companies' warehouses and must not come back null. A new relation to Warehouse does the same.
 - **Documents speak the company's language (2026-11-05).** `SetPdfLocale`: company's `default_language` on PDFs and printed documents (`resources/lang/{locale}/pdf.php`). Email and SMS
   templates: pool 999 per locale, Spanish rows now in Spanish. Bare `__('text')` keys: `resources/lang/es.json`.
+- **Board cards are coloured (user's standard, 2026-11-26):** the key-figure cards of every board (`TransportStrip`) each
+  have their own soft colour (navy, orange, teal, purple, green, blue, magenta), the label and the figure centred in that
+  colour, no vertical line on the left. Every board shows its objective at its foot on a tinted box (`ReportSourceBar` GOALS),
+  and a board that does not follow the date filter hides it (`Dashboard.vue` NO_DATE_TABS).
 - **A dashboard fits one screen (user's rule, 2026-11-05).** Almost never a vertical or horizontal
   scroll: compact it, or move the rest to another tab. The critical information holds the center. No
   explanatory text on the board: it goes in an (i) popup (`a-tooltip`) or is cut down. Only a super critical
