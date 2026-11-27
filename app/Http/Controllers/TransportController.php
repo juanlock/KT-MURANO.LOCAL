@@ -583,15 +583,35 @@ class TransportController extends Controller
                 'detail' => $nextFrom[$v->id]->departure_at ?? null] + $row;
         })->values();
 
-        // Per agency: its terminals, the buses parked there now, crew that left from it, departures.
-        $hubs = $locs->where('kind', 'agency')->map(function ($t) use ($locs, $trips, $crew, $fleet) {
+        // Incidents per agency (2026-11-26): the complaints book of the period, its "agency" field matched to an agency or one
+        // of its terminals by name ("PLAZA LIMA NORTE" -> the PZ Norte terminal -> Lima).
+        $claims = [];
+        try {
+            $norm = fn ($s) => preg_replace('/[^A-Z0-9]/', '', strtoupper(\Illuminate\Support\Str::ascii((string) $s)));
+            foreach (\App\Services\TransportClaims::compute($cid, $from, $to)['agencies'] ?? [] as $a) {
+                $n = $norm($a['name'] ?? '');
+                if ($n === '') {
+                    continue;
+                }
+                $hit = $locs->first(fn ($l) => $norm($l->name) === $n) ?? $locs->first(fn ($l) => strlen($norm($l->name)) >= 4 && (str_contains($n, $norm($l->name)) || str_contains($norm($l->name), $n)));
+                if ($hit) {
+                    $hub = $hit->kind === 'agency' ? $hit->id : $hit->hub_id;
+                    $hub && $claims[$hub] = ($claims[$hub] ?? 0) + (int) ($a['n'] ?? 0);
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // Per agency: its terminals, the buses parked there now, crew that left from it, departures, incidents.
+        $hubs = $locs->where('kind', 'agency')->map(function ($t) use ($locs, $trips, $crew, $fleet, $claims) {
             $out = $trips->where('origin_id', $t->id);
             $people = $out->flatMap(fn ($x) => ($crew[$x->id] ?? collect())->pluck('employee_id'))->unique();
 
             return ['id' => (int) $t->id, 'name' => $t->name, 'city' => $t->city, 'image_url' => $t->image_url,
                 'terminals' => $locs->where('kind', 'terminal')->where('hub_id', $t->id)->count(),
                 'parked' => $fleet->where('state', 'agency')->where('location_id', $t->id)->count(),
-                'crew' => $people->count(), 'departures' => $out->count()];
+                'crew' => $people->count(), 'departures' => $out->count(), 'claims' => $claims[$t->id] ?? 0];
         })->values();
 
         // Pilots: their fatigue alerts in the period (user's rule, 2026-11-13), not a sum of hours.

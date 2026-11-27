@@ -7,7 +7,7 @@
         <a-empty v-if="!data.has_form" :description="tr('This company has no complaints-book form in Forms.', 'Esta compañía no tiene un formulario de libro de reclamos en Formularios.')" />
         <a-empty v-else-if="!data.total" :description="tr('No complaints on these dates. Pick a longer period above.', 'No hay reclamos en estas fechas. Elige un período mayor en el filtro de arriba.')" />
         <template v-else>
-          <TransportStrip v-model:as-table="asTables" :items="tiles" />
+          <TransportStrip v-model:as-table="asTables" :items="tiles" colored />
           <div class="tc-grid">
             <TransportChartBlock v-for="c in charts" :key="c.key" :chart="c" :as-table="asTables" :class="`tc-${c.key}`" />
           </div>
@@ -121,21 +121,32 @@ const charts = computed(() => {
   if (points.length) {
     const label = p => (d.trend.unit === 'month' ? dayjs(p.date).format('MM/YY') : dayjs(p.date).format('DD/MM'));
     const unit = { day: ['By day', 'Por día'], week: ['By week (Monday)', 'Por semana (lunes)'], month: ['By month', 'Por mes'] }[d.trend.unit];
-    const o = base('bar');
-    const series = [{ name: tr('Claims', 'Reclamos'), data: points.map(p => p.claim) }, { name: tr('Complaints', 'Quejas'), data: points.map(p => p.complaint) }];
-    const colors = [BLUE, ORANGE];
-    if (d.types.other) { series.push({ name: tr('No type', 'Sin tipo'), data: points.map(p => p.other) }); colors.push(GRAY); }
+    // Bars = how many complaints; line = complaints per 1,000 passengers (2026-11-26: the stacked bars alone "no me dicen
+    // mucho"): the line says whether the service got worse or there were just more travellers.
+    const o = base('line');
+    const hasRate = points.some(p => p.rate != null);
+    const total = p => p.claim + p.complaint + p.other;
+    const series = [{ name: tr('Complaints', 'Reclamos'), type: 'column', data: points.map(total) }];
+    if (hasRate) series.push({ name: tr('Per 1,000 passengers', 'Por cada 1,000 pasajeros'), type: 'line', data: points.map(p => p.rate) });
     out.push({
-      key: 'trend', type: 'bar', height: trendHeight.value,
-      title: tr('Complaints over time', 'Reclamos en el tiempo'), help: `${tr(...unit)}.`,
+      key: 'trend', type: 'line', height: trendHeight.value,
+      title: tr('Complaints and their rate', 'Reclamos y su tasa'),
+      help: `${tr(...unit)}. ${hasRate ? tr('Bars: complaints. Line: complaints per 1,000 passengers (Jelaf boarding), so a busy month is not mistaken for a worse service.', 'Barras: reclamos. Línea: reclamos por cada 1,000 pasajeros (embarque de Jelaf), para no confundir un mes con más viajeros con un peor servicio.') : ''}`,
       series,
-      options: { ...o, chart: { ...o.chart, stacked: true }, colors,
-        plotOptions: { bar: { columnWidth: points.length > 24 ? '78%' : (points.length > 6 ? '52%' : '26%'), borderRadius: 3, borderRadiusApplication: 'end', borderRadiusWhenStacked: 'last' } },
-        stroke: { show: true, width: 1, colors: ['transparent'] },
+      options: { ...o, chart: { ...o.chart, type: 'line', stacked: false }, colors: ['#152d4a', '#f28c13'],
+        plotOptions: { bar: { columnWidth: points.length > 24 ? '70%' : (points.length > 6 ? '50%' : '28%'), borderRadius: 3 } },
+        stroke: { width: [0, 3], curve: 'smooth' }, markers: { size: [0, 4], strokeWidth: 0 },
+        dataLabels: { enabled: points.length <= 14, enabledOnSeries: [0], style: { fontSize: '10px' }, offsetY: -4 },
         xaxis: { categories: points.map(label), labels: { rotate: 0, hideOverlappingLabels: true, style: small }, axisBorder: { show: false }, axisTicks: { show: false }, tooltip: { enabled: false } },
-        yaxis: { labels: { formatter: v => Math.round(v), style: small }, forceNiceScale: true },
-        tooltip: { theme: ui.dark ? 'dark' : 'light', shared: true, intersect: false, y: { formatter: v => v } } },
-      table: { cols: [tr('Date', 'Fecha'), tr('Claims', 'Reclamos'), tr('Complaints', 'Quejas'), tr('No type', 'Sin tipo')], rows: points.map(p => [label(p), p.claim, p.complaint, p.other]) },
+        yaxis: [
+          { seriesName: tr('Complaints', 'Reclamos'), labels: { formatter: v => Math.round(v), style: small }, forceNiceScale: true },
+          ...(hasRate ? [{ seriesName: tr('Per 1,000 passengers', 'Por cada 1,000 pasajeros'), opposite: true, labels: { formatter: v => (v == null ? '' : v.toFixed(1)), style: small }, min: 0 }] : []),
+        ],
+        legend: { show: hasRate, position: 'top', fontSize: '11px' },
+        tooltip: { theme: ui.dark ? 'dark' : 'light', shared: true, intersect: false,
+          y: { formatter: (v, { seriesIndex, dataPointIndex }) => (seriesIndex === 1 ? `${v ?? '—'} (${(points[dataPointIndex].pax || 0).toLocaleString()} ${tr('passengers', 'pasajeros')})` : v) } } },
+      table: { cols: [tr('Date', 'Fecha'), tr('Claims', 'Reclamos'), tr('Complaints', 'Quejas'), tr('Passengers', 'Pasajeros'), tr('Per 1,000', 'Por 1,000')],
+        rows: points.map(p => [label(p), p.claim, p.complaint, (p.pax || 0).toLocaleString(), p.rate ?? '—']) },
     });
   }
   if (d.products?.length) out.push(ranked('products', d.products, tr('About which service', 'Sobre qué servicio'), tr('Tickets, parcels or not specified.', 'Pasajes, encomiendas o sin especificar.'), serviceHeight.value, 110));

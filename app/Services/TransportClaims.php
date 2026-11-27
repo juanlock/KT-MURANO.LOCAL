@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * The dashboard's "Complaints" tab (Turismo Cautivo, 2026-11-05): indicators from the company's complaints-book form in
@@ -127,6 +128,33 @@ class TransportClaims
             $trend[$bucket][$x['type']]++;
         }
         sort($amounts);
+
+        // Passengers of each bucket (Control de Embarque, 2026-11-26): complaints per 1,000 passengers tell whether the service
+        // got worse or there were just more travellers. Every bucket with passengers is shown, also those with no complaint.
+        if ($trend && $places === null && Schema::hasTable('transport_boardings')) {
+            $keysSorted = array_keys($trend);
+            sort($keysSorted);
+            $pFrom = $allHistory ? $keysSorted[0] : $from;
+            $pTo = $allHistory ? now()->toDateString() : $to;
+            $expr = match ($unit) {
+                'day' => 'travel_date',
+                'week' => 'DATE_SUB(travel_date, INTERVAL WEEKDAY(travel_date) DAY)',
+                default => "DATE_FORMAT(travel_date, '%Y-%m-01')",
+            };
+            $pax = DB::table('transport_boardings')->where('company_id', $companyId)->whereBetween('travel_date', [$pFrom, $pTo])
+                ->groupBy(DB::raw($expr))->selectRaw("$expr b, COUNT(*) n")->pluck('n', 'b');
+            foreach ($pax as $b => $n) {
+                $b = substr((string) $b, 0, 10);
+                $trend[$b] ??= ['date' => $b, 'claim' => 0, 'complaint' => 0, 'other' => 0];
+                $trend[$b]['pax'] = (int) $n;
+            }
+            ksort($trend);
+            foreach ($trend as &$p) {
+                $p['pax'] ??= 0;
+                $p['rate'] = $p['pax'] ? round(($p['claim'] + $p['complaint'] + $p['other']) / $p['pax'] * 1000, 2) : null;
+            }
+            unset($p);
+        }
 
         return [
             'enabled' => true, 'has_form' => true, 'forms' => $forms->pluck('name')->all(), 'from' => $from, 'to' => $to,

@@ -8,7 +8,7 @@
       <a-spin :spinning="loading">
         <TransportStrip :items="totals" :toggle="false" colored />
         <div class="tb-grid" :style="gridHeight ? { height: gridHeight + 'px' } : null">
-          <div class="tb-col">
+          <div class="tb-col tb-col-agencies">
             <div class="tb-box">
               <div class="tb-sub-title">{{ tf('Transport_Agencies', 'Agencies') }}</div>
               <div class="tb-list">
@@ -16,19 +16,18 @@
                   <thead>
                     <tr>
                       <th />
-                      <th class="num" :title="tf('Transport_Terminals', 'Terminals')">{{ es ? 'Term.' : 'Term.' }}</th>
-                      <th class="num" :title="es ? 'Buses estacionados en la agencia ahora' : 'Buses parked at the agency now'">{{ es ? 'Buses' : 'Buses' }}</th>
-                      <th class="num" :title="es ? 'Pilotos y tripulantes que salieron de la agencia en el período' : 'Pilots and crew who left from the agency in the period'">{{ es ? 'Tripul.' : 'Crew' }}</th>
+                      <!-- The agency as a board (2026-11-26): departures, terminals and incidents (complaints) of the period. -->
                       <th class="num" :title="es ? 'Salidas desde la agencia en el período del filtro de fechas' : 'Departures from the agency in the date filter period'">{{ es ? 'Salidas' : 'Departures' }}</th>
+                      <th class="num" :title="es ? 'Terminales de la agencia' : 'The agency terminals'">{{ es ? 'Terminales' : 'Terminals' }}</th>
+                      <th class="num" :title="es ? 'Reclamos del libro de reclamaciones en el período, de la agencia y sus terminales' : 'Complaints in the period, the agency and its terminals'">{{ es ? 'Incidencias' : 'Incidents' }}</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="h in hubCards" :key="h.id">
                       <td class="tb-name"><span class="tb-hub-dot" :style="h.image_url ? { backgroundImage: `url(${h.image_url})`, borderColor: h.color } : { background: h.color, borderColor: h.color }" />{{ h.name }}</td>
+                      <td class="num"><b>{{ h.departures }}</b></td>
                       <td class="num">{{ h.terminals }}</td>
-                      <td class="num">{{ h.parked }}</td>
-                      <td class="num">{{ h.crew }}</td>
-                      <td class="num">{{ h.departures }}</td>
+                      <td class="num" :class="{ 'tb-claims': h.claims }">{{ h.claims ?? 0 }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -102,7 +101,7 @@
             <a-tooltip :title="tf('Transport_Map_Hint', 'The number on each agency = buses parked there now; the moving dots = buses on the road.')"><InfoCircleOutlined class="tb-map-info" /></a-tooltip>
           </div>
 
-          <div class="tb-col">
+          <div class="tb-col tb-col-fleet">
             <!-- Fleet now: where every bus is and the trips on the road -->
             <div class="tb-box tb-grow">
               <div class="tb-sub-title">{{ tf('Transport_Fleet_Now', 'Fleet now') }}</div>
@@ -407,4 +406,7 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 .tb-routes { font-size: 11.5px; }
 .tb-routes th, .tb-routes td { white-space: nowrap; padding-left: 4px !important; padding-right: 4px !important; }
 .tb-routes td.tb-name { white-space: normal; }
+/* The fleet (where each bus is) on the left, agencies and routes on the right (the user, 2026-11-26). */
+@media (min-width: 900px) { .tb-col-fleet { order: 1; } .tb-map-wrap { order: 2; } .tb-col-agencies { order: 3; } }
+.tb-claims { color: #b42318; font-weight: 700; }
 </style>
