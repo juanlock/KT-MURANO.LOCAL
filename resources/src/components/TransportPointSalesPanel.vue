@@ -34,10 +34,6 @@
             </a-table-summary>
           </template>
         </a-table>
-        <div class="ps-note">
-          {{ tr('From AuraSoft\'s "Liquidación General" (upload it in Ventas del día or Integración -> AuraSoft). By sale date.', 'De la «Liquidación General» de AuraSoft (súbala en Ventas del día o en Integración -> AuraSoft). Por fecha de venta.') }}
-          <template v-if="data.available?.from"> {{ tr('Data from', 'Hay datos del') }} {{ date(data.available.from) }} {{ tr('to', 'al') }} {{ date(data.available.to) }}.</template>
-        </div>
       </a-spin>
     </a-card>
     <a-empty v-else-if="!loading" :description="tr('Pick a company with Transport in the top bar to see this.', 'Elige una compañía con Transporte en la barra superior para ver esto.')" />

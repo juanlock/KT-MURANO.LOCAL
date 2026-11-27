@@ -60,10 +60,6 @@
             </table>
           </div>
         </div>
-        <div class="cu-note">
-          {{ tr('From AuraSoft\'s "Liquidación Detallada" (customers with DNI / RUC). They are in Passengers -> Passenger base.', 'De la «Liquidación Detallada» de AuraSoft (clientes con DNI / RUC). Están en Pasajeros -> Base de pasajeros.') }}
-          <template v-if="data.available?.from"> {{ tr('Data from', 'Hay datos del') }} {{ date(data.available.from) }} {{ tr('to', 'al') }} {{ date(data.available.to) }}.</template>
-        </div>
       </a-spin>
     </a-card>
     <a-empty v-else-if="!loading" :description="tr('Pick a company with Transport in the top bar to see this.', 'Elige una compañía con Transporte en la barra superior para ver esto.')" />
