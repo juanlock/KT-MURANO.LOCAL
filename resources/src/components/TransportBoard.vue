@@ -6,7 +6,7 @@
   <div ref="root">
     <a-card v-if="data.enabled && data.locations.length" class="tb" :bordered="false" :body-style="{ padding: '8px' }">
       <a-spin :spinning="loading">
-        <TransportStrip :items="totals" :toggle="false" />
+        <TransportStrip :items="totals" :toggle="false" colored />
         <div class="tb-grid" :style="gridHeight ? { height: gridHeight + 'px' } : null">
           <div class="tb-col">
             <div class="tb-box">
@@ -16,10 +16,10 @@
                   <thead>
                     <tr>
                       <th />
-                      <th class="num" :title="tf('Transport_Terminals', 'Terminals')"><ShopOutlined /></th>
-                      <th class="num" :title="tf('Transport_Buses_Here', 'Buses here')"><CarOutlined /></th>
-                      <th class="num" :title="tf('Transport_Crew', 'Crew')"><TeamOutlined /></th>
-                      <th class="num" :title="tf('Transport_Departures', 'Departures')"><SwapOutlined /></th>
+                      <th class="num" :title="tf('Transport_Terminals', 'Terminals')">{{ es ? 'Term.' : 'Term.' }}</th>
+                      <th class="num" :title="es ? 'Buses estacionados en la agencia ahora' : 'Buses parked at the agency now'">{{ es ? 'Buses' : 'Buses' }}</th>
+                      <th class="num" :title="es ? 'Pilotos y tripulantes que salieron de la agencia en el período' : 'Pilots and crew who left from the agency in the period'">{{ es ? 'Tripul.' : 'Crew' }}</th>
+                      <th class="num" :title="es ? 'Salidas desde la agencia en el período del filtro de fechas' : 'Departures from the agency in the date filter period'">{{ es ? 'Salidas' : 'Departures' }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -35,13 +35,29 @@
               </div>
             </div>
             <div class="tb-box tb-grow">
-              <div class="tb-sub-title">{{ tf('Transport_Routes', 'Routes') }}</div>
+              <div class="tb-sub-title">{{ es ? 'Rutas' : 'Routes' }}</div>
               <div class="tb-list">
-                <div v-for="r in routeList" :key="'rl' + r.key" class="tb-route-row" :title="r.title">
-                  <span class="tb-route-names">{{ r.names }}</span>
-                  <span class="tb-route-km">{{ r.label }}</span>
-                  <b class="tb-route-trips">{{ r.trips }}</b>
-                </div>
+                <!-- As a table (2026-11-26): route, distance, time, tolls and fuel (approx.: the fleet's cost per km, last 30 days). -->
+                <table class="tb-table tb-routes">
+                  <thead>
+                    <tr>
+                      <th>{{ es ? 'Ruta' : 'Route' }}</th>
+                      <th class="num">{{ es ? 'Distancia' : 'Distance' }}</th>
+                      <th class="num">{{ es ? 'Tiempo' : 'Time' }}</th>
+                      <th class="num">{{ es ? 'Peajes' : 'Tolls' }}</th>
+                      <th class="num" :title="es ? 'Combustible (aprox.): costo por km de la flota en los últimos 30 días × la distancia' : 'Fuel (approx.): the fleet cost per km over the last 30 days × the distance'">{{ es ? 'Comb. ≈' : 'Fuel ≈' }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="r in routeList" :key="'rl' + r.key" :title="r.title">
+                      <td class="tb-name">{{ r.names }}</td>
+                      <td class="num">{{ r.kmText || '—' }}</td>
+                      <td class="num">{{ shortTime(r.timeText) }}</td>
+                      <td class="num">{{ r.toll != null ? 'S/' + Math.round(r.toll).toLocaleString() : '—' }}</td>
+                      <td class="num">{{ r.fuel != null ? 'S/' + Math.round(r.fuel).toLocaleString() : '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -135,6 +151,11 @@ import { t as tf } from '../i18n';
 import { staffTypeLabel } from '../pages/hrm/hrmVocab';
 import { useFitHeight } from '../lib/transportCharts';
 import TransportStrip from './TransportStrip.vue';
+import { useUiStore } from '../stores/ui';
+
+const es = computed(() => String(useUiStore().locale || 'en').startsWith('es'));
+// "9 h 42 min" -> "9h42" so the routes table fits its column.
+const shortTime = s => (s ? String(s).replace(/\s*h\s*/, 'h').replace(/\s*min/, '').replace(/h(\d)$/, 'h0$1').trim() : '—');
 import PilotFatigueList from './PilotFatigueList.vue';
 
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
@@ -252,7 +273,7 @@ const map = computed(() => {
       key: `${r.a}-${r.b}`, d: `M${a.x},${a.y} Q${c[0]},${c[1]} ${b.x},${b.y}`,
       mx: (1 - t) ** 2 * a.x + 2 * (1 - t) * t * c[0] + t ** 2 * b.x, my: (1 - t) ** 2 * a.y + 2 * (1 - t) * t * c[1] + t ** 2 * b.y,
       showLabel: len >= 260, label, labelW: Math.max(40, label.length * 6.4 + 16), width: 2.5 + (r.trips / maxTrips) * 4,
-      names: `${a.name} ↔ ${b.name}`, trips: r.trips, estimated: r.estimated,
+      names: `${a.name} ↔ ${b.name}`, trips: r.trips, estimated: r.estimated, kmText: km, timeText: hours(r.minutes), toll: r.toll, fuel: r.fuel,
       title: `${a.name} ↔ ${b.name}: ${label}${r.estimated ? ` (${tf('Transport_Estimated', 'estimated')})` : ''} · ${r.trips} ${tf('Transport_Trips_Period', 'Trips').toLowerCase()}`,
     };
   }).filter(Boolean);
@@ -383,4 +404,7 @@ const hubCards = computed(() => data.value.hubs.map(h => ({ ...h, color: hubColo
 @media (min-width: 900px) {
   .tb-grid { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.5fr) minmax(0, 0.95fr); }
 }
+.tb-routes { font-size: 11.5px; }
+.tb-routes th, .tb-routes td { white-space: nowrap; padding-left: 4px !important; padding-right: 4px !important; }
+.tb-routes td.tb-name { white-space: normal; }
 </style>

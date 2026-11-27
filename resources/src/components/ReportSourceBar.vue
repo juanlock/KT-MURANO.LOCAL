@@ -96,9 +96,9 @@ const BOARDS = {
   transport_parcels: { t: ['Parcels', 'Encomiendas'], s: () => L('Murano parcels (registered in Murano or loaded with the departures)', 'encomiendas de Murano (registradas en Murano o cargadas con las salidas)'), files: ['production'], date: 'range',
     n: () => L('Its own agency filter is inside the board.', 'El filtro de agencia está dentro del tablero.') },
   transport_claims: { t: ['Complaints', 'Reclamos'], s: () => L('Murano Forms: the complaints book (the website\'s form)', 'Formularios de Murano: el libro de reclamaciones (formulario del website)'), files: [], date: 'range' },
-  transport_monitor: { t: ['Control board', 'Tablero de control'], s: () => L('the pilots\' reports in My trip and the phones\' GPS', 'los reportes de los pilotos en «Mi viaje» y el GPS de sus teléfonos'), files: [], date: 'none',
+  transport_monitor: { t: ['BusTrack', 'BusTrack'], s: () => L('the pilots\' reports in My trip and the phones\' GPS', 'los reportes de los pilotos en «Mi viaje» y el GPS de sus teléfonos'), files: [], date: 'none',
     n: () => L('Its own day picker is inside the board.', 'El día se elige dentro del tablero.') },
-  transport: { t: ['Transport board', 'Tablero de transporte'], s: () => L('Murano departures, buses and crews', 'salidas, buses y tripulaciones de Murano'), files: [], date: 'range' },
+  transport: { t: ['Agencies', 'Agencias'], s: () => L('Murano departures, buses and crews', 'salidas, buses y tripulaciones de Murano'), files: [], date: 'range' },
 };
 
 const info = computed(() => {

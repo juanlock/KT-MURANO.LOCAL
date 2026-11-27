@@ -1,8 +1,8 @@
 <template>
   <!-- The tab's key figures in one row. Explanations live in the (i) popup, never on the board. A card can carry, Power BI
        style (2026-11-23), its change vs the period before (▲▼, green when it goes the good way) and a small trend line. -->
-  <div class="ts">
-    <div v-for="i in items" :key="i.label" class="ts-item">
+  <div class="ts" :class="{ 'ts-colored': colored }">
+    <div v-for="(i, n) in items" :key="i.label" class="ts-item" :style="colored ? tint(n) : null">
       <component :is="LEVEL[i.level].icon" v-if="i.level" class="ts-level" :style="{ color: LEVEL[i.level].color }" />
       <div class="ts-text">
         <div class="ts-label">
@@ -38,7 +38,10 @@ import { BarChartOutlined, CheckCircleFilled, CloseCircleFilled, ExclamationCirc
 import { useUiStore } from '../stores/ui';
 import { BLUE, GOOD, BAD } from '../lib/transportCharts';
 
-defineProps({ items: { type: Array, required: true }, asTable: Boolean, toggle: { type: Boolean, default: true } });
+defineProps({ items: { type: Array, required: true }, asTable: Boolean, toggle: { type: Boolean, default: true }, colored: Boolean });
+// Coloured cards (2026-11-26, the Agencias board): each card its own soft colour, the figures centred.
+const PALETTE = ['#152d4a', '#f28c13', '#0e9384', '#7a5af8', '#2e9e5b', '#2f6fd6', '#c11574'];
+const tint = n => { const c = PALETTE[n % PALETTE.length]; return { '--ts-c': c, background: c + '14', borderColor: c + '33', borderLeftColor: c }; };
 defineEmits(['update:asTable']);
 
 const ui = useUiStore();
@@ -77,4 +80,8 @@ const sparkArea = v => `${sparkLine(v)} L80,28 L0,28 Z`;
 .ts-delta-lbl { font-weight: 400; opacity: 0.75; margin-left: 2px; color: var(--ant-color-text, inherit); }
 .ts-spark { width: 72px; height: 28px; flex: none; overflow: visible; }
 .ts-toggle { align-self: center; }
+.ts-colored .ts-item { justify-content: center; text-align: center; border-left-width: 4px; padding: 7px 10px; }
+.ts-colored .ts-label { justify-content: center; }
+.ts-colored .ts-name { opacity: 0.85; font-weight: 600; color: var(--ts-c); }
+.ts-colored .ts-value { font-size: 20px; color: var(--ts-c); }
 </style>

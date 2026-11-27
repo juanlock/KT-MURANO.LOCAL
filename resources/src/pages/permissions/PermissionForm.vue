@@ -238,8 +238,8 @@ const tabOptions = computed(() => [
   ['transport_departures', 'Departures report', 'Reporte de salidas'], ['transport_outlook', 'Operations outlook', 'Mando operativo'],
   ['transport_owner', 'Business summary', 'Resumen del negocio'], ['transport_profit', 'Profit by route', 'Rentabilidad por ruta'],
   ['transport_expenses', 'Expenses', 'Gastos'], ['transport_indicators', 'Indicators', 'Indicadores'], ['transport_risks', 'Risks', 'Riesgos'],
-  ['transport_parcels', 'Parcels', 'Encomiendas'], ['transport_claims', 'Complaints', 'Reclamos'], ['transport_monitor', 'Control board', 'Tablero de control'],
-  ['transport', 'Transport board', 'Tablero de transporte'],
+  ['transport_parcels', 'Parcels', 'Encomiendas'], ['transport_claims', 'Complaints', 'Reclamos'], ['transport_monitor', 'BusTrack', 'BusTrack'],
+  ['transport', 'Agencies', 'Agencias'],
 ].map(([value, en, es]) => ({ value, label: tr(en, es) })));
 // Role home page choices: any menu page (Daily Tasks for field staff, etc.).
 const homeOptions = computed(() => sortByLabel(allPages().map(p => ({ value: p.path, label: pageFullLabel(p) }))));

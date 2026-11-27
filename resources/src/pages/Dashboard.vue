@@ -524,23 +524,23 @@ const roleTabs = computed(() => (Array.isArray(auth.user?.dashboard_tabs) && aut
 const TAB_GROUPS = [
   { key: 'mgmt', en: 'Management', es: 'Gerencia', tabs: ['transport_owner', 'transport_profit', 'transport_indicators', 'transport_risks', 'transport_outlook'] },
   { key: 'admin', en: 'Administration', es: 'Administración', tabs: ['transport_daysales', 'transport_pointsales', 'transport_cashbook', 'transport_customers', 'transport_expenses'] },
-  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_programming', 'transport_departures', 'transport_monitor', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims'] },
+  { key: 'ops', en: 'Operations', es: 'Operaciones', tabs: ['transport_production', 'transport_programming', 'transport_departures', 'transport', 'transport_aura_parcels', 'transport_parcels', 'transport_claims', 'transport_monitor'] },
 ];
 const TAB_LABELS = {
   transport_owner: ['Summary', 'Resumen'], transport_profit: ['Profit', 'Rentabilidad'], transport_indicators: ['Indicators', 'Indicadores'],
   transport_risks: ['Risks', 'Riesgos'], transport_outlook: ['Outlook', 'Mando'],
   transport_daysales: ['Sales', 'Ventas'], transport_pointsales: ['Points of sale', 'Pto. venta'], transport_cashbook: ['Cash', 'Caja'],
   transport_customers: ['Customers', 'Clientes'], transport_expenses: ['Expenses', 'Gastos'],
-  transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['Control', 'Control'],
-  transport: ['Transport', 'Transporte'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
+  transport_production: ['Production', 'Producción'], transport_programming: ['Programming', 'Programación'], transport_departures: ['Departures', 'Salidas'], transport_monitor: ['BusTrack', 'BusTrack'],
+  transport: ['Agencies', 'Agencias'], transport_aura_parcels: ['AuraSoft', 'AuraSoft'], transport_parcels: ['Parcels', 'Encomiendas'],
   transport_claims: ['Complaints', 'Reclamos'],
 };
 // The full name, shown when the mouse rests on a tab.
 const TAB_TITLES = {
   transport_owner: 'Resumen del negocio', transport_profit: 'Rentabilidad por ruta', transport_outlook: 'Mando operativo',
   transport_daysales: 'Ventas del día', transport_pointsales: 'Ventas por punto de venta', transport_cashbook: 'Caja y clientes',
-  transport_production: 'Producción por bus', transport_departures: 'Reporte de salidas', transport_monitor: 'Tablero de control',
-  transport: 'Tablero de transporte', transport_aura_parcels: 'Encomiendas AuraSoft',
+  transport_production: 'Producción por bus', transport_departures: 'Reporte de salidas', transport_monitor: 'BusTrack: los buses en ruta en vivo',
+  transport: 'Agencias: terminales, buses, tripulación y salidas de cada agencia', transport_aura_parcels: 'Encomiendas AuraSoft',
 };
 // The board tabs' look: navy bar, orange open tab (the user's pick, 2026-11-26).
 const tabStyle = 'bt-style-d';

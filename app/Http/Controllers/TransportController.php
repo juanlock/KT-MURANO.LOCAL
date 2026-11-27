@@ -495,7 +495,21 @@ class TransportController extends Controller
             ->get(['t.id', 't.route_id', 't.vehicle_id', 't.departure_at', 't.arrival_at', 't.status', 'r.origin_id', 'r.distance_km']);
         $crew = DB::table('transport_trip_crew')->whereIn('trip_id', $trips->pluck('id'))->get(['trip_id', 'employee_id', 'role'])->groupBy('trip_id');
 
-        // Routes: one line per pair of agencies, km (typed, else estimated from the map), trips both ways.
+        // Routes: one line per pair of agencies, km (typed, else estimated from the map), trips both ways, the route's toll and
+        // fuel at the fleet's cost per km of the last 30 days (TransportProfit, cached; 2026-11-26: "Combustible (aprox.)").
+        $fuelPerKm = \Illuminate\Support\Facades\Cache::remember("transport_fuel_per_km_$cid", 12 * 3600, function () use ($cid) {
+            $fuel = $km = 0.0;
+            foreach (\App\Services\TransportProfit::compute($cid, now()->subDays(30)->toDateString(), now()->subDay()->toDateString(), null)['routes'] ?? [] as $rt) {
+                foreach ($rt['trips'] as $tr) {
+                    if ($tr['km'] && ($tr['costs']['fuel'] ?? 0) > 0) {
+                        $fuel += $tr['costs']['fuel'];
+                        $km += $tr['km'];
+                    }
+                }
+            }
+
+            return $km > 0 ? round($fuel / $km, 3) : null;
+        });
         $routes = [];
         foreach ($this->routeRows($cid) as $r) {
             if (! $r['active']) {
@@ -511,7 +525,11 @@ class TransportController extends Controller
                 $km = round(\App\Support\PlaceCoordinates::km((float) $byId[$a]->lat, (float) $byId[$a]->lng, (float) $byId[$b]->lat, (float) $byId[$b]->lng) * 1.25);
                 $estimated = true;
             }
-            $routes[$key] ??= ['a' => $a, 'b' => $b, 'km' => $km, 'estimated' => $estimated, 'minutes' => $r['duration_min'] ? (int) $r['duration_min'] : null, 'route_ids' => [], 'trips' => 0];
+            $routes[$key] ??= ['a' => $a, 'b' => $b, 'km' => $km, 'estimated' => $estimated, 'minutes' => $r['duration_min'] ? (int) $r['duration_min'] : null, 'route_ids' => [], 'trips' => 0,
+                'toll' => $r['toll_cost'] !== null ? (float) $r['toll_cost'] : null, 'fuel' => $km !== null && $fuelPerKm ? round($km * $fuelPerKm) : null];
+            if ($routes[$key]['toll'] === null && $r['toll_cost'] !== null) {
+                $routes[$key]['toll'] = (float) $r['toll_cost'];
+            }
             $routes[$key]['route_ids'][] = (int) $r['id'];
             $routes[$key]['trips'] += $trips->where('route_id', $r['id'])->count();
         }
