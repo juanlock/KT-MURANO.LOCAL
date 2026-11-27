@@ -4,19 +4,35 @@
        App\Services\TransportProgramming::outlook. -->
   <div class="md">
     <a-spin :spinning="loading">
+      <!-- Which week and which direction (the user, 2026-11-27, for Julio): a date in an earlier week shows that week as it went;
+           Lima → Chiclayo and Chiclayo → Lima apart, never only together. -->
+      <div class="md-bar">
+        <a-button size="small" :title="L('Week before', 'Semana anterior')" @click="shift(-7)"><LeftOutlined /></a-button>
+        <a-date-picker v-model:value="pick" size="small" value-format="YYYY-MM-DD" :allow-clear="false" class="md-date" @change="load" />
+        <a-button size="small" :disabled="!data.past" :title="L('Week after', 'Semana siguiente')" @click="shift(7)"><RightOutlined /></a-button>
+        <span class="md-period">{{ data.past ? L(`Week ${dm(data.from)} – ${dm(data.to)} · as it went`, `Semana ${dm(data.from)} – ${dm(data.to)} · cómo le fue`) : L('Today and the next 2 days', 'Hoy y los próximos 2 días') }}</span>
+        <a-button v-if="data.past" size="small" type="link" @click="pick = today; load()">{{ L('Back to today', 'Volver a hoy') }}</a-button>
+        <a-segmented v-model:value="dir" size="small" :options="dirOptions" class="md-dir" />
+      </div>
       <TransportStrip :items="tiles" :toggle="false" />
-      <!-- The weeks ahead (Jelaf sells up to 14 days ahead): this week, the next and the one after. -->
+      <!-- The three weeks: today's, the next and the one after -- or, for an earlier date, its week and the two before it.
+           Each one per direction; a click opens that week. -->
       <div class="md-weeks">
-        <div v-for="(w, i) in data.weeks || []" :key="w.from" class="md-week">
-          <div class="md-week-h"><b>{{ [L('This week', 'Esta semana'), L('Next week', 'Próxima semana'), L('The week after', 'Subsiguiente')][i] }}</b> <span>{{ dm(w.from) }} – {{ dm(w.to) }}</span></div>
-          <div class="md-week-b">
-            <span><b>{{ w.departures }}</b> {{ L('departures', 'salidas') }}</span>
-            <span><b>{{ w.sold }}</b> {{ L('sold', 'vendidos') }}</span>
-            <span><b>{{ pct(w.forecast, w.seats) }}</b> {{ L('expected', 'esperada') }}</span>
-            <span :class="{ 'md-bad': w.loss }"><b>{{ w.loss }}</b> {{ L('at a loss', 'en pérdida') }}</span>
-            <span v-if="data.money" :class="w.result < 0 ? 'md-bad' : 'md-good'"><b>{{ w.result < 0 ? '−' : '+' }}S/ {{ money0(Math.abs(w.result)) }}</b></span>
+        <div v-for="(w, i) in data.weeks || []" :key="w.from" class="md-week" :class="{ on: data.past && w.from === data.from }" @click="openWeek(w)">
+          <div class="md-week-h"><b>{{ weekName(w, i) }}</b> <span>{{ dm(w.from) }} – {{ dm(w.to) }}</span>
+            <span class="md-week-t">{{ w.departures }} {{ L('departures', 'salidas') }} · {{ w.sold }} {{ L('sold', 'vendidos') }}</span>
           </div>
-          <div v-if="w.days_loaded < 7" class="md-week-n">{{ L(`${w.days_loaded} of 7 days with sales loaded`, `${w.days_loaded} de 7 días con ventas cargadas`) }}</div>
+          <div v-for="sd in SIDES" :key="sd.key" class="md-week-s" :class="{ dim: dir !== 'all' && dir !== sd.key }">
+            <span class="md-week-r">{{ L(sd.en, sd.es) }}</span>
+            <span>{{ w.sides?.[sd.key]?.departures || 0 }} {{ L('dep.', 'sal.') }}</span>
+            <span :class="{ 'md-bad': w.sides?.[sd.key]?.loss }">{{ w.sides?.[sd.key]?.loss || 0 }} {{ L('at a loss', 'en pérdida') }}</span>
+            <b v-if="data.money && w.sides?.[sd.key]" :class="w.sides[sd.key].result < 0 ? 'md-bad' : 'md-good'">{{ signed(w.sides[sd.key].result) }}</b>
+          </div>
+          <div class="md-week-n">
+            <template v-if="data.money">{{ L('Total', 'Total') }} <b :class="w.result < 0 ? 'md-bad' : 'md-good'">{{ signed(w.result) }}</b></template>
+            <template v-if="w.gone && w.gone < w.departures"> · {{ L(`${w.gone} already run (real), the rest projected`, `${w.gone} ya salieron (real), el resto proyectado`) }}</template>
+            <template v-if="w.days_loaded < 7"> · {{ L(`${w.days_loaded} of 7 days with sales`, `${w.days_loaded} de 7 días con ventas`) }}</template>
+          </div>
         </div>
       </div>
       <!-- The table (the user, 2026-11-27): soft Power BI colours (navy / orange only on the tabs), seats centred, "Pasajes
@@ -30,8 +46,8 @@
               <th rowspan="2">Bus</th>
               <th rowspan="2" class="c">{{ L('Seats', 'Asient.') }}</th>
               <th :colspan="channelKeys.length + 1" class="c md-g-sold">{{ L('Tickets sold by channel', 'Pasajes vendidos por medio') }}</th>
-              <th rowspan="2" class="c" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ L('Expected', 'Esperados') }}</th>
-              <th rowspan="2" class="c" :title="L('Tickets still to sell to cover its expenses', 'Pasajes que faltan vender para cubrir sus egresos')">{{ L('To cover', 'Faltan') }}</th>
+              <th rowspan="2" class="c" :title="L('Passengers expected when it leaves (the 2026 sales curve)', 'Pasajeros que se esperan cuando salga (curva de ventas de 2026)')">{{ data.past ? L('Travelled', 'Viajaron') : L('Expected', 'Esperados') }}</th>
+              <th v-if="!data.past" rowspan="2" class="c" :title="L('Tickets still to sell to cover its expenses', 'Pasajes que faltan vender para cubrir sus egresos')">{{ L('To cover', 'Faltan') }}</th>
               <template v-if="data.money">
                 <th rowspan="2" class="r" :title="L('Expected passengers × its ticket price', 'Esperados × el precio de su pasaje')">{{ L('Income', 'Ingresos') }}</th>
                 <th :colspan="costCols.length + 1" class="c md-g-cost" :title="L('What this trip will spend: the average of its route over the last 30 days', 'Lo que gastará este viaje: el promedio de su ruta en los últimos 30 días')">{{ L('Expenses', 'Egresos') }}</th>
@@ -49,8 +65,12 @@
           </thead>
           <tbody>
             <template v-for="g in groups" :key="g.date">
-              <tr class="md-day"><td :colspan="colCount">{{ g.label }} <small>· {{ g.rows.length }} {{ L('departures', 'salidas') }}</small></td></tr>
-              <tr v-for="r in g.rows" :key="g.date + r.time + r.side + r.route" :class="{ 'md-loss': r.result != null && r.result < 0 }">
+              <tr class="md-day"><td :colspan="colCount">{{ g.label }} <small>· {{ g.count }} {{ L('departures', 'salidas') }}</small></td></tr>
+              <template v-for="sg in g.sides" :key="g.date + sg.key">
+              <!-- Each direction of the day with its own result (the user, 2026-11-27: Julio sees each route apart). -->
+              <tr v-if="dir === 'all'" class="md-side"><td :colspan="colCount - (data.money ? 1 : 0)">{{ L(sideOf(sg.key).en, sideOf(sg.key).es) }} <small>· {{ sg.rows.length }} {{ L('departures', 'salidas') }} · {{ sg.loss }} {{ L('at a loss', 'en pérdida') }}</small></td>
+                <td v-if="data.money" class="r"><b :class="sg.result < 0 ? 'md-neg' : 'md-pos'">{{ signed(sg.result, false) }}</b></td></tr>
+              <tr v-for="r in sg.rows" :key="g.date + r.time + r.side + r.route" :class="{ 'md-loss': r.result != null && r.result < 0 }">
                 <td class="md-time">{{ ampm(r.time) }}</td>
                 <td class="md-route" :title="r.route">{{ shortRoute(r.route) }}</td>
                 <td><span :class="{ 'md-tent': r.bus_from === 'base' }">{{ r.bus || '—' }}</span> <small v-if="r.tag" class="md-tag">{{ r.tag }}</small></td>
@@ -58,7 +78,7 @@
                 <td v-for="k in channelKeys" :key="k" class="c md-ch">{{ r.channels?.[k]?.n || '' }}</td>
                 <td class="c"><b>{{ r.sold }}</b></td>
                 <td class="c">{{ r.forecast }}<small v-if="r.seats" class="md-pct">{{ pct(r.forecast, r.seats) }}</small><span v-if="r.over" class="md-over" :title="L(`About ${r.over} more passengers than seats: reinforce`, `Unos ${r.over} pasajeros más que asientos: reforzar`)">↑{{ r.over }}</span></td>
-                <td class="c" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
+                <td v-if="!data.past" class="c" :class="{ 'md-miss': r.missing > 0 }">{{ r.missing == null ? '—' : (r.missing || '✓') }}</td>
                 <template v-if="data.money">
                   <td class="r">{{ r.income == null ? '—' : money0(r.income) }}</td>
                   <td v-for="k in costCols" :key="k.key" class="r md-cost">{{ costOf(r, k) }}</td>
@@ -66,6 +86,7 @@
                   <td class="r"><b v-if="r.result != null" :class="r.result < 0 ? 'md-neg' : 'md-pos'">{{ r.result < 0 ? '−' : '+' }}{{ money0(Math.abs(r.result)) }}</b><span v-else>—</span></td>
                 </template>
               </tr>
+              </template>
             </template>
             <tr v-if="!rows.length"><td :colspan="colCount" class="md-empty">{{ L('No departures in these days yet.', 'Aún no hay salidas en estos días.') }}</td></tr>
           </tbody>
@@ -76,12 +97,12 @@
               <td v-for="k in channelKeys" :key="k" class="c">{{ s.channels?.[k] || 0 }}</td>
               <td class="c">{{ s.sold }}</td>
               <td class="c">{{ s.forecast }}</td>
-              <td class="c">{{ s.missing }}</td>
+              <td v-if="!data.past" class="c">{{ s.missing }}</td>
               <template v-if="data.money">
                 <td class="r">{{ money0(s.income) }}</td>
                 <td v-for="k in costCols" :key="k.key" class="r">{{ money0(rows.reduce((n, r) => n + costRaw(r, k), 0)) }}</td>
                 <td class="r">{{ money0(s.cost) }}</td>
-                <td class="r"><b :class="s.result < 0 ? 'md-neg' : 'md-pos'">{{ s.result < 0 ? '−' : '+' }} S/ {{ money0(Math.abs(s.result)) }}</b></td>
+                <td class="r"><b :class="s.result < 0 ? 'md-neg' : 'md-pos'">{{ signed(s.result) }}</b></td>
               </template>
             </tr>
           </tfoot>
@@ -94,6 +115,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons-vue';
 import http from '../lib/http';
 import TransportStrip from './TransportStrip.vue';
 import { useUiStore } from '../stores/ui';
@@ -103,14 +125,41 @@ const es = computed(() => String(ui.locale || 'en').startsWith('es'));
 const L = (e, s) => (es.value ? s : e);
 const data = ref({ rows: [], summary: {}, money: false });
 const loading = ref(false);
-onMounted(async () => {
+const today = dayjs().format('YYYY-MM-DD');
+// The date asked for: in this week or later = today and the next days; in an earlier week = that week as it went.
+const pick = ref(today);
+async function load() {
   loading.value = true;
-  try { data.value = await http.get('transport/programming/outlook', { days: 3 }); } catch (e) { /* the board shows empty */ }
+  try { data.value = await http.get('transport/programming/outlook', { days: 3, ...(pick.value < today ? { start: pick.value } : {}) }); } catch (e) { /* the board shows empty */ }
   loading.value = false;
-});
+}
+onMounted(load);
+// ‹ › a week at a time, from the week shown (never past the current one).
+function shift(n) {
+  const base = data.value.past ? data.value.from : today;
+  const d = dayjs(base).add(n, 'day').format('YYYY-MM-DD');
+  pick.value = d > today ? today : d;
+  load();
+}
+function openWeek(w) {
+  if (w.from > today) return;
+  pick.value = w.from <= today && w.to >= today ? today : w.from;
+  load();
+}
 
-const rows = computed(() => data.value.rows || []);
-const s = computed(() => data.value.summary || {});
+// The direction (2026-11-27): both, each one under its own heading with its result, or only one.
+const SIDES = [{ key: 'lima', en: 'Lima → Chiclayo', es: 'Lima → Chiclayo' }, { key: 'chiclayo', en: 'Chiclayo → Lima', es: 'Chiclayo → Lima' }];
+const sideOf = k => SIDES.find(x => x.key === k) || SIDES[0];
+const dir = ref('all');
+const dirOptions = computed(() => [{ value: 'all', label: L('Both', 'Ambas') }, ...SIDES.map(x => ({ value: x.key, label: L(x.en, x.es) }))]);
+const weekName = (w, i) => {
+  if (!data.value.past) return [L('This week', 'Esta semana'), L('Next week', 'Próxima semana'), L('The week after', 'Subsiguiente')][i];
+  return w.from === data.value.from ? L('Chosen week', 'Semana elegida') : (i === 0 ? L('Two weeks before', 'Dos semanas antes') : L('Week before', 'Semana anterior'));
+};
+const signed = (v, cur = true) => `${Number(v || 0) < 0 ? '−' : '+'}${cur ? 'S/ ' : ''}${money0(Math.abs(Number(v || 0)))}`;
+
+const rows = computed(() => (data.value.rows || []).filter(r => dir.value === 'all' || r.side === dir.value));
+const s = computed(() => (dir.value === 'all' ? data.value.summary : data.value.summary?.sides?.[dir.value]) || {});
 // Agency first, then the online channels; PeruBus always shown (the user asked for it).
 const CH = { Agencia: ['Agency', 'Agencia'], Web: ['Web', 'Web'], RedBus: ['RedBus', 'RedBus'], Kupos: ['Kupos', 'Kupos'], PeruBus: ['PeruBus', 'PeruBus'], Kiosco: ['Kiosk', 'Kiosco'], Carritoc: ['Carritoc', 'Carritoc'] };
 const chName = k => L(...(CH[k] || [k, k]));
@@ -131,14 +180,21 @@ const costCols = [
 ];
 const costRaw = (r, k) => k.keys.reduce((n, x) => n + Number(r.costs?.[x] || 0), 0);
 const costOf = (r, k) => (r.costs ? (costRaw(r, k) ? money0(costRaw(r, k)) : '—') : '—');
-const colCount = computed(() => 7 + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
+const colCount = computed(() => (data.value.past ? 6 : 7) + channelKeys.value.length + (data.value.money ? 3 + costCols.length + 0 : 0));
+// Per day, and inside each day per direction (Lima → Chiclayo first) with its subtotal.
 const groups = computed(() => {
   const out = [];
   for (const r of rows.value) {
     let g = out.find(x => x.date === r.date);
-    if (!g) { g = { date: r.date, label: r.day, rows: [] }; out.push(g); }
-    g.rows.push(r);
+    if (!g) { g = { date: r.date, label: r.day, count: 0, sides: [] }; out.push(g); }
+    let sg = g.sides.find(x => x.key === r.side);
+    if (!sg) { sg = { key: r.side, rows: [], loss: 0, result: 0 }; g.sides.push(sg); }
+    sg.rows.push(r);
+    sg.loss += r.result != null && r.result < 0 ? 1 : 0;
+    sg.result += Number(r.result || 0);
+    g.count++;
   }
+  out.forEach(g => g.sides.sort((a, b) => (a.key === 'lima' ? 0 : 1) - (b.key === 'lima' ? 0 : 1)));
   return out;
 });
 const ampm = t => (t ? dayjs(`2000-01-01 ${t}`).format('h:mm A') : '');
@@ -147,16 +203,19 @@ const dm = d => dayjs(d).format('DD/MM');
 const money0 = v => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 });
 const tiles = computed(() => {
   const x = s.value;
+  const past = data.value.past;
   const t = [
     { label: L('Departures', 'Salidas'), value: x.departures ?? 0 },
     { label: L('At a loss', 'En pérdida'), value: x.loss ?? 0 },
-    { label: L('Sold', 'Vendidos'), value: x.sold ?? 0 },
-    { label: L('Expected occupancy', 'Ocupación esperada'), value: x.seats ? `${Math.round((x.forecast / x.seats) * 100)} %` : '—' },
-    { label: L('Tickets to cover', 'Pasajes que faltan'), value: x.missing ?? 0 },
+    { label: past ? L('Passengers', 'Pasajeros') : L('Sold', 'Vendidos'), value: x.sold ?? 0 },
+    { label: past ? L('Occupancy', 'Ocupación') : L('Expected occupancy', 'Ocupación esperada'), value: x.seats ? `${Math.round((x.forecast / x.seats) * 100)} %` : '—' },
   ];
+  if (!past) t.push({ label: L('Tickets to cover', 'Pasajes que faltan'), value: x.missing ?? 0 });
   if (data.value.money) {
-    t.push({ label: L('Projected income', 'Ingresos proyectados'), value: `S/ ${money0(x.income)}` });
-    t.push({ label: L('Possible result', 'Posible resultado'), value: `${x.result < 0 ? '−' : ''}S/ ${money0(Math.abs(x.result || 0))}` });
+    t.push({ label: past ? L('Income', 'Ingresos') : L('Projected income', 'Ingresos proyectados'), value: `S/ ${money0(x.income)}` });
+    // Both directions: each one's result apart (2026-11-27), then the total.
+    if (dir.value === 'all') SIDES.forEach(sd => t.push({ label: L(sd.en, sd.es), value: signed(data.value.summary?.sides?.[sd.key]?.result) }));
+    t.push({ label: past ? L('Result', 'Resultado') : L('Possible result', 'Posible resultado'), value: signed(x.result) });
   }
   return t;
 });
@@ -200,4 +259,17 @@ const tiles = computed(() => {
 .md-week-n { font-size: 10.5px; color: #98a2b3; margin-top: 2px; }
 .md-bad { color: #d64550; }
 .md-good { color: #1aab40; }
-@media (max-width: 900px) { .md-weeks { grid-template-columns: 1fr; } }</style>
+@media (max-width: 900px) { .md-weeks { grid-template-columns: 1fr; } }.md-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.md-date { width: 130px; }
+.md-period { font-size: 12.5px; color: #12239e; font-weight: 600; margin-left: 6px; }
+.md-dir { margin-left: auto; }
+.md-week { cursor: pointer; }
+.md-week.on { border-color: #118dff; background: #eef5ff; }
+.md-week-t { color: #605e5c; font-size: 11.5px; margin-left: 6px; }
+.md-week-s { display: flex; gap: 10px; font-size: 12px; color: #475467; align-items: baseline; }
+.md-week-s.dim { opacity: .35; }
+.md-week-r { font-weight: 600; color: #252423; min-width: 108px; }
+.md-week-s b { margin-left: auto; }
+.md-side td { background: #fafbfc !important; color: #252423; font-weight: 700; font-size: 11.5px; padding: 4px 8px 4px 16px; border-bottom: 1px solid #e1e4e8; }
+.md-side small { color: #8a94a6; font-weight: 500; }
+</style>

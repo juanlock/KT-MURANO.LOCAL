@@ -46,11 +46,23 @@ class TransportProgrammingController extends Controller
     public function outlook(Request $request)
     {
         $cid = $this->company($request);
-        $out = TransportProgramming::outlook($cid, max(1, min(7, (int) $request->input('days', 3))));
+        // ?start=YYYY-MM-DD in an earlier week = that week as it went (2026-11-27).
+        $start = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->input('start')) ? (string) $request->input('start') : null;
+        $out = TransportProgramming::outlook($cid, max(1, min(7, (int) $request->input('days', 3))), 14, $start);
         $money = HelpdeskAccess::can($request->user('api'), 'transport_profit');
         if (! $money) {
-            $out['rows'] = array_map(fn ($r) => array_diff_key($r, array_flip(['price', 'income', 'cost', 'result'])), $out['rows']);
-            $out['summary'] = array_diff_key($out['summary'], array_flip(['income', 'cost', 'result']));
+            $noMoney = array_flip(['price', 'income', 'cost', 'result', 'costs']);
+            $out['rows'] = array_map(fn ($r) => array_diff_key($r, $noMoney), $out['rows']);
+            $out['summary'] = array_diff_key($out['summary'], $noMoney);
+            foreach ($out['summary']['sides'] ?? [] as $k => $sd) {
+                $out['summary']['sides'][$k] = array_diff_key($sd, $noMoney);
+            }
+            foreach ($out['weeks'] as $i => $w) {
+                unset($out['weeks'][$i]['result']);
+                foreach ($w['sides'] ?? [] as $k => $sd) {
+                    unset($out['weeks'][$i]['sides'][$k]['result']);
+                }
+            }
         }
 
         return $out + ['money' => $money];

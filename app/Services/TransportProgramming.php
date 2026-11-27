@@ -507,14 +507,31 @@ class TransportProgramming
      * Mando operativo on Jelaf's data (the user, 2026-11-26): today and the next days, both directions, each departure with
      * what is sold by channel, the passengers expected, the projected income (expected x its ticket price), its estimated
      * expenses (the average of its route over the last 30 days, TransportProfit) and the possible profit or loss.
+     * 2026-11-27 (the user, for Julio): every figure also per direction (Lima → Chiclayo / Chiclayo → Lima, `sides`), and a
+     * date in an earlier week shows that week as it went: its departures with their REAL income and expenses (TransportProfit's
+     * trip, else Jelaf's amount and the route's average expenses), the week boxes = that week and the two before it.
      */
-    public static function outlook(int $cid, int $days = 3, int $summaryDays = 14): array
+    public static function outlook(int $cid, int $days = 3, int $summaryDays = 14, ?string $start = null): array
     {
         $today = now()->toDateString();
-        $tableLast = now()->addDays($days - 1)->toDateString();
-        $last = now()->addDays(max($days, $summaryDays) - 1)->toDateString();
+        $thisMon = now()->startOfWeek(Carbon::MONDAY);
+        $pickMon = $start ? Carbon::parse($start)->startOfWeek(Carbon::MONDAY) : null;
+        $past = $pickMon && $pickMon->lt($thisMon);
+        if ($past) {
+            $tableFrom = $pickMon->toDateString();
+            $tableLast = $pickMon->copy()->addDays(6)->toDateString();
+            $weekStarts = [$pickMon->copy()->subDays(14)->toDateString(), $pickMon->copy()->subDays(7)->toDateString(), $tableFrom];
+            $first = $weekStarts[0];
+            $last = $tableLast;
+        } else {
+            $tableFrom = $today;
+            $tableLast = now()->addDays($days - 1)->toDateString();
+            $weekStarts = [$thisMon->toDateString(), $thisMon->copy()->addDays(7)->toDateString(), $thisMon->copy()->addDays(14)->toDateString()];
+            $first = $weekStarts[0];
+            $last = $thisMon->copy()->addDays(20)->toDateString();
+        }
         $weekDays = [];
-        foreach (array_unique([$today, now()->addDays(7)->toDateString(), $last]) as $d) {
+        foreach ($weekStarts as $d) {
             foreach (self::week($cid, $d)['days'] as $day) {
                 $weekDays[$day['date']] = $day;
             }
@@ -532,82 +549,126 @@ class TransportProgramming
         });
         $rows = [];
         foreach ($weekDays as $date => $day) {
-            if ($date < $today || $date > $last) {
+            if ($date < $first || $date > $last) {
                 continue;
             }
             foreach ($day['departures'] as $x) {
-                if ($x['removed'] || $x['gone']) {
+                if ($x['removed'] || (! $x['gone'] && $date < $today)) {
                     continue;
                 }
                 $route = $x['route'] ?: ($x['side'] === 'lima' ? 'LIMA → CHICLAYO' : 'CHICLAYO → LIMA');
+                $avgCosts = $routeCost[mb_strtoupper($route)] ?? $sideCost[$x['side']] ?? null;
+                if ($x['gone']) {
+                    // As it went: the trip's own income and expenses when Murano has the trip, else Jelaf's amount and the
+                    // route's average expenses. A departure that left with nothing sold and no trip is not counted.
+                    if (! $x['money'] && ! $x['sold']) {
+                        continue;
+                    }
+                    $m = $x['money'];
+                    $income = round($m ? (float) ($m['income']['total'] ?? 0) : (float) $x['amount'], 2);
+                    $costs = $m && ! empty($m['costs']['total']) ? $m['costs'] : $avgCosts;
+                    $cost = isset($costs['total']) ? round((float) $costs['total'], 2) : null;
+                    $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'],
+                        'bus_from' => $x['bus_from'], 'seats' => $x['seats'], 'sold' => $x['sold'], 'channels' => $x['channels'], 'forecast' => $x['sold'],
+                        'over' => 0, 'costs' => $costs, 'price' => $x['sold'] ? round($income / $x['sold'], 2) : null, 'income' => $income, 'cost' => $cost,
+                        'result' => $cost !== null ? round($income - $cost, 2) : null, 'break_even' => null, 'missing' => null, 'source' => $x['source'],
+                        'gone' => true, 'real_costs' => (bool) ($m && ! empty($m['costs']['total']))];
+                    continue;
+                }
                 $price = $x['sold'] > 0 && $x['amount'] > 0 ? $x['amount'] / $x['sold'] : ($sidePrice[$x['side']] ?? null);
-                $cost = $routeCost[mb_strtoupper($route)] ?? $sideCost[$x['side']] ?? null;
+                $cost = $avgCosts['total'] ?? null;
                 // Never more than the bus holds; the demand over it is kept apart (the reason to reinforce).
                 $expected = $x['seats'] ? min($x['forecast'], (int) $x['seats']) : $x['forecast'];
                 $income = $price !== null ? round($expected * $price, 2) : null;
                 $breakEven = $cost && $price ? (int) ceil($cost / $price) : null;
                 $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'],
                     'bus_from' => $x['bus_from'], 'seats' => $x['seats'], 'sold' => $x['sold'], 'channels' => $x['channels'], 'forecast' => $expected,
-                    'over' => max(0, $x['forecast'] - $expected),
+                    'over' => max(0, $x['forecast'] - $expected), 'costs' => $avgCosts,
                     'price' => $price !== null ? round($price, 2) : null, 'income' => $income, 'cost' => $cost, 'result' => $income !== null && $cost !== null ? round($income - $cost, 2) : null,
-                    'break_even' => $breakEven, 'missing' => $breakEven !== null ? max(0, $breakEven - $x['sold']) : null, 'source' => $x['source']];
+                    'break_even' => $breakEven, 'missing' => $breakEven !== null ? max(0, $breakEven - $x['sold']) : null, 'source' => $x['source'], 'gone' => false];
             }
         }
         usort($rows, fn ($a, $b) => [$a['date'], $a['time'], $a['side']] <=> [$b['date'], $b['time'], $b['side']]);
-        // Per week (this one and the next two), from every row of the summary days; the table keeps only the first days.
+        // Per week (the three boxes), from every row of those weeks -- run departures with their real figures -- and per direction.
         $weeks = [];
+        foreach ($weekStarts as $mon) {
+            $weeks[$mon] = ['from' => $mon, 'to' => Carbon::parse($mon)->addDays(6)->toDateString(), 'departures' => 0, 'sold' => 0, 'forecast' => 0, 'seats' => 0,
+                'loss' => 0, 'result' => 0, 'days_loaded' => [], 'gone' => 0, 'sides' => []];
+        }
         foreach ($rows as $r) {
             $mon = Carbon::parse($r['date'])->startOfWeek(Carbon::MONDAY)->toDateString();
+            if (! isset($weeks[$mon])) {
+                continue;
+            }
             $w = &$weeks[$mon];
-            $w['from'] = $mon;
-            $w['to'] = Carbon::parse($mon)->addDays(6)->toDateString();
-            $w['departures'] = ($w['departures'] ?? 0) + 1;
-            $w['sold'] = ($w['sold'] ?? 0) + $r['sold'];
-            $w['forecast'] = ($w['forecast'] ?? 0) + $r['forecast'];
-            $w['seats'] = ($w['seats'] ?? 0) + (int) $r['seats'];
-            $w['loss'] = ($w['loss'] ?? 0) + ($r['result'] !== null && $r['result'] < 0 ? 1 : 0);
-            $w['result'] = round(($w['result'] ?? 0) + (float) $r['result'], 2);
+            $w['departures']++;
+            $w['sold'] += $r['sold'];
+            $w['forecast'] += $r['forecast'];
+            $w['seats'] += (int) $r['seats'];
+            $w['gone'] += $r['gone'] ? 1 : 0;
+            $lost = $r['result'] !== null && $r['result'] < 0;
+            $w['loss'] += $lost ? 1 : 0;
+            $w['result'] = round($w['result'] + (float) $r['result'], 2);
             $w['days_loaded'][$r['date']] = true;
-            unset($w);
+            $sd = &$w['sides'][$r['side']];
+            $sd['departures'] = ($sd['departures'] ?? 0) + 1;
+            $sd['loss'] = ($sd['loss'] ?? 0) + ($lost ? 1 : 0);
+            $sd['result'] = round(($sd['result'] ?? 0) + (float) $r['result'], 2);
+            unset($w, $sd);
         }
         foreach ($weeks as &$w) {
             $w['days_loaded'] = count($w['days_loaded']);
         }
         unset($w);
-        $rows = array_values(array_filter($rows, fn ($r) => $r['date'] <= $tableLast));
-        $c = collect($rows);
-        $channels = [];
-        foreach ($rows as $r) {
-            foreach ($r['channels'] as $k => $v) {
-                $channels[$k] = ($channels[$k] ?? 0) + $v['n'];
+        $rows = array_values(array_filter($rows, fn ($r) => $r['date'] >= $tableFrom && $r['date'] <= $tableLast && ($past || ! $r['gone'])));
+        $sum = function ($c) {
+            $channels = [];
+            foreach ($c as $r) {
+                foreach ($r['channels'] as $k => $v) {
+                    $channels[$k] = ($channels[$k] ?? 0) + $v['n'];
+                }
             }
-        }
 
-        return ['rows' => $rows, 'weeks' => array_values(array_slice($weeks, 0, 3)), 'from' => $today, 'to' => $tableLast, 'ahead_to' => $last,
-            'summary' => ['departures' => $c->count(), 'loss' => $c->filter(fn ($r) => $r['result'] !== null && $r['result'] < 0)->count(),
+            return ['departures' => $c->count(), 'loss' => $c->filter(fn ($r) => $r['result'] !== null && $r['result'] < 0)->count(),
                 'sold' => $c->sum('sold'), 'forecast' => $c->sum('forecast'), 'seats' => $c->sum('seats'),
                 'missing' => $c->sum('missing'), 'income' => round($c->sum('income'), 2), 'cost' => round($c->sum('cost'), 2),
-                'result' => round($c->sum('result'), 2), 'channels' => $channels]];
+                'result' => round($c->sum('result'), 2), 'channels' => $channels];
+        };
+        $c = collect($rows);
+        $summary = $sum($c);
+        $summary['sides'] = ['lima' => $sum($c->where('side', 'lima')), 'chiclayo' => $sum($c->where('side', 'chiclayo'))];
+
+        return ['rows' => $rows, 'weeks' => array_values($weeks), 'from' => $tableFrom, 'to' => $tableLast, 'ahead_to' => $last, 'past' => $past,
+            'today' => $today, 'summary' => $summary];
     }
 
     /** The average expenses of a departure per route (and per direction) over the last 30 days -- TransportProfit's trips. */
     private static function routeCosts(int $cid): array
     {
-        return Cache::remember("transport_programming_route_costs_$cid", 12 * 3600, function () use ($cid) {
+        // Per route and per direction: the average of each kind of expense of a departure (fuel, tolls, payroll...) and its total.
+        return Cache::remember("transport_programming_route_costs2_$cid", 12 * 3600, function () use ($cid) {
             $byRoute = $bySide = [];
             foreach (TransportProfit::compute($cid, now()->subDays(30)->toDateString(), now()->subDay()->toDateString(), null)['routes'] ?? [] as $rt) {
                 foreach ($rt['trips'] as $tr) {
-                    $total = (float) ($tr['costs']['total'] ?? 0);
-                    if ($total <= 0) {
+                    if ((float) ($tr['costs']['total'] ?? 0) <= 0) {
                         continue;
                     }
                     $route = mb_strtoupper((string) $tr['route']);
                     $side = str_starts_with($route, 'LIMA') ? 'lima' : 'chiclayo';
-                    $byRoute[$route][] = $total;
-                    $bySide[$side][] = $total;
+                    $byRoute[$route][] = $tr['costs'];
+                    $bySide[$side][] = $tr['costs'];
                 }
             }
-            $avg = fn ($a) => round(array_sum($a) / count($a), 2);
+            $avg = function (array $list) {
+                $out = [];
+                foreach ($list as $c) {
+                    foreach ($c as $k => $v) {
+                        $out[$k] = ($out[$k] ?? 0) + (float) $v;
+                    }
+                }
+
+                return array_map(fn ($v) => round($v / count($list), 2), $out);
+            };
 
             return [array_map($avg, $byRoute), array_map($avg, $bySide)];
         });
