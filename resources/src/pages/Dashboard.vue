@@ -2,7 +2,7 @@
   <div class="page" :class="{ 'board-mode': boardMode }">
     <!-- ================= Header ================= -->
     <!-- A board that does not follow the date filter hides it (the user, 2026-11-26). -->
-    <div v-show="!(boardMode && NO_DATE_TABS.includes(transportTab))" class="page-header">
+    <div v-show="!boardMode || (showDates && !NO_DATE_TABS.includes(transportTab))" class="page-header">
       <!-- A transport company's dashboard is a board: one screen, so no greeting and the filters in one row. -->
       <div v-if="!boardMode || demoMode">
         <a-typography-title v-if="!boardMode" :level="3" style="margin: 0; font-size: 22px">{{ greeting }}</a-typography-title>
@@ -98,7 +98,12 @@
       <!-- Boards grouped by what they are about, as folder tabs on a strip, the open board on white inside a bordered card, no
            icons, every tab in sight (user's rules, 2026-11-26). The source line goes UNDER each board. -->
       <div v-if="transportTabs.length" class="board-tabs" :class="tabStyle" :style="{ order: Math.min(...transportTabs.map(k => blockPos[k] ?? Infinity)) }">
-        <div v-if="transportTabs.length > 1" class="bt-bar" role="tablist">
+        <div v-if="transportTabs.length > 1" class="bt-bar" :class="{ 'with-date': boardUsesDates }" role="tablist">
+          <!-- The date filter is hidden by default (the user, 2026-11-27: changing boards should not show it); this button opens it
+               and says which period is on. -->
+          <button v-if="boardUsesDates" type="button" class="bt-datebtn" :class="{ on: showDates }" @click="showDates = !showDates">
+            <CalendarOutlined /> <span><b>{{ es ? 'Filtrar por fecha' : 'Filter by date' }}</b><small>{{ periodText }}</small></span>
+          </button>
           <div v-for="g in tabGroups" :key="g.key" class="bt-group">
             <div class="bt-group-label">{{ g.label }}</div>
             <div class="bt-group-tabs">
@@ -603,7 +608,20 @@ function lagNote(k) {
     ? `Sin datos después del ${dm(e[1])} (fuente: ${src[1]}). Mostrando ${shown}.`
     : `No data after ${dm(e[1])} (source: ${src[0]}). Showing ${shown}.`;
 }
-const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
+// The date filter of the boards (2026-11-27): hidden by default, opened by "Filtrar por fecha" beside the board titles; it
+// closes again when another board is picked, so switching boards shows only the board.
+const showDates = ref(false);
+const boardUsesDates = computed(() => boardMode.value && !NO_DATE_TABS.includes(transportTab.value));
+// (closed again on a board change: see the watch on transportTab below)
+const periodText = computed(() => {
+  if (period.value === 'all') return t(ALL_PRESET.labelKey);
+  const p = PERIOD_PRESETS.find(x => x.value === period.value);
+  if (p) return t(p.labelKey);
+  const r = rangeFields.value;
+  if (!r) return '';
+  const f = d => dayjs(d).format('DD-MM-YYYY');
+  return r[0] === r[1] ? f(r[0]) : `${dayjs(r[0]).format('DD-MM')} – ${f(r[1])}`;
+});const tabLabel = k => (TAB_LABELS[k] ? TAB_LABELS[k][es.value ? 1 : 0] : k);
 const panelOn = {
   transport_daysales: () => profitPanel.value, transport_pointsales: () => profitPanel.value, transport_cashbook: () => profitPanel.value,
   transport_customers: () => profitPanel.value, transport_production: () => profitPanel.value, transport_programming: () => programmingPanel.value, transport_fleet: () => programmingPanel.value, transport_departures: () => departuresPanel.value,
@@ -629,7 +647,7 @@ const transportTab = computed({
   set: v => { transportPick.value = v; },
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.
-watch(transportTab, () => nextTick(() => window.dispatchEvent(new Event('resize'))));
+watch(transportTab, () => { showDates.value = false; nextTick(() => window.dispatchEvent(new Event('resize'))); });
 // Boards of ONE day (user, 2026-11-27, Ventas): the other date filters and the location change nothing there, so only the
 // "Día" control shows, with the day and its ‹ › arrows. Entering one moves the filter to a single day: the end of the range
 // that was on (today at most).
@@ -1147,6 +1165,17 @@ onMounted(() => { if (boardMode.value) loadSourceEnds(); if (dayOnly.value && pe
 .bt-body.alone { border-radius: 12px; }
 .bt-body :deep(.ant-tabs-content-holder) { padding: 0; }
 .bt-source { margin-top: 10px; }
+.bt-bar { position: relative; }
+.bt-bar.with-date { padding-left: 158px !important; }
+.bt-datebtn { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.1); color: #fff; border-radius: 8px; padding: 5px 10px; cursor: pointer; text-align: left; line-height: 1.15; max-width: 145px; }
+.bt-datebtn :deep(.anticon) { font-size: 16px; color: #f7a531; }
+.bt-datebtn b { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.bt-datebtn small { display: block; font-size: 10.5px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.bt-datebtn:hover { background: rgba(255, 255, 255, 0.18); }
+.bt-datebtn.on { background: linear-gradient(180deg, #f9a83a, #f28c13); border-color: #f28c13; }
+.bt-datebtn.on :deep(.anticon) { color: #fff; }
+@media (max-width: 900px) { .bt-bar.with-date { padding-left: 8px !important; padding-top: 48px !important; } .bt-datebtn { top: 8px; transform: none; } }
 
 /* ---- Style D (user's reference, a Power BI board, 2026-11-26): a bar in the company's colour with a gradient, white text, the
    open board a translucent block in bold; the board below as a separate white card on the light page. ---- */
