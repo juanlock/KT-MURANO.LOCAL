@@ -24,6 +24,7 @@ class JelafSync
     public const REPORTS = [
         'production' => ['Producción por bus', 'Una fila por salida: bus, ruta, hora, pasajes por canal, encomiendas y exceso. Llena Producción por bus, Ventas del día, Reporte de salidas y Resumen del negocio.'],
         'boarding' => ['Control de Embarque', 'Un pasajero por fila: bus y salida, asiento, vendedor, fecha y hora de venta, boleto, monto, si embarcó y dónde. Para no embarcados, ocupación real y puntos de embarque.'],
+        'passengers' => ['Pasajeros (DNI y teléfono)', 'Pasajeros Frecuentes: por cada boleto el documento, nombre, teléfono y correo de quien viaja. Llena la Base de pasajeros.'],
         'ahead' => ['Pasajes vendidos por adelantado', 'El Control de Embarque de los próximos 14 días: lo vendido hasta hoy en cada salida. Llena el tablero Programación.'],
     ];
 
@@ -96,6 +97,18 @@ class JelafSync
                 return $done($rows ? 'ok' : 'nodata', $files, $rows, $sum);
             }
 
+            // The travellers' documents (2026-11-26): Pasajeros Frecuentes of the range (DNI, phone, email per ticket), one file.
+            if ($report === 'passengers') {
+                $dir = self::archiveDir('05 Pasajeros Frecuentes/Nocturno');
+                $file = "$dir/PasajerosFrecuentes $from"."_$to (bajado ".now()->format('Y-m-d H-i').').xlsx';
+                if (! $client->frequentPassengers($from, $to, $file)) {
+                    return $done('nodata', 0, 0, [], 'Jelaf: no hay datos en el período.');
+                }
+                $imp = TransportPassengers::importFrequentFile($cid, $file);
+                $say("passengers $from..$to: {$imp['rows']} tickets with their document (new {$imp['new']})");
+
+                return $done('ok', 1, $imp['rows'], $imp);
+            }
             // Seats sold ahead (2026-11-26, the Programación board): the Detalle of the next days, what is sold so far.
             if ($report === 'ahead') {
                 $dir = self::archiveDir('06 Control de Embarque/Descargado_Jelaf_ControlEmbarqueDetalle');

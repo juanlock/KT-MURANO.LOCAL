@@ -11,12 +11,12 @@ use Illuminate\Console\Command;
  * yesterday and today (a day still running is replaced the next night) -- each one recorded in transport_jelaf_runs (the
  * history of Integración -> Jelaf automático, where the same can be run by hand). Log: storage/logs/jelaf-sync-YYYY-MM-DD.log.
  *
- *   php artisan transport:jelaf-sync [--company=] [--days=3] [--only=production|boarding|ahead]
+ *   php artisan transport:jelaf-sync [--company=] [--days=3] [--only=production|passengers|boarding|ahead]
  */
 class TransportJelafSync extends Command
 {
     protected $signature = 'transport:jelaf-sync {--company= : company id (default: Turismo Cautivo)} {--days=3 : Producción por bus: days back, today included}
-        {--only= : production | boarding | ahead}';
+        {--only= : production | passengers | boarding | ahead}';
 
     protected $description = 'Download and import the Jelaf / AuraSoft reports of the last days (Turismo Cautivo).';
 
@@ -37,6 +37,8 @@ class TransportJelafSync extends Command
         $days = max(1, min(31, (int) $this->option('days')));
         $plan = [
             'production' => [now()->subDays($days - 1)->toDateString(), now()->toDateString()],
+            // The travellers' DNI / phone (2026-11-26) before Control de Embarque, whose import relinks the passengers.
+            'passengers' => [now()->subDays(2)->toDateString(), now()->addDays(14)->toDateString()],
             'boarding' => [now()->subDay()->toDateString(), now()->toDateString()],
             // Programación board (2026-11-26): what is sold so far for the next 14 days.
             'ahead' => [now()->toDateString(), now()->addDays(14)->toDateString()],

@@ -74,9 +74,9 @@ class TransportJelafController extends Controller
     {
         $cid = $this->company($request);
         $d = $request->validate(['report' => 'required|in:'.implode(',', array_keys(JelafSync::REPORTS)), 'from' => 'required|date', 'to' => 'required|date|after_or_equal:from']);
-        if ($d['report'] === 'ahead') {
+        if (in_array($d['report'], ['ahead', 'passengers'], true) && $d['to'] > now()->toDateString()) {
             // Seats sold ahead: from today up to 14 days on.
-            abort_if($d['from'] < now()->toDateString() || $d['to'] > now()->addDays(14)->toDateString(), 422, __('Between today and 14 days ahead.'));
+            abort_if(($d['report'] === 'ahead' && $d['from'] < now()->toDateString()) || $d['to'] > now()->addDays(14)->toDateString(), 422, __('Between today and 14 days ahead.'));
         } else {
             abort_if($d['to'] > now()->toDateString(), 422, __('The range cannot end in the future.'));
         }

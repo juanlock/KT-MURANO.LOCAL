@@ -107,6 +107,10 @@ class TransportPassengers
                 $done += count($ids);
             });
 
+        // 2a. The travellers' documents (Jelaf's Pasajeros Frecuentes, transport_ticket_docs, 2026-11-26): one passenger per
+        // DNI with the name, phone and email of their latest ticket; each Control de Embarque ticket goes to it by number.
+        [$ticketPid, $docNew] = self::passengersByDoc($cid);
+
         // 2b. Every traveller is a passenger: a name of the tickets not in the base joins it by name (no DNI yet; the
         // Liquidación Detallada gives it its DNI when a document brings the same name -- AuraSoftPassengers::sync).
         // Done in PHP and small batches: Hostinger stops a statement that runs too long (max_statement_time, 2026-11-26).
@@ -121,7 +125,9 @@ class TransportPassengers
         }
         unset($last);
         $new = [];
-        foreach (DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->groupBy('name_key')
+        // Only names of tickets without a document (a ticket with one already has its passenger by DNI).
+        $docTickets = DB::table('transport_ticket_docs')->where('company_id', $cid)->whereNotNull('doc')->select('ticket');
+        foreach (DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->whereNotIn('ticket', $docTickets)->groupBy('name_key')
             ->selectRaw('name_key, MAX(passenger) passenger, MIN(DATE(sold_at)) d1, MAX(DATE(sold_at)) d2')->cursor() as $b) {
             if (! isset($pid[$b->name_key]) && str_contains((string) $b->name_key, ' ')) {
                 $new[] = ['company_id' => $cid, 'doc' => null, 'name' => AuraSoftPassengers::name((string) $b->passenger), 'name_key' => $b->name_key,
@@ -141,14 +147,14 @@ class TransportPassengers
             }
         }
 
-        // 3. Each ticket to its passenger.
-        DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->select(['id', 'name_key', 'passenger_id'])
-            ->chunkById(2000, function ($rows) use ($pid) {
+        // 3. Each ticket to its passenger: by its document first, else by name.
+        DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('name_key')->select(['id', 'ticket', 'name_key', 'passenger_id'])
+            ->chunkById(2000, function ($rows) use ($pid, $ticketPid) {
                 $case = [];
                 $bind = [];
                 $ids = [];
                 foreach ($rows as $r) {
-                    $p = $pid[$r->name_key] ?? null;
+                    $p = $ticketPid[strtoupper(trim((string) $r->ticket))] ?? $pid[$r->name_key] ?? null;
                     if ($p && $p != $r->passenger_id) {
                         $case[] = 'WHEN ? THEN ?';
                         array_push($bind, $r->id, $p);
@@ -160,6 +166,19 @@ class TransportPassengers
                         array_merge($bind, $ids));
                 }
             });
+
+        // 3b. The passengers made by name earlier whose tickets now have a DNI are left with nothing: removed (only those
+        // that are just a name -- no document, phone, purchases, parcels or online tickets).
+        $used = array_flip(DB::table('transport_boardings')->where('company_id', $cid)->whereNotNull('passenger_id')->distinct()->pluck('passenger_id')->all());
+        $drop = [];
+        foreach (DB::table('transport_passengers')->where('company_id', $cid)->whereNull('doc')->whereNull('phone')->where('purchases', 0)
+            ->where('parcels', 0)->where('online_tickets', 0)->select('id')->cursor() as $p) {
+            isset($used[$p->id]) || $drop[] = $p->id;
+        }
+        foreach (array_chunk($drop, 1000) as $chunk) {
+            DB::table('transport_passengers')->whereIn('id', $chunk)->delete();
+        }
+        unset($used);
 
         // 4. Each online sale to its ticket: same travel day and name key, the ticket of the same channel first.
         $days = DB::table('transport_online_sales')->where('company_id', $cid)->distinct()->orderBy('travel_date')->pluck('travel_date');
@@ -189,7 +208,133 @@ class TransportPassengers
         $b = DB::table('transport_boardings')->where('company_id', $cid)->selectRaw('COUNT(*) n, SUM(passenger_id IS NOT NULL) l')->first();
         $o = DB::table('transport_online_sales')->where('company_id', $cid)->selectRaw('COUNT(*) n, SUM(boarding_id IS NOT NULL) l')->first();
 
-        return ['phones' => $ph, 'keys' => $done, 'added' => $added, 'tickets' => (int) $b->n, 'tickets_linked' => (int) $b->l, 'online' => (int) $o->n, 'online_linked' => (int) $o->l];
+        return ['phones' => $ph, 'keys' => $done, 'added' => $added, 'doc_new' => $docNew, 'removed' => count($drop),
+            'by_doc' => DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('doc')->count(), 'tickets' => (int) $b->n, 'tickets_linked' => (int) $b->l, 'online' => (int) $o->n, 'online_linked' => (int) $o->l];
+    }
+
+    /**
+     * Jelaf's "Reporte de Pasajeros Frecuentes" (Formato detallado) -> transport_ticket_docs, one row per ticket (re-imports
+     * update it). Columns read by their header: SERIE, NUMERO, F. VENTA, F. VIAJE, ORIGEN, DESTINO, EMBARQUE, DOCUMENTO,
+     * NRO DOC, NOMBRE, MANIFIESTO, ASIENTO, TELEF, CORREO, CANAL, TOTAL.
+     *
+     * @return array{rows:int, new:int}
+     */
+    public static function importFrequentFile(int $cid, string $file): array
+    {
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file)->setReadDataOnly(true)->load($file);
+        $rows = $book->getActiveSheet()->toArray(null, false, false, false);
+        $book->disconnectWorksheets();
+        unset($book);
+        $h = null;
+        $out = [];
+        $date = function ($v) {
+            if (is_numeric($v) && $v > 30000) {
+                return gmdate('Y-m-d', (int) round(((float) $v - 25569) * 86400));
+            }
+
+            return preg_match('#(\d{1,2})/(\d{1,2})/(\d{4})#', (string) $v, $m) ? sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]) : null;
+        };
+        foreach ($rows as $r) {
+            $c = array_map(fn ($x) => $x === null ? '' : trim((string) $x), $r);
+            if ($h === null) {
+                if (in_array('SERIE', $c, true) && in_array('NUMERO', $c, true)) {
+                    $h = array_flip($c);
+                }
+                continue;
+            }
+            $g = fn ($k) => isset($h[$k]) ? ($c[$h[$k]] ?? '') : '';
+            if ($g('SERIE') === '' || $g('NUMERO') === '') {
+                continue;
+            }
+            $doc = preg_replace('/\s+/', '', $g('NRO DOC'));
+            $doc = $doc === '' || $doc === '-' || preg_match('/^0+$/', $doc) ? null : mb_substr($doc, 0, 20);
+            $email = strtolower($g('CORREO'));
+            $out[] = ['company_id' => $cid, 'ticket' => strtoupper($g('SERIE')).'-'.str_pad(ltrim($g('NUMERO'), '0') ?: '0', 8, '0', STR_PAD_LEFT),
+                'travel_date' => $date($r[$h['F. VIAJE']] ?? null), 'sold_date' => $date($r[$h['F. VENTA']] ?? null),
+                'origin' => mb_substr($g('ORIGEN'), 0, 40) ?: null, 'destination' => mb_substr($g('DESTINO'), 0, 40) ?: null,
+                'boarding_point' => mb_substr($g('EMBARQUE'), 0, 40) ?: null, 'doc_type' => mb_substr($g('DOCUMENTO'), 0, 20) ?: null, 'doc' => $doc,
+                'name' => mb_substr(AuraSoftPassengers::name($g('NOMBRE')), 0, 150) ?: null, 'phone' => AuraSoftPassengers::phone($g('TELEF')) ?: null,
+                'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 120) : null, 'channel' => mb_substr($g('CANAL'), 0, 40) ?: null,
+                'manifest' => mb_substr($g('MANIFIESTO'), 0, 30) ?: null, 'seat' => mb_substr($g('ASIENTO'), 0, 10) ?: null,
+                'total' => (float) str_replace(',', '', $g('TOTAL')), 'created_at' => now(), 'updated_at' => now()];
+        }
+        $before = DB::table('transport_ticket_docs')->where('company_id', $cid)->count();
+        foreach (array_chunk($out, 500) as $chunk) {
+            DB::table('transport_ticket_docs')->upsert($chunk, ['company_id', 'ticket'],
+                ['travel_date', 'sold_date', 'origin', 'destination', 'boarding_point', 'doc_type', 'doc', 'name', 'phone', 'email', 'channel', 'manifest', 'seat', 'total', 'updated_at']);
+        }
+
+        return ['rows' => count($out), 'new' => DB::table('transport_ticket_docs')->where('company_id', $cid)->count() - $before];
+    }
+
+    /**
+     * One passenger per document from transport_ticket_docs (new ones created; existing ones get a phone / email they lacked)
+     * and the map ticket => passenger id.
+     *
+     * @return array{0: array<string,int>, 1: int}
+     */
+    private static function passengersByDoc(int $cid): array
+    {
+        $people = [];
+        foreach (DB::table('transport_ticket_docs')->where('company_id', $cid)->whereNotNull('doc')->orderBy('travel_date')->orderBy('id')
+            ->select(['doc', 'name', 'phone', 'email', 'travel_date'])->cursor() as $t) {
+            $p = &$people[$t->doc];
+            $t->name && $p['name'] = $t->name;
+            if ($t->phone) {
+                $p['phone'] = $t->phone;
+                $p['phones'][$t->phone] = true;
+            }
+            $t->email && $p['email'] = $t->email;
+            $p['d1'] ??= $t->travel_date;
+            $p['d2'] = $t->travel_date;
+            unset($p);
+        }
+        $byDoc = DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('doc')->pluck('id', 'doc')->all();
+        $now = now();
+        $ins = [];
+        $fill = [];
+        foreach ($people as $doc => $p) {
+            $name = AuraSoftPassengers::name((string) ($p['name'] ?? '')) ?: (string) $doc;
+            if (! isset($byDoc[$doc])) {
+                $ins[] = ['company_id' => $cid, 'doc' => (string) $doc, 'name' => $name, 'name_key' => AuraSoftPassengers::nameKey($name), 'is_company' => strlen((string) $doc) === 11,
+                    'phone' => $p['phone'] ?? null, 'phones' => isset($p['phones']) ? json_encode(array_keys($p['phones'])) : null, 'email' => $p['email'] ?? null,
+                    'first_purchase' => $p['d1'], 'last_purchase' => $p['d2'], 'purchases' => 0, 'parcels' => 0, 'amount' => 0, 'online_tickets' => 0,
+                    'created_at' => $now, 'updated_at' => $now];
+            } elseif (! empty($p['phone']) || ! empty($p['email'])) {
+                $fill[$byDoc[$doc]] = [$p['phone'] ?? null, $p['email'] ?? null];
+            }
+        }
+        foreach (array_chunk($ins, 1000) as $chunk) {
+            DB::table('transport_passengers')->insertOrIgnore($chunk);
+        }
+        // A phone / email only where the passenger had none (the Liquidación / web lists may already have given one).
+        foreach (array_chunk($fill, 1000, true) as $chunk) {
+            foreach (['phone' => 0, 'email' => 1] as $col => $i) {
+                $case = [];
+                $bind = [];
+                foreach ($chunk as $id => $v) {
+                    if ($v[$i]) {
+                        $case[] = 'WHEN ? THEN ?';
+                        array_push($bind, $id, $v[$i]);
+                    }
+                }
+                if ($case) {
+                    $ids = array_keys($chunk);
+                    DB::update("UPDATE transport_passengers SET $col = CASE id ".implode(' ', $case)." ELSE $col END WHERE $col IS NULL AND id IN (".implode(',', array_fill(0, count($ids), '?')).')',
+                        array_merge($bind, $ids));
+                }
+            }
+        }
+        if ($ins) {
+            AuraSoftPassengers::refreshKind($cid);
+            $byDoc = DB::table('transport_passengers')->where('company_id', $cid)->whereNotNull('doc')->pluck('id', 'doc')->all();
+        }
+        $ticketPid = [];
+        foreach (DB::table('transport_ticket_docs')->where('company_id', $cid)->whereNotNull('doc')->select(['ticket', 'doc'])->cursor() as $t) {
+            isset($byDoc[$t->doc]) && $ticketPid[$t->ticket] = $byDoc[$t->doc];
+        }
+
+        return [$ticketPid, count($ins)];
     }
 
     private static function sameChannel(?string $seller, string $channel): int

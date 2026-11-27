@@ -98,13 +98,13 @@
                           </div>
                         </template>
                         <div v-if="x.gone && x.money" class="pg-hov-r" style="margin-top: 4px"><span>{{ L('Result', 'Resultado') }}</span><b :style="{ color: x.money.profit < 0 ? '#b42318' : '#1f7a45' }">S/ {{ money0(x.money.income.total) }} − S/ {{ money0(x.money.costs.total) }} = {{ x.money.profit < 0 ? '−' : '+' }}S/ {{ money0(Math.abs(x.money.profit)) }}</b></div>
-                        <div class="pg-hov-c">{{ { 'st-red': L('Lost money', 'Perdió dinero'), 'st-blue': L('Made money', 'Ganó dinero'), 'st-full': L('Full bus', 'Bus lleno'), 'st-na': L('Did not run', 'No salió'), 'st-fut': L('Still to come', 'Aún no parte') }[cls(x).split(' ')[0]] }} · {{ L('click: income vs costs, channels', 'clic: ingresos vs gastos, canales') }}</div>
+                        <div class="pg-hov-c">{{ L('Click: income vs costs, channels', 'Clic: ingresos vs gastos, canales') }}</div>
                       </div>
                     </template>
                 <div class="pg-row-d" :class="[cls(x), { removed: x.removed, planonly: x.source === 'plan' }]" @click="open(x, d)">
                   <div class="pg-tr" :style="cols(side.key)">
                     <span class="pg-who" :title="(x.bus || '') + (x.tag ? ' · ' + x.tag : '')">
-                      <b :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : '—' }}</b>
+                      <b :class="{ tentative: x.bus_from === 'base', none: !x.bus }">{{ x.bus ? busNo(x.bus) : '—' }}</b><small v-if="x.tag">{{ tagShort(x.tag) }}</small>
                     </span>
                     <span v-for="t in tcols(side.key)" :key="t" class="pg-t" :class="{ on: stopTime(x, t, side.key) }">{{ stopTime(x, t, side.key) ? hm12(stopTime(x, t, side.key)) : '' }}</span>
                     <span class="pg-num">{{ x.sold }}<template v-if="!x.gone && x.forecast !== x.sold">→<b>{{ x.forecast }}</b></template><small v-if="x.seats">/{{ x.seats }}</small><WarningFilled v-if="x.alerts.length" class="pg-warn" /><span v-if="x.added" class="pg-flag">R</span><span v-else-if="x.changed" class="pg-flag">C</span></span>
@@ -362,8 +362,8 @@ const terminalOptions = side => (data.value.terminals?.[side] || []).map(t => ({
 const tcols = side => data.value.terminal_cols?.[side] || [];
 // A departure's time per column; one leaving from a terminal without a column shows its time in the first one.
 const stopTime = (x, t, side) => x.stops?.[t]?.time || (t === tcols(side)[0] && !tcols(side).some(c => x.stops?.[c]?.time) ? x.time : null);
-const cols = side => ({ gridTemplateColumns: `30px repeat(${tcols(side).length}, minmax(0, 1fr)) minmax(46px, 1.35fr)` });
-const tagShort = t => ({ MASTER: 'MAS', 'EJEC VIP': 'VIP', EJEC: 'EJE', PREM: 'PRE', TRUX: 'TRX' }[t] || String(t).slice(0, 4));
+const cols = side => ({ gridTemplateColumns: `46px repeat(${tcols(side).length}, minmax(22px, 1fr)) minmax(38px, 1.15fr)` });
+const tagShort = t => ({ MASTER: 'MAS', 'EJEC VIP': 'VIP', EJEC: 'EJE', PREM: 'PRE', PREMIUM: 'PRE', TRUX: 'TRX', OPC: 'OPC' }[String(t).toUpperCase()] || String(t).slice(0, 3).toUpperCase());
 const SHORT = { CAVASSA: 'CAV', 'PZ NORTE': 'PZN', OLIVOS: 'OLI', CIX: 'CIX', LAMBAYEQUE: 'LAMB' };
 const short = t => SHORT[t] || t.charAt(0) + t.slice(1, 6).toLowerCase();
 // "18:30" -> "6:30" (evening departures; a morning one keeps its "a").
@@ -609,24 +609,24 @@ async function exportWeek() {
 .st-fut .pg-bar .fc { background: rgba(242, 140, 19, .28) !important; }
 .st-fut .pg-num b { color: #c46a06; }
 .st-red .pg-bar .fc, .st-blue .pg-bar .fc, .st-full .pg-bar .fc { display: none; }
-.pg-th span { color: #101828 !important; font-weight: 800 !important; font-size: 9.5px; letter-spacing: 0 !important; }
+.pg-th span { color: #101828 !important; font-weight: 800 !important; font-size: 9px; letter-spacing: -.02em !important; overflow: visible !important; text-overflow: clip !important; }
 .pg-be { font-size: 11.5px !important; color: #667085 !important; margin-top: 6px !important; }
 .pg-stable tr.pg-sub td { background: #f6f8fb; }
 .pg-stable tfoot tr.neg td { color: #b42318; }
 .pg-stable tfoot tr.pos td { color: #1f7a45; }
 .pg-est { color: #c46a06; font-size: 10.5px; }
 /* One line per departure (2026-11-26). */
-.pg-row-d { padding: 3px 6px 0 !important; }
-.pg-th { padding: 3px 6px 2px !important; }
+.pg-row-d { padding: 3px 4px 0 !important; }
+.pg-th { padding: 3px 4px 2px !important; }
 .pg-row-d .pg-tr { min-height: 18px; }
 .pg-who { flex-direction: row !important; align-items: baseline; gap: 3px; line-height: 1.2 !important; }
-.pg-who small { font-size: 8.5px !important; letter-spacing: .02em; }
+.pg-who small { font-size: 9px !important; letter-spacing: .02em; color: #667085 !important; font-weight: 600; }
 .pg-row-d .pg-num { text-align: right; font-size: 10.5px; white-space: nowrap; overflow: hidden; }
 .pg-row-d .pg-flag { margin-left: 2px; padding: 0 2px; }
 .pg-row-d .pg-warn { margin-left: 2px; }
 .pg-th .r { text-align: right; }
 @media (max-width: 1400px) { .pg-th span { font-size: 8.5px !important; } .pg-row-d .pg-t, .pg-who b { font-size: 11px; } .pg-row-d .pg-num { font-size: 10px; } }
-.pg-line { position: relative; height: 3px; margin: 2px -6px 0; background: #f0f3f7; }
+.pg-line { position: relative; height: 3px; margin: 2px -4px 0; background: #f0f3f7; }
 .pg-line i { position: absolute; left: 0; top: 0; bottom: 0; }
 .pg-line .fc { background: #c9d5e4; }
 .pg-line .sd { background: #98a2b3; }

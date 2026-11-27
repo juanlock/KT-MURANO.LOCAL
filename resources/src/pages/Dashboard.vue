@@ -564,8 +564,10 @@ const transportTabs = computed(() => (boardMode.value ? [...transportPanels.valu
 const transportPick = ref(typeof useRoute().query.tab === 'string' ? useRoute().query.tab : null);
 const transportTab = computed({
   // Opens on the day's sales when the user has it (Mayte's first board, 2026-11-23), else the first board.
+  // A role with its own tab list opens on the first one of it (2026-11-26: Operaciones opens on Programación).
   get: () => (transportTabs.value.includes(transportPick.value) ? transportPick.value
-    : (transportTabs.value.includes('transport_daysales') ? 'transport_daysales' : transportTabs.value[0])),
+    : (roleTabs.value?.length && transportTabs.value.includes(roleTabs.value[0]) ? roleTabs.value[0]
+      : (transportTabs.value.includes('transport_daysales') ? 'transport_daysales' : transportTabs.value[0]))),
   set: v => { transportPick.value = v; },
 });
 // The General tab's charts were drawn hidden: they need their width back when it opens.
