@@ -42,6 +42,20 @@ class TransportProgrammingController extends Controller
         return TransportProgramming::week($cid, $start) + ['can_edit' => HelpdeskAccess::can($request->user('api'), 'transport_schedule')];
     }
 
+    /** Mando operativo on Jelaf's data: today and the next 2 days. Without transport_profit the money columns are left out. */
+    public function outlook(Request $request)
+    {
+        $cid = $this->company($request);
+        $out = TransportProgramming::outlook($cid, max(1, min(7, (int) $request->input('days', 3))));
+        $money = HelpdeskAccess::can($request->user('api'), 'transport_profit');
+        if (! $money) {
+            $out['rows'] = array_map(fn ($r) => array_diff_key($r, array_flip(['price', 'income', 'cost', 'result'])), $out['rows']);
+            $out['summary'] = array_diff_key($out['summary'], array_flip(['income', 'cost', 'result']));
+        }
+
+        return $out + ['money' => $money];
+    }
+
     public function change(Request $request)
     {
         $cid = $this->company($request, true);

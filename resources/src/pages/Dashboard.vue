@@ -147,7 +147,7 @@
               <ReportSourceBar board="transport_departures" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_outlook')" key="transport_outlook" :tab="tabLabel('transport_outlook')">
-              <TransportOutlookPanel />
+              <TransportMandoPanel />
               <ReportSourceBar board="transport_outlook" :range="rangeFields" class="bt-source" />
             </a-tab-pane>
             <a-tab-pane v-if="transportTabs.includes('transport_owner')" key="transport_owner" :tab="tabLabel('transport_owner')">
@@ -479,6 +479,7 @@ import TransportAuraParcelsPanel from '../components/TransportAuraParcelsPanel.v
 import TransportCustomersPanel from '../components/TransportCustomersPanel.vue';
 import TransportDaySalesPanel from '../components/TransportDaySalesPanel.vue';
 import TransportProgrammingPanel from '../components/TransportProgrammingPanel.vue';
+import TransportMandoPanel from '../components/TransportMandoPanel.vue';
 import ReportSourceBar from '../components/ReportSourceBar.vue';
 import { useUiStore } from '../stores/ui';
 import { HistoryOutlined, SettingOutlined, StarFilled } from '@ant-design/icons-vue';

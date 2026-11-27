@@ -503,6 +503,116 @@ class TransportProgramming
         return $out;
     }
 
+    /**
+     * Mando operativo on Jelaf's data (the user, 2026-11-26): today and the next days, both directions, each departure with
+     * what is sold by channel, the passengers expected, the projected income (expected x its ticket price), its estimated
+     * expenses (the average of its route over the last 30 days, TransportProfit) and the possible profit or loss.
+     */
+    public static function outlook(int $cid, int $days = 3, int $summaryDays = 14): array
+    {
+        $today = now()->toDateString();
+        $tableLast = now()->addDays($days - 1)->toDateString();
+        $last = now()->addDays(max($days, $summaryDays) - 1)->toDateString();
+        $weekDays = [];
+        foreach (array_unique([$today, now()->addDays(7)->toDateString(), $last]) as $d) {
+            foreach (self::week($cid, $d)['days'] as $day) {
+                $weekDays[$day['date']] = $day;
+            }
+        }
+        [$routeCost, $sideCost] = self::routeCosts($cid);
+        $sidePrice = Cache::remember("transport_programming_price_$cid", 6 * 3600, function () use ($cid) {
+            $out = [];
+            foreach (DB::table('transport_boardings')->where('company_id', $cid)->where('amount', '>', 0)
+                ->whereBetween('travel_date', [now()->subDays(30)->toDateString(), now()->subDay()->toDateString()])
+                ->selectRaw("IF(UPPER(origin) = 'LIMA', 'lima', 'chiclayo') s, AVG(amount) p")->groupBy('s')->get() as $r) {
+                $out[$r->s] = round((float) $r->p, 2);
+            }
+
+            return $out;
+        });
+        $rows = [];
+        foreach ($weekDays as $date => $day) {
+            if ($date < $today || $date > $last) {
+                continue;
+            }
+            foreach ($day['departures'] as $x) {
+                if ($x['removed'] || $x['gone']) {
+                    continue;
+                }
+                $route = $x['route'] ?: ($x['side'] === 'lima' ? 'LIMA → CHICLAYO' : 'CHICLAYO → LIMA');
+                $price = $x['sold'] > 0 && $x['amount'] > 0 ? $x['amount'] / $x['sold'] : ($sidePrice[$x['side']] ?? null);
+                $cost = $routeCost[mb_strtoupper($route)] ?? $sideCost[$x['side']] ?? null;
+                // Never more than the bus holds; the demand over it is kept apart (the reason to reinforce).
+                $expected = $x['seats'] ? min($x['forecast'], (int) $x['seats']) : $x['forecast'];
+                $income = $price !== null ? round($expected * $price, 2) : null;
+                $breakEven = $cost && $price ? (int) ceil($cost / $price) : null;
+                $rows[] = ['date' => $date, 'day' => $day['label'], 'time' => $x['time'], 'side' => $x['side'], 'route' => $route, 'bus' => $x['bus'], 'tag' => $x['tag'],
+                    'bus_from' => $x['bus_from'], 'seats' => $x['seats'], 'sold' => $x['sold'], 'channels' => $x['channels'], 'forecast' => $expected,
+                    'over' => max(0, $x['forecast'] - $expected),
+                    'price' => $price !== null ? round($price, 2) : null, 'income' => $income, 'cost' => $cost, 'result' => $income !== null && $cost !== null ? round($income - $cost, 2) : null,
+                    'break_even' => $breakEven, 'missing' => $breakEven !== null ? max(0, $breakEven - $x['sold']) : null, 'source' => $x['source']];
+            }
+        }
+        usort($rows, fn ($a, $b) => [$a['date'], $a['time'], $a['side']] <=> [$b['date'], $b['time'], $b['side']]);
+        // Per week (this one and the next two), from every row of the summary days; the table keeps only the first days.
+        $weeks = [];
+        foreach ($rows as $r) {
+            $mon = Carbon::parse($r['date'])->startOfWeek(Carbon::MONDAY)->toDateString();
+            $w = &$weeks[$mon];
+            $w['from'] = $mon;
+            $w['to'] = Carbon::parse($mon)->addDays(6)->toDateString();
+            $w['departures'] = ($w['departures'] ?? 0) + 1;
+            $w['sold'] = ($w['sold'] ?? 0) + $r['sold'];
+            $w['forecast'] = ($w['forecast'] ?? 0) + $r['forecast'];
+            $w['seats'] = ($w['seats'] ?? 0) + (int) $r['seats'];
+            $w['loss'] = ($w['loss'] ?? 0) + ($r['result'] !== null && $r['result'] < 0 ? 1 : 0);
+            $w['result'] = round(($w['result'] ?? 0) + (float) $r['result'], 2);
+            $w['days_loaded'][$r['date']] = true;
+            unset($w);
+        }
+        foreach ($weeks as &$w) {
+            $w['days_loaded'] = count($w['days_loaded']);
+        }
+        unset($w);
+        $rows = array_values(array_filter($rows, fn ($r) => $r['date'] <= $tableLast));
+        $c = collect($rows);
+        $channels = [];
+        foreach ($rows as $r) {
+            foreach ($r['channels'] as $k => $v) {
+                $channels[$k] = ($channels[$k] ?? 0) + $v['n'];
+            }
+        }
+
+        return ['rows' => $rows, 'weeks' => array_values(array_slice($weeks, 0, 3)), 'from' => $today, 'to' => $tableLast, 'ahead_to' => $last,
+            'summary' => ['departures' => $c->count(), 'loss' => $c->filter(fn ($r) => $r['result'] !== null && $r['result'] < 0)->count(),
+                'sold' => $c->sum('sold'), 'forecast' => $c->sum('forecast'), 'seats' => $c->sum('seats'),
+                'missing' => $c->sum('missing'), 'income' => round($c->sum('income'), 2), 'cost' => round($c->sum('cost'), 2),
+                'result' => round($c->sum('result'), 2), 'channels' => $channels]];
+    }
+
+    /** The average expenses of a departure per route (and per direction) over the last 30 days -- TransportProfit's trips. */
+    private static function routeCosts(int $cid): array
+    {
+        return Cache::remember("transport_programming_route_costs_$cid", 12 * 3600, function () use ($cid) {
+            $byRoute = $bySide = [];
+            foreach (TransportProfit::compute($cid, now()->subDays(30)->toDateString(), now()->subDay()->toDateString(), null)['routes'] ?? [] as $rt) {
+                foreach ($rt['trips'] as $tr) {
+                    $total = (float) ($tr['costs']['total'] ?? 0);
+                    if ($total <= 0) {
+                        continue;
+                    }
+                    $route = mb_strtoupper((string) $tr['route']);
+                    $side = str_starts_with($route, 'LIMA') ? 'lima' : 'chiclayo';
+                    $byRoute[$route][] = $total;
+                    $bySide[$side][] = $total;
+                }
+            }
+            $avg = fn ($a) => round(array_sum($a) / count($a), 2);
+
+            return [array_map($avg, $byRoute), array_map($avg, $bySide)];
+        });
+    }
+
     /** A date's change on top of the plan: add (reinforcement), remove, change (bus / time / tag); undo = delete it. */
     public static function change(int $cid, array $d, int $userId): int
     {

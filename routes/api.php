@@ -861,6 +861,7 @@ Route::get('session-user', [\App\Http\Controllers\CompanyLoginsController::class
     Route::prefix('transport/programming')->controller(\App\Http\Controllers\TransportProgrammingController::class)->group(function () {
         Route::get('/', 'week');
         Route::get('/export', 'export');
+        Route::get('/outlook', 'outlook');
         Route::post('/changes', 'change');
         Route::delete('/changes/{id}', 'undo')->whereNumber('id');
     });
