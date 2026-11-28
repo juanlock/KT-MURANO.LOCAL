@@ -1028,6 +1028,8 @@ export const PERMISSION_GROUPS = [
                 "v": "attendance_self",
                 "l": "Attendance_Self"
             },
+            { "v": "attendance_sheet", "l": "Perm_Attendance_Sheet", "f": "Daily attendance sheet: mark everyone present / absent" },
+            { "v": "absence_calendar", "l": "Perm_Absence_Calendar", "f": "Absence calendar: planned leaves, absences and holidays" },
             {
                 "v": "leave",
                 "l": "Leave_request"

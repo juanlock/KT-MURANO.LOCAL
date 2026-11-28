@@ -73,6 +73,9 @@ Route::get('/system-update/ping', 'SystemUpdateController@ping');
 Route::match(['get', 'post'], '/cc-hook/{token}', [\App\Http\Controllers\CallCenter\CallCenterAdminController::class, 'hook'])
     ->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:600,1');
 
+// IT Admin (2026-11-28): the network-scan script's upload. Public; its one-use token (X-Scan-Token header) is the permission.
+Route::post('/itadmin-scan/upload', [\App\Http\Controllers\ItAdmin\NetworkScanController::class, 'upload'])->middleware('throttle:20,1');
+
 // --------------------------- Reset Password  ---------------------------
 
 Route::group([
@@ -1108,6 +1111,45 @@ Route::post('company/{id}/menu-own', "hrm\CompanyController@setMenuOwn")->whereN
     Route::resource('attendances', 'hrm\AttendancesController');
     Route::get('daily_attendance', "hrm\AttendancesController@daily_attendance")->name('daily_attendance');
     Route::post('attendances/delete/by_selection', "hrm\AttendancesController@delete_by_selection");
+    // IT Admin (2026-11-28, from HTD-IT): locations, IP networks, IT assets, network scans.
+    Route::prefix('itadmin')->group(function () {
+        $it = \App\Http\Controllers\ItAdmin\ItAdminController::class;
+        $sc = \App\Http\Controllers\ItAdmin\NetworkScanController::class;
+        Route::get('options', [$it, 'options']);
+        Route::get('locations', [$it, 'locations']);
+        Route::post('locations', [$it, 'saveLocation']);
+        Route::put('locations/{id}', [$it, 'saveLocation'])->whereNumber('id');
+        Route::delete('locations/{id}', [$it, 'deleteLocation'])->whereNumber('id');
+        Route::get('networks', [$it, 'networks']);
+        Route::get('networks-calc', [$it, 'calc']);
+        Route::get('networks/{id}', [$it, 'network'])->whereNumber('id');
+        Route::post('networks', [$it, 'saveNetwork']);
+        Route::put('networks/{id}', [$it, 'saveNetwork'])->whereNumber('id');
+        Route::delete('networks/{id}', [$it, 'deleteNetwork'])->whereNumber('id');
+        Route::get('networks/{id}/ips', [$it, 'ips'])->whereNumber('id');
+        Route::get('networks/{id}/ips/history', [$it, 'ipHistory'])->whereNumber('id');
+        Route::post('networks/{id}/ips/assign', [$it, 'assignIp'])->whereNumber('id');
+        Route::post('networks/{id}/ips/unassign', [$it, 'unassignIp'])->whereNumber('id');
+        Route::post('networks/{id}/scan', [$sc, 'start'])->whereNumber('id');
+        Route::get('assets', [$it, 'assets']);
+        Route::get('assets/{id}', [$it, 'asset'])->whereNumber('id');
+        Route::post('assets', [$it, 'saveAsset']);
+        Route::put('assets/{id}', [$it, 'saveAsset'])->whereNumber('id');
+        Route::delete('assets/{id}', [$it, 'deleteAsset'])->whereNumber('id');
+        Route::get('scans', [$sc, 'index']);
+        Route::get('scans/{id}', [$sc, 'show'])->whereNumber('id');
+        Route::get('scans/{id}/script', [$sc, 'script'])->whereNumber('id');
+        Route::get('scans/{id}/status', [$sc, 'status'])->whereNumber('id');
+        Route::post('scans/{id}/upload-file', [$sc, 'uploadFile'])->whereNumber('id');
+        Route::post('scans/{id}/{action}', [$sc, 'act'])->whereNumber('id')->whereIn('action', ['apply', 'use-new', 'ignore']);
+        Route::post('scans/{id}/close/{action}', [$sc, 'close'])->whereNumber('id')->whereIn('action', ['reviewed', 'discard']);
+    });
+    // Daily attendance sheet + absence calendar (2026-11-28, from HTD-IT).
+    Route::get('hrm/attendance-sheet', 'hrm\AttendanceSheetController@show');
+    Route::post('hrm/attendance-sheet', 'hrm\AttendanceSheetController@save');
+    Route::post('hrm/attendance-sheet/present', 'hrm\AttendanceSheetController@present');
+    Route::get('hrm/attendance-sheet/pdf', 'hrm\AttendanceSheetController@pdf');
+    Route::get('hrm/absence-calendar', 'hrm\AttendanceSheetController@calendar');
 
     // ------------------------------- Request leave  -----------------------\\
     // ----------------------------------------------------------------\\

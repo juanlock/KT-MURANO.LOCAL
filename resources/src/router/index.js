@@ -428,6 +428,8 @@ const FormBuilder = lazy('FormBuilder', () => import('../pages/forms/FormBuilder
 const FormSubmissions = lazy('FormSubmissions', () => import('../pages/forms/FormSubmissions.vue'));
 const EmployeeDetails = lazy('EmployeeDetails', () => import('../pages/hrm/EmployeeDetails.vue'));
 const Attendance = lazy('Attendance', () => import('../pages/hrm/Attendance.vue'));
+const AttendanceSheet = lazy('AttendanceSheet', () => import('../pages/hrm/AttendanceSheet.vue'));
+const AbsenceCalendar = lazy('AbsenceCalendar', () => import('../pages/hrm/AbsenceCalendar.vue'));
 const Leaves = lazy('Leaves', () => import('../pages/hrm/Leaves.vue'));
 const LeaveTypes = lazy('LeaveTypes', () => import('../pages/hrm/LeaveTypes.vue'));
 const Payrolls = lazy('Payrolls', () => import('../pages/hrm/Payrolls.vue'));
@@ -816,6 +818,19 @@ const routes = [
             { path: 'fleet/plan', name: 'fleet-plan', component: () => import('../pages/fleet/MaintenancePlan.vue'), meta: { title: 'Fleet_Plan', permission: 'fleet_plan' } },
             // Call center (2026-11-17).
             // Distribución B2B (2026-11-20, Hordex)
+            // IT Admin (2026-11-28, from HTD-IT).
+            { path: 'itadmin/locations', name: 'itadmin-locations', component: () => import('../pages/itadmin/ItLocations.vue'), meta: { title: 'IT_Locations', permission: 'itadmin_view' } },
+            { path: 'itadmin/networks', name: 'itadmin-networks', component: () => import('../pages/itadmin/ItNetworks.vue'), meta: { title: 'IT_Networks', permission: 'itadmin_view' } },
+            { path: 'itadmin/scans/:id(\\d+)?', name: 'itadmin-scans', component: () => import('../pages/itadmin/ItScans.vue'), meta: { title: 'IT_Scans', permission: 'itadmin_view' } },
+            { path: 'itadmin/assets/:category(firewalls|network|servers|computers|printers|phones|mobiles|devices)?', name: 'itadmin-assets', component: () => import('../pages/itadmin/ItAssets.vue'), meta: { title: 'IT_Assets', permission: 'itadmin_view' } },
+            // HTD-IT lists some categories twice (Firewalls under Internet access, Phones / Mobiles under Telephony, Network devices /
+            // Servers under Network & Systems): the same screen under another address, so each menu entry is its own item.
+            { path: 'itadmin/internet/:category(firewalls)', name: 'itadmin-internet-assets', component: () => import('../pages/itadmin/ItAssets.vue'), meta: { title: 'IT_Assets', permission: 'itadmin_view' } },
+            { path: 'itadmin/telephony/:category(phones|mobiles)', name: 'itadmin-telephony-assets', component: () => import('../pages/itadmin/ItAssets.vue'), meta: { title: 'IT_Assets', permission: 'itadmin_view' } },
+            { path: 'itadmin/systems/:category(network|servers)', name: 'itadmin-systems-assets', component: () => import('../pages/itadmin/ItAssets.vue'), meta: { title: 'IT_Assets', permission: 'itadmin_view' } },
+            // HTD-IT's "Employees" entry: HRM's Employees screen under IT Admin's own address (a menu entry is keyed by its link).
+            { path: 'itadmin/employees', name: 'itadmin-employees', component: Employees, meta: { title: 'Employees', permission: 'view_employee' } },
+            { path: 'itadmin/soon/:key', name: 'itadmin-soon', component: () => import('../pages/itadmin/ItSoon.vue'), meta: { title: 'IT_Admin', permission: 'itadmin_view' } },
             { path: 'b2b/dashboard', name: 'b2b-dashboard', component: () => import('../pages/b2b/B2bDashboard.vue'), meta: { title: 'B2B_Board', permission: 'b2b_view' } },
             { path: 'b2b/guides', name: 'b2b-guides', component: () => import('../pages/b2b/B2bGuides.vue'), meta: { title: 'B2B_Menu_Guides', permission: ['b2b_guides', 'b2b_invoice'] } },
             { path: 'b2b/collections', name: 'b2b-collections', component: () => import('../pages/b2b/B2bCollections.vue'), meta: { title: 'B2B_Menu_Collections', permission: 'b2b_collections' } },
@@ -900,6 +915,8 @@ const routes = [
             { path: 'hrm/employees/:id(\\d+)/edit', name: 'employee-edit', component: EmployeeDetails, meta: { title: 'Edit Employee', permission: 'edit_employee' } },
             { path: 'hrm/employees/:id(\\d+)/details', name: 'employee-details', component: EmployeeDetails, meta: { title: 'Employee Details', permission: 'view_employee' } },
             { path: 'hrm/attendance', name: 'attendance', component: Attendance, meta: { title: 'Attendance', permission: 'attendance' } },
+            { path: 'hrm/attendance-sheet', name: 'attendance-sheet', component: AttendanceSheet, meta: { title: 'Attendance_Sheet', permission: 'attendance_sheet' } },
+            { path: 'hrm/absence-calendar', name: 'absence-calendar', component: AbsenceCalendar, meta: { title: 'Absence_Calendar', permission: 'absence_calendar' } },
             { path: 'hrm/leaves', name: 'leaves', component: Leaves, meta: { title: 'Leave Requests', permission: 'leave' } },
             { path: 'hrm/leave-types', name: 'leave-types', component: LeaveTypes, meta: { title: 'Leave Types', permission: 'leave' } },
             { path: 'hrm/payrolls', name: 'payrolls', component: Payrolls, meta: { title: 'Payroll', permission: 'payroll' } },

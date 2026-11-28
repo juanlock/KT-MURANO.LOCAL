@@ -76,6 +76,7 @@ class EnforceModuleFlags
         'paypal' => 'paypal', // PayPal invoice payments, off by default (on for KcolTech)
         'callcenter' => 'callcenter', // Call center (2026-11-17), off by default
         'b2b' => 'b2b', // Distribución B2B (2026-11-20), off by default
+        'itadmin' => 'itadmin', // IT Admin (2026-11-28, from HTD-IT), off by default
     ];
 
     /** store/<second segment> that belongs elsewhere: E-Wallet, or never blocked (null). */

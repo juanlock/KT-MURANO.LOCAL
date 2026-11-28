@@ -327,6 +327,19 @@ export const MIGRATED_ROUTES = {
     '/app/transport/jelaf': '/transport/jelaf',
     '/app/transport/aurasoft': '/transport/aurasoft',
     '/app/transport/passengers': '/transport/passengers',
+    // IT Admin (2026-11-28): every menu link needs its row here, else it opens as an old hash route (the dashboard).
+    '/app/itadmin/locations': '/itadmin/locations',
+    '/app/itadmin/networks': '/itadmin/networks',
+    '/app/itadmin/scans': '/itadmin/scans',
+    '/app/itadmin/assets': '/itadmin/assets',
+    '/app/itadmin/assets/firewalls': '/itadmin/assets/firewalls',
+    '/app/itadmin/assets/network': '/itadmin/assets/network',
+    '/app/itadmin/assets/servers': '/itadmin/assets/servers',
+    '/app/itadmin/assets/computers': '/itadmin/assets/computers',
+    '/app/itadmin/assets/printers': '/itadmin/assets/printers',
+    '/app/itadmin/assets/phones': '/itadmin/assets/phones',
+    '/app/itadmin/assets/mobiles': '/itadmin/assets/mobiles',
+    '/app/itadmin/assets/devices': '/itadmin/assets/devices',
     '/app/b2b/dashboard': '/b2b/dashboard',
     '/app/b2b/guides': '/b2b/guides',
     '/app/b2b/collections': '/b2b/collections',
@@ -417,6 +430,8 @@ export const MIGRATED_ROUTES = {
     '/app/deposits/category': '/deposits/categories',
     '/app/hrm/employees': '/hrm/employees',
     '/app/hrm/attendance': '/hrm/attendance',
+    '/app/hrm/attendance_sheet': '/hrm/attendance-sheet',
+    '/app/hrm/absence_calendar': '/hrm/absence-calendar',
     '/app/hrm/leaves/list': '/hrm/leaves',
     '/app/hrm/leaves/type': '/hrm/leave-types',
     '/app/hrm/payrolls': '/hrm/payrolls',
@@ -767,6 +782,8 @@ export const MENU = [
             { label: 'Office_Shift', to: '/app/hrm/office_Shift', permissions: ['office_shift'] },
             { label: 'Employees', to: '/app/hrm/employees', permissions: ['view_employee'] },
             { label: 'Attendance', to: '/app/hrm/attendance', permissions: ['attendance'] },
+            { label: 'Attendance_Sheet', to: '/app/hrm/attendance_sheet', permissions: ['attendance_sheet'] },
+            { label: 'Absence_Calendar', to: '/app/hrm/absence_calendar', permissions: ['absence_calendar'] },
             {
                 label: 'Leave_request',
                 permissions: ['leave'],
@@ -1075,6 +1092,99 @@ export const MENU = [
         ],
     },
     {
+        // IT Admin (2026-11-28, from HTD-IT; module `itadmin`, off by default): HTD-IT's menu, same structure, names and order
+        // (user, 2026-11-28: "ponlo similar a la del origen"). A screen not migrated yet opens ItSoon.vue with its phase
+        // (/itadmin/soon/{key}); Locations (HTD's locations / offices) is Murano's addition at the head of Networks.
+        key: 'itadmin',
+        icon: 'shield-check',
+        label: 'IT_Admin',
+        permissions: ['itadmin_view'],
+        children: [
+            { label: 'IT_Dashboard', to: '/app/itadmin/soon/dashboard', permissions: ['itadmin_view'] },
+            { label: 'IT_KnowledgeBase', to: '/app/itadmin/soon/knowledge-base', permissions: ['itadmin_view'] },
+            { label: 'IT_Applications', to: '/app/itadmin/soon/applications', permissions: ['itadmin_view'] },
+            { label: 'Employees', to: '/app/itadmin/employees', permissions: ['view_employee'] },
+            {
+                key: 'itadmin_admin',
+                label: 'IT_Admin',
+                permissions: ['itadmin_view'],
+                children: [
+                    {
+                        key: 'itadmin_networks',
+                        label: 'IT_Menu_Networks',
+                        permissions: ['itadmin_view'],
+                        children: [
+                            { label: 'IT_NetworkMap', to: '/app/itadmin/soon/network-map', permissions: ['itadmin_view'] },
+                            { label: 'IT_Locations', to: '/app/itadmin/locations', permissions: ['itadmin_view'] },
+                            {
+                                key: 'itadmin_net_internet',
+                                label: 'IT_Net_1_Internet',
+                                permissions: ['itadmin_view'],
+                                children: [
+                                    { label: 'IT_ISP', to: '/app/itadmin/soon/isp', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Cat_firewalls', to: '/app/itadmin/internet/firewalls', permissions: ['itadmin_view'] },
+                                    { label: 'IT_VPN', to: '/app/itadmin/soon/vpn', permissions: ['itadmin_view'] },
+                                ],
+                            },
+                            {
+                                key: 'itadmin_net_telephony',
+                                label: 'IT_Net_2_Telephony',
+                                permissions: ['itadmin_view'],
+                                children: [
+                                    { label: 'IT_Cat_phones', to: '/app/itadmin/telephony/phones', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Cat_mobiles', to: '/app/itadmin/telephony/mobiles', permissions: ['itadmin_view'] },
+                                    { label: 'IT_TelephonyServices', to: '/app/itadmin/soon/telephony-services', permissions: ['itadmin_view'] },
+                                ],
+                            },
+                            {
+                                key: 'itadmin_net_systems',
+                                label: 'IT_Net_3_Systems',
+                                permissions: ['itadmin_view'],
+                                children: [
+                                    { label: 'IT_Networks', to: '/app/itadmin/networks', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Cat_network', to: '/app/itadmin/systems/network', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Cat_servers', to: '/app/itadmin/systems/servers', permissions: ['itadmin_view'] },
+                                    { label: 'IT_HomeNetworks', to: '/app/itadmin/soon/home-networks', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Scans', to: '/app/itadmin/scans', permissions: ['itadmin_view'] },
+                                    { label: 'IT_SystemsServices', to: '/app/itadmin/soon/systems-services', permissions: ['itadmin_view'] },
+                                ],
+                            },
+                            {
+                                key: 'itadmin_net_services',
+                                label: 'IT_Net_4_Services',
+                                permissions: ['itadmin_view'],
+                                children: [
+                                    { label: 'IT_Rooms', to: '/app/itadmin/soon/rooms', permissions: ['itadmin_view'] },
+                                    { label: 'IT_Gallery', to: '/app/itadmin/soon/gallery', permissions: ['itadmin_view'] },
+                                    { label: 'IT_BuildingServices', to: '/app/itadmin/soon/building-services', permissions: ['itadmin_view'] },
+                                ],
+                            },
+                            { label: 'IT_AllServices', to: '/app/itadmin/soon/it-services', permissions: ['itadmin_view'] },
+                        ],
+                    },
+                    {
+                        key: 'itadmin_assets',
+                        label: 'IT_Assets',
+                        permissions: ['itadmin_view'],
+                        children: [
+                            { label: 'IT_Assets_All', to: '/app/itadmin/assets', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_computers', to: '/app/itadmin/assets/computers', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_printers', to: '/app/itadmin/assets/printers', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_phones', to: '/app/itadmin/assets/phones', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_mobiles', to: '/app/itadmin/assets/mobiles', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_devices', to: '/app/itadmin/assets/devices', permissions: ['itadmin_view'] },
+                            { label: 'IT_Cat_servers', to: '/app/itadmin/assets/servers', permissions: ['itadmin_view'] },
+                            { label: 'IT_Purchases', to: '/app/itadmin/soon/purchases', permissions: ['itadmin_view'] },
+                        ],
+                    },
+                    { label: 'IT_Providers', to: '/app/itadmin/soon/providers', permissions: ['itadmin_view'] },
+                    { label: 'IT_Licenses', to: '/app/itadmin/soon/licenses', permissions: ['itadmin_view'] },
+                    { label: 'IT_Passwords', to: '/app/itadmin/soon/passwords', permissions: ['itadmin_view'] },
+                ],
+            },
+        ],
+    },
+    {
         // Distribución B2B (2026-11-20, Hordex): guides, invoicing guides, collections with the chains' deductions.
         key: 'b2b',
         icon: 'truck',
@@ -1344,6 +1454,7 @@ export const MENU = [
 /** Where a legacy sidebar path should actually go. */
 export function resolveTarget(to) {
     if (!to) return null;
-    const next = MIGRATED_ROUTES[to];
+    // IT Admin (2026-11-28): every /app/itadmin/... link is a new screen at /itadmin/... (no row per link).
+    const next = MIGRATED_ROUTES[to] || (to.startsWith('/app/itadmin/') ? to.slice(4) : null);
     return next ? { type: 'next', path: next } : { type: 'legacy', path: `/#${to}` };
 }

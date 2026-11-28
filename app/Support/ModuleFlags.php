@@ -22,7 +22,9 @@ class ModuleFlags
         // Call center (2026-11-17): campaigns, leads and agents; on for the call center type.
         'callcenter',
         // Distribución B2B (2026-11-20, Hordex): remission guides, invoicing guides, collections with deductions.
-        'b2b'];
+        'b2b',
+        // IT Admin (2026-11-28, from HTD-IT): locations, IP networks + scans, IT assets... for companies that run their own network.
+        'itadmin'];
 
     private static array $memo = [];
 

@@ -203,6 +203,27 @@ The full list is in [CLAUDE.md](CLAUDE.md). The most important ones:
 The last 5 sessions. The full history is in `kt_logs` (older daily reports in
 `KT-TOOLS/Report/`, in Google Drive).
 
+### 2026-11-28 (Optimum) — not in production yet
+
+- **RRHH (Turismo Cautivo):** RRHH is its own menu group for Director and Administración, with every HRM screen
+  (departments, designations, shifts, attendance, leaves, holidays, payroll, contracts); Operaciones still doesn't see it.
+- **RRHH -> Asistencia del día** (from HTD-IT): the whole staff on one screen by agency (or department), everyone present
+  by default, a tap marks an absence with its type / half day / reason; a 10-day strip (taken, skipped, pending, holiday),
+  saving jumps to the next day to take, the absent list with "Presente", the day's PDF. Clocked-in people stay present;
+  approved leaves show as absences. Turismo: by agency, every day, pilots left out.
+- **RRHH -> Calendario de ausencias:** the month with approved and pending leaves, the sheet's absences and holidays,
+  coloured by type, filter by agency, print, the pending requests aside.
+- **Planilla mensual:** each company pays by week or by month (Turismo: month). A monthly salary is the whole month, or
+  salary / 30 x days for whoever joined / left in it; unjustified absences are shown (not deducted yet). Waiting for the
+  meeting with Mayte (salaries, deductions) before going to production.
+- **New module IT Admin** (from HTD-IT, phase 1, off by default; on only for KcolTech in dev): HTD-IT's whole menu
+  structure; locations, IP networks (subnet calculator, Wi-Fi bands with encrypted passwords, DHCP, the IP list with
+  assign / take off / history), **Scan this network** (a script or one cmd line run on an office PC uploads with a one-use
+  token; reviewed before anything changes: apply, use new, ignore, create device), scan imports, and IT assets by category
+  (type fields, LAN / Wi-Fi / WAN / MGMT IPs checked against the location's networks, MACs with their maker, additional IPs).
+  The other screens show "being migrated: phase N".
+- Setup: `php artisan migrate`, `npm run build`.
+
 ### 2026-11-25 (Thundera)
 
 - **Turismo -> Base de pasajeros -> «Por verificar»:** the names that appear with several DNI / RUC numbers, each with
@@ -283,26 +304,6 @@ Setup: `php artisan migrate`, `npm run build`.
   (XML import, PENDIENTE at 30 days), "Agregar" buttons, products by Tipo.
 
 Setup: `php artisan migrate`, `npm run build`.
-
-### 2026-11-22 (Optimum)
-
-- **Sign in with the username**: staff login, the customer portal and the old token door take the username (unique in all
-  of Murano); an email can now repeat across companies, which never know each other. Signing in with the email is a
-  per-login switch ("con correo") the company's IT Admin or the SuperAdmin turns on, only when that email doesn't repeat;
-  it is on for the main admins and for whoever already signed in with a unique email. Standard logins sign in as
-  `{company}-{role}`. Forgot password asks for the username and resets only that login. 7 wrong passwords lock a login.
-- **Company logins**: Username column (copy, rename with validation, "con correo" switch), email visible, password.
-- **Projects for every team member**: a violet "Proyectos" button next to POS for anyone with a project or a task in one,
-  from any company. Members open the project on Objectives and see every main tab read only; they work only on their own
-  tasks. List, Members, Documents and Hours are for the project manager.
-- **Objectives**: the project manager drags tasks (the moved one starts the next business day after the one before it)
-  and objectives (also into another pillar), and edits a task's text, dates and assignees right there. Meeting tasks list
-  their points with the answer beside each; the activity log records hours, added up by project, objective and task in
-  the Hours tab. Members carry their entity (Jelaf, Operaciones...), managed in Members.
-- **Hordex invoices**: new invoice with the client's guides and / or products, Edit (clear and rebuild from a guide),
-  Revert a cancellation; the "En producción" switch in Companies.
-- **Turismo Cautivo**: Forms at the top of its menu; the questionnaire moved to KcolTech; the owner is Julio Valladares.
-- Setup: `php artisan migrate` and `npm run build`.
 
 ## Session protocols
 

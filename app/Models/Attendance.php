@@ -16,6 +16,8 @@ class Attendance extends Model
         'clock_in_ip', 'clock_out_ip',
         'clock_in_out', 'depart_early', 'late_time', 'clock_out',
         'overtime', 'total_work', 'total_rest', 'status',
+        // The daily attendance sheet (2026-11-28): the absence's type, half day, reason; source sheet | leave (null = clock).
+        'leave_type_id', 'half_day', 'reason', 'source',
 
     ];
 

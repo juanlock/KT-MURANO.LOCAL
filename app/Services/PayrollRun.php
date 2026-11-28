@@ -7,8 +7,9 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Weekly payroll run (HRM -> Payroll -> Generate weekly payroll).
- * One payroll per employee per week (Monday-Sunday), from the employee's pay setup:
+ * Payroll run (HRM -> Payroll -> Generate payroll), weekly or monthly (settings.payroll_period, 2026-11-28: Turismo
+ * Cautivo pays by month; in a monthly run a monthly salary is the whole month, prorated on 30 days when the person
+ * joined / left inside it). One payroll per employee per period (Monday-Sunday or the month), from the pay setup:
  *  - hourly:     hours on the service jobs they COMPLETED that week (work_hours,
  *                the operator = service_technicians.employee_id) x hourly_rate;
  *  - commission: their sales that week (the stylist on the sale's booking --
@@ -30,19 +31,65 @@ class PayrollRun
         return [$d->copy()->startOfWeek(Carbon::MONDAY)->toDateString(), $d->copy()->endOfWeek(Carbon::SUNDAY)->toDateString()];
     }
 
+    /** First..last day of the month containing $date (monthly payroll, 2026-11-28). */
+    public static function month(string $date): array
+    {
+        $d = Carbon::parse($date);
+
+        return [$d->copy()->startOfMonth()->toDateString(), $d->copy()->endOfMonth()->toDateString()];
+    }
+
+    /** The company's payroll period: weekly (default) | monthly (settings.payroll_period; Turismo Cautivo: monthly). */
+    public static function companyPeriod(int $companyId): string
+    {
+        $p = \Illuminate\Support\Facades\Schema::hasColumn('settings', 'payroll_period')
+            ? DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('payroll_period') : null;
+
+        return $p === 'monthly' ? 'monthly' : 'weekly';
+    }
+
     /**
-     * What the week would pay, per employee (nothing written).
-     *
-     * @return array<int, array> rows {employee_id, name, pay_type, hours, rate, commission_base, commission_rate, amount, jobs, sales, existing}
+     * Days of the month the employee is on the payroll, on a 30-day month (Peru's commercial month): a whole month = 30;
+     * joined / left / pay started inside it = the calendar days in between (31 days in the month still count 30).
      */
-    public static function preview(int $companyId, string $from, string $to): array
+    public static function monthDays(object $e, string $from, string $to): int
+    {
+        $start = Carbon::parse($from);
+        $end = Carbon::parse($to);
+        foreach ([$e->joining_date ?? null, $e->pay_effective_from ?? null] as $d) {
+            if ($d && substr((string) $d, 0, 10) > $start->toDateString()) {
+                $start = Carbon::parse(substr((string) $d, 0, 10));
+            }
+        }
+        if (! empty($e->leaving_date) && substr((string) $e->leaving_date, 0, 10) < $end->toDateString()) {
+            $end = Carbon::parse(substr((string) $e->leaving_date, 0, 10));
+        }
+        if ($start->gt($end)) {
+            return 0;
+        }
+        if ($start->toDateString() === $from && $end->toDateString() === $to) {
+            return 30;
+        }
+
+        return min(30, $start->diffInDays($end) + 1);
+    }
+
+    /**
+     * What the period would pay, per employee (nothing written). $period weekly | monthly: a monthly salary pays a
+     * week's share (x 12 / 52) in a weekly run and the month (30-day basis, prorated) in a monthly one.
+     *
+     * @return array<int, array> rows {employee_id, name, pay_type, hours, rate, commission_base, commission_rate, amount, jobs, sales, existing, days, absences}
+     */
+    public static function preview(int $companyId, string $from, string $to, string $period = 'weekly'): array
     {
         $rows = [];
         $employees = DB::table('employees')->where('company_id', $companyId)->whereNull('deleted_at')
             ->whereIn('pay_type', ['hourly', 'commission', 'per_trip', 'monthly'])
             ->where(fn ($q) => $q->whereNull('pay_effective_from')->orWhere('pay_effective_from', '<=', $to))
             ->where(fn ($q) => $q->whereNull('leaving_date')->orWhere('leaving_date', '>=', $from))
-            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate', 'trip_rate', 'basic_salary']);
+            ->orderBy('firstname')->get(['id', 'firstname', 'lastname', 'user_id', 'pay_type', 'hourly_rate', 'commission_rate', 'trip_rate', 'basic_salary',
+                'joining_date', 'leaving_date', 'pay_effective_from']);
+        $hasSheet = \Illuminate\Support\Facades\Schema::hasColumn('attendances', 'source');
 
         foreach ($employees as $e) {
             $row = [
@@ -50,17 +97,29 @@ class PayrollRun
                 'name' => trim($e->firstname.' '.$e->lastname),
                 'pay_type' => $e->pay_type,
                 'hours' => null, 'rate' => null, 'commission_base' => null, 'commission_rate' => null,
-                'jobs' => 0, 'sales' => 0, 'trips' => null, 'amount' => 0.0,
-                'existing' => DB::table('payrolls')->where('employee_id', $e->id)->whereNull('deleted_at')->where('period_start', $from)->value('Ref'),
+                'jobs' => 0, 'sales' => 0, 'trips' => null, 'amount' => 0.0, 'days' => null,
+                // Any payroll of the employee whose period overlaps this one (a weekly run is never paid again by a monthly one).
+                'existing' => DB::table('payrolls')->where('employee_id', $e->id)->whereNull('deleted_at')
+                    ->where('period_start', '<=', $to)->where('period_end', '>=', $from)->value('Ref'),
+                // Unjustified absences of the daily attendance sheet in the period (shown, not deducted).
+                'absences' => $hasSheet ? DB::table('attendances')->where('employee_id', $e->id)->whereNull('deleted_at')->where('status', 'absent')
+                    ->where('source', 'sheet')->whereNull('leave_type_id')->whereBetween('date', [$from, $to])->count() : 0,
             ];
             if ($e->pay_type === 'monthly') {
-                // On the payroll (2026-11-04): the week's share of the monthly salary, plus the trips they completed.
+                // On the payroll (2026-11-04): the period's share of the monthly salary, plus the trips they completed.
                 $trips = DB::table('transport_trip_crew as c')->join('transport_trips as t', 't.id', '=', 'c.trip_id')
                     ->where('c.employee_id', $e->id)->where('t.company_id', $companyId)->whereNull('t.deleted_at')
                     ->where('t.status', 'completed')->whereBetween(DB::raw('DATE(t.departure_at)'), [$from, $to]);
                 $row['trips'] = (clone $trips)->count();
                 $row['rate'] = (float) $e->basic_salary;
-                $row['amount'] = round((float) $e->basic_salary * 12 / 52 + (float) (clone $trips)->sum(DB::raw('COALESCE(c.trip_rate, '.(float) $e->trip_rate.')')), 2);
+                $tripPay = (float) (clone $trips)->sum(DB::raw('COALESCE(c.trip_rate, '.(float) $e->trip_rate.')'));
+                if ($period === 'monthly') {
+                    $row['days'] = self::monthDays($e, $from, $to);
+                    $salary = $row['days'] >= 30 ? (float) $e->basic_salary : (float) $e->basic_salary / 30 * $row['days'];
+                } else {
+                    $salary = (float) $e->basic_salary * 12 / 52;
+                }
+                $row['amount'] = round($salary + $tripPay, 2);
             } elseif ($e->pay_type === 'per_trip') {
                 // Transport crew (2026-11-01): the trips they completed that week, each at the
                 // rate they had when put on the trip (else their current trip rate).
@@ -121,14 +180,15 @@ class PayrollRun
      *
      * @return Payroll[]
      */
-    public static function create(int $companyId, string $from, string $to, int $userId, int $paymentMethodId, ?int $accountId, bool $paid = true, ?callable $afterEach = null): array
+    public static function create(int $companyId, string $from, string $to, int $userId, int $paymentMethodId, ?int $accountId, bool $paid = true, ?callable $afterEach = null, string $period = 'weekly'): array
     {
         $made = [];
-        foreach (self::preview($companyId, $from, $to) as $row) {
+        $es = (string) DB::table('settings')->where('company_id', $companyId)->whereNull('deleted_at')->value('default_language') !== 'en';
+        foreach (self::preview($companyId, $from, $to, $period) as $row) {
             if ($row['existing'] || $row['amount'] <= 0) {
                 continue;
             }
-            $made[] = DB::transaction(function () use ($row, $companyId, $from, $to, $userId, $paymentMethodId, $accountId, $paid, $afterEach) {
+            $made[] = DB::transaction(function () use ($row, $companyId, $from, $to, $userId, $paymentMethodId, $accountId, $paid, $afterEach, $period, $es) {
                 $p = Payroll::create([
                     'user_id' => $userId,
                     'Ref' => app(\App\Http\Controllers\hrm\PayrollController::class)->getNumberOrder(),
@@ -150,7 +210,10 @@ class PayrollRun
                     'notes' => match ($row['pay_type']) {
                         'hourly' => "{$row['hours']} h on {$row['jobs']} job(s) x {$row['rate']}",
                         'per_trip' => "{$row['trips']} trip(s) completed",
-                        'monthly' => "Salary {$row['rate']} a month (a week's share) + {$row['trips']} trip(s)",
+                        'monthly' => $period === 'monthly'
+                            ? ($es ? "Sueldo mensual {$row['rate']} ({$row['days']} de 30 días) + {$row['trips']} viaje(s)"
+                                : "Monthly salary {$row['rate']} ({$row['days']} of 30 days) + {$row['trips']} trip(s)")
+                            : "Salary {$row['rate']} a month (a week's share) + {$row['trips']} trip(s)",
                         default => "{$row['commission_rate']}% of {$row['commission_base']} ({$row['sales']} sale(s))",
                     },
                 ]);

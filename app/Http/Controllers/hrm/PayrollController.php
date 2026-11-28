@@ -144,13 +144,28 @@ class PayrollController extends Controller
         $this->authorizeForUser($request->user('api'), 'view', Payroll::class);
         $companyId = $this->resolveActingCompanyId($request);
         abort_if($companyId === 999, 422, 'Choose a company in the switcher first.');
-        [$from, $to] = \App\Services\PayrollRun::week($request->input('date') ?: now()->toDateString());
+        $period = $this->runPeriod($request, (int) $companyId);
+        [$from, $to] = $this->runDates($period, $request->input('date') ?: now()->toDateString());
 
         return response()->json([
+            'period' => $period,
             'period_start' => $from,
             'period_end' => $to,
-            'rows' => \App\Services\PayrollRun::preview($companyId, $from, $to),
+            'rows' => \App\Services\PayrollRun::preview($companyId, $from, $to, $period),
         ]);
+    }
+
+    /** weekly | monthly: the one asked for, else the company's (settings.payroll_period). */
+    private function runPeriod(Request $request, int $companyId): string
+    {
+        $p = (string) $request->input('period', '');
+
+        return in_array($p, ['weekly', 'monthly'], true) ? $p : \App\Services\PayrollRun::companyPeriod($companyId);
+    }
+
+    private function runDates(string $period, string $date): array
+    {
+        return $period === 'monthly' ? \App\Services\PayrollRun::month($date) : \App\Services\PayrollRun::week($date);
     }
 
     // ------- Weekly payroll run: create the week's payrolls -------\\
@@ -160,11 +175,12 @@ class PayrollController extends Controller
         $request->validate(['date' => 'required|date', 'payment_method_id' => 'required|integer']);
         $companyId = $this->resolveActingCompanyId($request);
         abort_if($companyId === 999, 422, 'Choose a company in the switcher first.');
-        [$from, $to] = \App\Services\PayrollRun::week($request->input('date'));
+        $period = $this->runPeriod($request, (int) $companyId);
+        [$from, $to] = $this->runDates($period, $request->input('date'));
         $accountId = $request->filled('account_id') ? (int) $request->input('account_id') : null;
 
         $made = \App\Services\PayrollRun::create($companyId, $from, $to, (int) Auth::id(), (int) $request->input('payment_method_id'), $accountId,
-            $request->input('paid', true) !== false && $request->input('paid', true) !== 'false');
+            $request->input('paid', true) !== false && $request->input('paid', true) !== 'false', null, $period);
 
         return response()->json(['success' => true, 'created' => count($made), 'total' => round(array_sum(array_map(fn ($p) => (float) $p->amount, $made)), 2)]);
     }

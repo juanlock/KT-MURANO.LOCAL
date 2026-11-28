@@ -5,7 +5,7 @@
         <a-space wrap>
           <a-button type="primary" @click="openWeekly">
             <template #icon><CalendarOutlined /></template>
-            {{ $t('tx_Generate_weekly_payroll_d166d') }}
+            {{ tr('Generate payroll', 'Generar planilla') }}
           </a-button>
           <a-button @click="openCreate">
             <template #icon><PlusOutlined /></template>
@@ -20,7 +20,7 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'amount'">{{ money(record.amount) }}</template>
         <template v-else-if="column.key === 'period'">
-          <span v-if="record.period_start">{{ record.period_start }} – {{ record.period_end }}</span>
+          <span v-if="record.period_start">{{ date(record.period_start) }} – {{ date(record.period_end) }}</span>
           <span v-else class="muted">—</span>
         </template>
         <template v-else-if="column.key === 'pay_type'">
@@ -100,41 +100,64 @@
       </a-form>
     </a-modal>
 
-    <!-- Weekly run: pick a week, review, create (paid -> posted to accounting). -->
-    <a-modal v-model:open="weekly.open" :title="$t('tx_Generate_weekly_payroll_d166d')" width="860px" :confirm-loading="weekly.saving"
+    <!-- Payroll run: weekly or monthly (the company's period, settings.payroll_period; switchable here), review, create
+         (paid -> posted to accounting). Monthly, 2026-11-28: a monthly salary = the whole month, 30-day basis. -->
+    <a-modal v-model:open="weekly.open" :title="weekly.period === 'monthly' ? tr('Generate monthly payroll', 'Generar planilla mensual') : $t('tx_Generate_weekly_payroll_d166d')"
+      width="900px" :confirm-loading="weekly.saving"
       :ok-text="$t('tx_Create_payrolls_ef2d5')" :ok-button-props="{ disabled: !weeklyNew.length }" @ok="createWeekly">
       <a-row :gutter="12" align="bottom">
-        <a-col :xs="24" :md="8">
-          <a-form-item :label="$t('tx_Week_Monday_Sunday_860d9')" style="margin-bottom: 8px">
+        <a-col :xs="24" :md="4">
+          <a-form-item :label="tr('Period', 'Periodo')" style="margin-bottom: 8px">
+            <a-radio-group v-model:value="weekly.period" button-style="solid" @change="loadWeekly">
+              <a-radio-button value="weekly">{{ tr('Week', 'Semana') }}</a-radio-button>
+              <a-radio-button value="monthly">{{ tr('Month', 'Mes') }}</a-radio-button>
+            </a-radio-group>
+          </a-form-item>
+        </a-col>
+        <a-col :xs="24" :md="6">
+          <a-form-item v-if="weekly.period === 'monthly'" :label="tr('Month', 'Mes')" style="margin-bottom: 8px">
+            <a-date-picker v-model:value="weekly.date" picker="month" value-format="YYYY-MM-DD" style="width: 100%" @change="loadWeekly" />
+          </a-form-item>
+          <a-form-item v-else :label="$t('tx_Week_Monday_Sunday_860d9')" style="margin-bottom: 8px">
             <a-date-picker v-model:value="weekly.date" picker="week" value-format="YYYY-MM-DD" style="width: 100%" @change="loadWeekly" />
           </a-form-item>
         </a-col>
-        <a-col :xs="24" :md="8">
+        <a-col :xs="24" :md="7">
           <a-form-item :label="$t('Paymentchoice') + ' *'" style="margin-bottom: 8px">
             <a-select v-model:value="weekly.payment_method_id" :options="paymentMethodOptions" :placeholder="$t('PleaseSelect')" />
           </a-form-item>
         </a-col>
-        <a-col :xs="24" :md="8">
+        <a-col :xs="24" :md="7">
           <a-form-item :label="$t('Account')" style="margin-bottom: 8px">
             <a-select v-model:value="weekly.account_id" allow-clear :options="accountOptions" :placeholder="$t('tx_Cash_069b3')" />
           </a-form-item>
         </a-col>
       </a-row>
       <div class="muted" style="margin-bottom: 8px">
-        {{ weekly.period_start }} – {{ weekly.period_end }}. Hours = hours on the service jobs each person completed that week;
-        commission = their sales that week. Created as paid and posted to accounting (Salaries &amp; Wages / Commissions).
+        {{ date(weekly.period_start) }} – {{ date(weekly.period_end) }}.
+        <template v-if="weekly.period === 'monthly'">{{ tr('Monthly salary = the whole month; whoever joined or left during the month is paid by days (salary ÷ 30 × days). Trips, hours and commission of the month are added. Created as paid and posted to accounting (Salaries and wages / Commissions).',
+          'Sueldo mensual = el mes completo; quien entró o salió en el mes cobra por días (sueldo ÷ 30 × días). Se suman los viajes, horas y comisiones del mes. Se crea como pagado y pasa a contabilidad (Sueldos y salarios / Comisiones).') }}</template>
+        <template v-else>{{ tr('Hours = hours on the service jobs each person completed that week; commission = their sales that week; a monthly salary pays a week\'s share. Created as paid and posted to accounting (Salaries and wages / Commissions).',
+          'Horas = horas de los trabajos que cada persona completó esa semana; comisión = sus ventas de la semana; un sueldo mensual paga la parte de una semana. Se crea como pagado y pasa a contabilidad (Sueldos y salarios / Comisiones).') }}</template>
       </div>
       <a-table :data-source="weekly.rows" :columns="weeklyColumns" :pagination="false" size="small" row-key="employee_id" :loading="weekly.loading"
-        :locale="{ emptyText: 'Nobody is set to be paid by hours or commission (Employee -> Company tab -> Paid by).' }">
+        :locale="{ emptyText: tr('Nobody has a way of pay (Employee -> Company tab -> Paid by).', 'Nadie tiene forma de pago (Empleado -> pestaña Compañía -> Pagado por).') }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? $t('Hours') : record.pay_type === 'per_trip' ? $t('tx_Per_trip_3f532') : $t('Commission') }}</template>
+          <template v-if="column.key === 'pay_type'">{{ record.pay_type === 'hourly' ? $t('Hours') : record.pay_type === 'per_trip' ? $t('tx_Per_trip_3f532') : record.pay_type === 'monthly' ? $t('tx_Salary_b083a') : $t('Commission') }}</template>
           <template v-else-if="column.key === 'basis'">
-            <span v-if="record.pay_type === 'hourly'">{{ record.hours }} h on {{ record.jobs }} job(s) × {{ money(record.rate) }}</span>
+            <span v-if="record.pay_type === 'hourly'">{{ record.hours }} h · {{ record.jobs }} {{ tr('job(s)', 'trabajo(s)') }} × {{ money(record.rate) }}</span>
             <span v-else-if="record.pay_type === 'per_trip'">{{ record.trips }} {{ $t('tx_trip_s_completed_90c3b') }}</span>
+            <span v-else-if="record.pay_type === 'monthly' && weekly.period === 'monthly'">{{ money(record.rate) }} · {{ record.days }} {{ tr('of 30 days', 'de 30 días') }}<template v-if="record.trips"> + {{ record.trips }} {{ $t('tx_trip_s_5a27e') }}</template></span>
             <span v-else-if="record.pay_type === 'monthly'">{{ money(record.rate) }} / {{ record.trips }} {{ $t('tx_trip_s_5a27e') }}</span>
             <span v-else>{{ record.commission_rate }}% of {{ money(record.commission_base) }} ({{ record.sales }} {{ $t('tx_sale_s_c1dd1') }}</span>
           </template>
           <template v-else-if="column.key === 'amount'"><strong>{{ money(record.amount) }}</strong></template>
+          <template v-else-if="column.key === 'absences'">
+            <a-tooltip v-if="record.absences" :title="tr('Unjustified absences in the daily attendance (not deducted)', 'Faltas sin permiso en la Asistencia del día (no se descuentan)')">
+              <a-tag color="red">{{ record.absences }}</a-tag>
+            </a-tooltip>
+            <span v-else class="muted">0</span>
+          </template>
           <template v-else-if="column.key === 'state'">
             <a-tag v-if="record.existing" color="default">{{ $t('tx_Already_paid_1533c') }}{{ record.existing }})</a-tag>
             <a-tag v-else-if="record.amount <= 0" color="default">{{ $t('tx_Nothing_to_pay_329db') }}</a-tag>
@@ -168,9 +191,11 @@ import { useFormat } from '../../composables/useFormat';
 import http from '../../lib/http';
 import { sortByLabel } from '../../lib/filterOptions';
 import { useSystemContext } from '../../lib/systemContext';
+import { useTr } from '../../lib/useTr';
 
 const { t } = useI18n();
-const { money } = useFormat();
+const { money, date } = useFormat();
+const tr = useTr();
 const { isSystem } = useSystemContext();
 
 const crud = useCrudTable('payroll', { rowsKey: 'payrolls' });
@@ -182,7 +207,7 @@ const columns = computed(() => [
   { title: t('Employee'), dataIndex: 'employee_name', key: 'employee_name' },
   // superadmin/AdminSystem: every company (2026-10-21)
   ...(isSystem.value ? [{ title: t('Company'), key: 'company_name', dataIndex: 'company_name', exportValue: r => r.company_name || '' }] : []),
-  { title: tEs('tx_Week_d2ce0', 'Week'), key: 'period', exportValue: r => (r.period_start ? `${r.period_start} - ${r.period_end}` : '') },
+  { title: tr('Period', 'Periodo'), key: 'period', exportValue: r => (r.period_start ? `${r.period_start} - ${r.period_end}` : '') },
   { title: tEs('type', 'Type'), key: 'pay_type', exportValue: r => r.pay_type || 'manual' },
   { title: tEs('tx_Detail_a254c', 'Detail'), key: 'detail', exportValue: r => r.notes || '' },
   { title: t('Account'), dataIndex: 'account_name', key: 'account_name' },
@@ -217,19 +242,22 @@ const paymentMethodOptions = computed(() =>
 );
 
 // ---- Weekly payroll run ----
-const weekly = ref({ open: false, date: dayjs().subtract(7, 'day').format('YYYY-MM-DD'), rows: [], loading: false, saving: false, payment_method_id: undefined, account_id: undefined, period_start: '', period_end: '' });
+// period: '' = the company's (settings.payroll_period), answered by the first preview.
+const weekly = ref({ open: false, period: '', date: dayjs().subtract(7, 'day').format('YYYY-MM-DD'), rows: [], loading: false, saving: false, payment_method_id: undefined, account_id: undefined, period_start: '', period_end: '' });
 const weeklyNew = computed(() => weekly.value.rows.filter(r => !r.existing && r.amount > 0));
-const weeklyColumns = [
+const weeklyColumns = computed(() => [
   { title: t('Employee'), dataIndex: 'name', key: 'name' },
   { title: tEs('ModePaiement', 'Paid by'), key: 'pay_type' },
   { title: tEs('tx_How_13257', 'How'), key: 'basis' },
+  { title: tr('Absences', 'Faltas'), key: 'absences', align: 'center', width: 70 },
   { title: t('Amount'), key: 'amount', align: 'right' },
   { title: '', key: 'state' },
-];
+]);
 async function loadWeekly() {
   weekly.value.loading = true;
   try {
-    const data = await http.get('payroll_weekly/preview', { date: weekly.value.date });
+    const data = await http.get('payroll_weekly/preview', { date: weekly.value.date, period: weekly.value.period || undefined });
+    weekly.value.period = data.period || 'weekly';
     weekly.value.rows = data.rows || [];
     weekly.value.period_start = data.period_start;
     weekly.value.period_end = data.period_end;
@@ -249,9 +277,9 @@ async function createWeekly() {
   weekly.value.saving = true;
   try {
     const res = await http.post('payroll_weekly/create', {
-      date: weekly.value.date, payment_method_id: weekly.value.payment_method_id, account_id: weekly.value.account_id || null,
+      date: weekly.value.date, period: weekly.value.period, payment_method_id: weekly.value.payment_method_id, account_id: weekly.value.account_id || null,
     });
-    message.success(`${res.created} payroll(s) created: ${money(res.total)}.`);
+    message.success(tr(`${res.created} payroll(s) created: ${money(res.total)}.`, `${res.created} pago(s) creado(s): ${money(res.total)}.`));
     weekly.value.open = false;
     crud.fetchRows();
   } catch (e) {
