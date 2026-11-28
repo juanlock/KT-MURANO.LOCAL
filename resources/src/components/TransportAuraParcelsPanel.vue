@@ -118,7 +118,9 @@ const tiles = computed(() => {
 .ap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
 .ap-box { border: 1px solid rgba(128, 128, 128, 0.14); border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07); padding: 6px 8px; min-width: 0; max-height: calc(50vh - 110px); min-height: 170px; overflow: auto; }
 .ap-wide { grid-column: 1 / -1; max-height: calc(50vh - 150px); }
-.ap-h { font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+.ap-h { font-weight: 700; font-size: 25px; line-height: 1.2; margin-bottom: 6px; color: #12239e; }
+.ap-h .ap-mut { font-size: 12.5px; }
+.ap-h .anticon { font-size: 14px; vertical-align: middle; }
 .ap-i { opacity: 0.55; margin-left: 4px; cursor: help; }
 .ap-mut { opacity: 0.55; font-size: 11px; font-weight: 400; }
 .ap-ages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; }
