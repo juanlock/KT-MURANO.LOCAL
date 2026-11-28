@@ -679,6 +679,22 @@ function toOneDay() {
   load();
 }
 watch(dayOnly, on => { if (on) toOneDay(); });
+// Each board opens on a period that shows something (the user, 2026-11-27: Reclamos opened on "Hoy" and showed nothing).
+// Applied when the board is opened (and by Reset); a filter the user picks afterwards stays while on that board.
+const BOARD_DATE_DEFAULT = {
+  transport_claims: 'all',
+  transport_owner: 'month', transport_profit: 'month', transport_indicators: 'month', transport_risks: 'month',
+  transport_expenses: 'month', transport_production: 'month', transport_pointsales: 'month', transport_cashbook: 'month',
+  transport_customers: 'month', transport: 'month',
+};
+function applyBoardDefault(reload = true) {
+  const want = boardMode.value ? BOARD_DATE_DEFAULT[transportTab.value] : null;
+  if (!want || period.value === want) return false;
+  period.value = want;
+  if (reload) load();
+  return true;
+}
+watch(transportTab, () => { applyBoardDefault(); });
 
 const customStart = computed(() => auth.user?.start_page_mode === 'custom');
 // Admin-picked shortcut buttons, empty slots filled with the user's most used forms.
@@ -717,6 +733,7 @@ const warehouseId = ref(defaults.value.warehouse_id ?? '');
 /** Reset (2026-11-26): the user's defaults (★), else today and every location. */
 function resetFilters() {
   period.value = startPreset('today');
+  if (boardMode.value && BOARD_DATE_DEFAULT[transportTab.value]) period.value = BOARD_DATE_DEFAULT[transportTab.value];
   if (dayOnly.value && period.value !== 'today') { pickedDay.value = dayjs().format('YYYY-MM-DD'); period.value = 'today'; }
   warehouseId.value = defaults.value.warehouse_id ?? '';
   load();
@@ -1120,7 +1137,7 @@ async function load() {
 }
 
 // A one-day board opening first (Ventas) starts on one day.
-onMounted(() => { if (boardMode.value) loadSourceEnds(); if (dayOnly.value && period.value !== 'day' && period.value !== 'today') toOneDay(); else { toOneDay(); load(); } });
+onMounted(() => { if (boardMode.value) loadSourceEnds(); if (dayOnly.value && period.value !== 'day' && period.value !== 'today') toOneDay(); else { toOneDay(); applyBoardDefault(false); load(); } });
 </script>
 
 <style scoped>
