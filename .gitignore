@@ -13,6 +13,7 @@
 /.env.production-db
 /.env.production-ssh
 /.env.jelaf
+/.env.secondary-ssh
 /node_modules
 
 # bootstrap/cache: the folder itself is kept (Laravel needs it to exist) via
